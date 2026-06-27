@@ -805,6 +805,7 @@ function importarBackup(input){
     if(d.coletas!=null)lset('rpro_coletas',d.coletas);
     if(d.contratos!=null)lset('rpro_contratos',d.contratos);
     if(d.parceiros!=null)lset('rpro_parceiros',d.parceiros);
+    try{pushColetasEstruturado();}catch(e){}   // TASK-024: propaga coletas importadas para a coleção estruturada
     cfg=lCfg(); renderHist(); renderColetas(); renderContratos(); renderParceiros(); fecharCfg();
     toast('⬆️ Backup importado!');
   });
@@ -1990,7 +1991,54 @@ function transbordoResultHTML(r){
   return out;
 }
 function lColetas(){try{return JSON.parse(localStorage.getItem('rpro_coletas')||'[]');}catch(e){return [];}}
-function sColetas(a){try{lset('rpro_coletas',JSON.stringify(a));}catch(e){}}
+function sColetas(a){try{lset('rpro_coletas',JSON.stringify(a));}catch(e){} try{pushColetasEstruturado();}catch(e){}}
+
+// ── COLETAS ESTRUTURADAS NA NUVEM (TASK-024 — piloto) ──
+// A nuvem das COLETAS passa a usar 1 documento por coleta na coleção 'residuospro_coletas',
+// eliminando o teto de ~1 MB do antigo pacotão 'residuospro/rpro_coletas' (mantido INTACTO
+// como rollback). O localStorage 'rpro_coletas' continua como cache local. Migração idempotente.
+var COL_ESTRUT='residuospro_coletas';
+var _colUnsub=null,_colKnownIds={},_colMigrou=false,_colReady=false;
+function _colFs(){return (typeof firebase!=='undefined'&&firebase.firestore)?firebase.firestore():null;}
+function _colUser(){return (typeof firebase!=='undefined'&&firebase.auth&&firebase.auth().currentUser)?firebase.auth().currentUser:null;}
+function pushColetasEstruturado(){
+  var db=_colFs(),u=_colUser(); if(!db||!u||!_colReady) return;   // offline/deslogado: só cache local
+  var arr=lColetas(),now=Date.now(),by=u.email||'',presentes={},batch=db.batch(),ops=0;
+  arr.forEach(function(c){ if(c==null||c.id==null) return; var id=String(c.id); presentes[id]=true; batch.set(db.collection(COL_ESTRUT).doc(id),Object.assign({},c,{ts:now,by:by})); ops++; });
+  Object.keys(_colKnownIds).forEach(function(id){ if(!presentes[id]){ batch.delete(db.collection(COL_ESTRUT).doc(id)); ops++; } });
+  if(ops>0){ try{batch.commit().catch(function(){});}catch(e){} }
+}
+function _colAplicar(snap){
+  var arr=[],ids={};
+  snap.forEach(function(d){ var x=d.data()||{}; ids[d.id]=true; var c=Object.assign({},x); delete c.ts; delete c.by; arr.push(c); });
+  _colKnownIds=ids;
+  arr.sort(function(a,b){return (Number(a.id)||0)-(Number(b.id)||0);});
+  try{localStorage.setItem('rpro_coletas',JSON.stringify(arr));}catch(e){}   // grava só no cache (não dispara push)
+  try{if(typeof renderColetas==='function')renderColetas();}catch(e){}
+}
+function _colMigrar(){
+  var db=_colFs(),u=_colUser(); if(!db||!u) return Promise.resolve(false);
+  return db.collection('residuospro').doc('rpro_coletas').get().then(function(doc){
+    var blob=[]; try{blob=JSON.parse((doc.exists&&doc.data().value)||'[]');}catch(e){blob=[];}
+    if(!blob.length) return false;
+    var batch=db.batch(),now=Date.now(),by=u.email||'';
+    blob.forEach(function(c){ if(c&&c.id!=null) batch.set(db.collection(COL_ESTRUT).doc(String(c.id)),Object.assign({},c,{ts:now,by:by})); });
+    return batch.commit().then(function(){return true;});   // idempotente: set por id não duplica
+  }).catch(function(){return false;});
+}
+function iniciarColetasEstruturadas(){
+  var db=_colFs(),u=_colUser(); if(!db||!u) return;
+  pararColetasEstruturadas();
+  _colUnsub=db.collection(COL_ESTRUT).onSnapshot(function(snap){
+    if(snap.empty&&!_colMigrou){                     // coleção vazia → migra do pacotão antigo (uma vez)
+      _colMigrou=true;
+      _colMigrar().then(function(seeded){ _colReady=true; if(!seeded)_colAplicar(snap); });
+      return;
+    }
+    _colMigrou=true; _colReady=true; _colAplicar(snap);
+  },function(){});
+}
+function pararColetasEstruturadas(){ if(_colUnsub){try{_colUnsub();}catch(e){} _colUnsub=null;} _colReady=false; _colMigrou=false; _colKnownIds={}; }
 function brData(d){if(!d)return '';var p=(''+d).split('-');return p.length===3?p[2]+'/'+p[1]+'/'+p[0]:d;}
 function hdrData(ds){var dt=new Date(ds+'T00:00:00');return DIAS_SEM[dt.getDay()]+', '+brData(ds);}
 function diasDesde(d){if(!d)return 0;return Math.floor((Date.now()-new Date(d+'T00:00:00').getTime())/86400000);}
@@ -2109,10 +2157,14 @@ if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch
 if(window.CloudSync){
   CloudSync.initSync({
     collection:'residuospro',
-    syncKeys:['rpro_cfg','rpro_hist','rpro_coletas','rpro_contratos','rpro_parceiros'],
+    syncKeys:['rpro_cfg','rpro_hist','rpro_contratos','rpro_parceiros'],
     onRemote:function(k){ if(k==='rpro_cfg')cfg=lCfg(); renderHist(); renderColetas(); renderContratos(); renderParceiros(); },
     onLogout:function(){ try{fecharCfg();}catch(e){} }
   });
+}
+// TASK-024: sincronização estruturada das coletas (coleção própria, fora do blob)
+if(typeof firebase!=='undefined'&&firebase.auth){
+  firebase.auth().onAuthStateChanged(function(user){ if(user)iniciarColetasEstruturadas(); else pararColetasEstruturadas(); });
 }
 try{checkBackupLembrete();}catch(e){}
 </script>
