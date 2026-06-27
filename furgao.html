@@ -133,7 +133,7 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
     <div class="hdr-mark">F</div>
     <div><div class="hdr-title">FurgãoPRO</div><div class="hdr-sub">Cerrado Ambiental</div></div>
   </div>
-  <div style="display:flex;gap:8px"><button class="hdr-btn" onclick="window.location.href='index.html'" title="ResíduosPRO" style="font-size:14px">♻️</button><button class="hdr-btn" onclick="openModal('cfg-modal')">⚙️</button></div>
+  <div style="display:flex;gap:8px"><button class="hdr-btn" onclick="window.location.href='index.html'" title="CerradoPRO" style="font-size:14px">♻️</button><button class="hdr-btn" onclick="openModal('cfg-modal')">⚙️</button></div>
 </div>
 <div class="content">
 
@@ -310,6 +310,7 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
       <div style="height:8px"></div>
       <button class="btn btn-outline" onclick="closeModal('cfg-modal')">Fechar</button>
       <div class="card-lbl" style="margin:14px 0 10px">Backup</div>
+      <div class="field"><label class="flabel">Lembrete de backup (dias) <span id="cfg-backup-status" style="color:var(--text3,#9ab);font-weight:400"></span></label><input class="inp inp-mono" id="cfg-backup-dias" type="number" step="1" value="7"></div>
       <button class="btn btn-success" onclick="exportarBackup()">⬇️ Exportar backup (.json)</button>
       <div style="height:8px"></div>
       <button class="btn btn-outline" onclick="document.getElementById('import-file').click()">⬆️ Importar backup</button>
@@ -348,7 +349,9 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
 <script src="cloud-sync.js"></script>
 
 <script>
-var DEF_CFG={consumo:10,diesel:7.20,parcela:4202.39,kmMes:10392,ipva:4570,seguro:7265,licen:308,motorista:5000,oleoCusto:1000,oleoKm:10000,pneuCusto:3000,pneuKm:50000,manutCusto:3000,manutKm:50000,imposto:15.45,margem:30};
+var DEF_CFG={consumo:10,diesel:7.20,parcela:4202.39,kmMes:10392,ipva:4570,seguro:7265,licen:308,motorista:5000,oleoCusto:1000,oleoKm:10000,pneuCusto:3000,pneuKm:50000,manutCusto:3000,manutKm:50000,imposto:15.45,margem:30,backupDias:7};
+// Custo cheio de referência do furgão (R$/km) — mesmo valor usado no orçamento do ResíduosPRO (DEF.transp.forn.FURGAO).
+var REF_CUSTO_CHEIO_KM=6.46;
 
 var DEF_CLIENTES=[
   {id:1,nome:'Terral',local:'Cidade de Goiás',uf:'GO',km:70,fatEsperado:5800},
@@ -403,12 +406,27 @@ function pct(n){if(n===null||n===undefined||isNaN(n))return '—';return (n*100)
 function toast(msg,d){var t=g('toast');t.textContent=msg;t.classList.add('show');setTimeout(function(){t.classList.remove('show');},d||2400);}
 function fmtData(s){if(!s)return '';var p=s.split('-');return p[2]+'/'+p[1]+'/'+p[0];}
 
-function lCfg(){try{var s=localStorage.getItem('fp2_cfg');return s?JSON.parse(s):JSON.parse(JSON.stringify(DEF_CFG));}catch(e){return JSON.parse(JSON.stringify(DEF_CFG));}}
-function sCfg(c){localStorage.setItem('fp2_cfg',JSON.stringify(c));}
+function deepMerge(base,over){
+  if(base===null||typeof base!=='object'||Array.isArray(base)) return (over!==undefined?(over&&typeof over==='object'?JSON.parse(JSON.stringify(over)):over):JSON.parse(JSON.stringify(base)));
+  var out={};
+  Object.keys(base).forEach(function(k){out[k]=(base[k]&&typeof base[k]==='object')?JSON.parse(JSON.stringify(base[k])):base[k];});
+  if(over&&typeof over==='object'&&!Array.isArray(over)){
+    Object.keys(over).forEach(function(k){
+      var bv=base[k],ov=over[k];
+      if(bv&&ov&&typeof bv==='object'&&typeof ov==='object'&&!Array.isArray(bv)&&!Array.isArray(ov)){out[k]=deepMerge(bv,ov);}
+      else{out[k]=(ov&&typeof ov==='object')?JSON.parse(JSON.stringify(ov)):ov;}
+    });
+  }
+  return out;
+}
+function lCfg(){try{var s=localStorage.getItem('fp2_cfg');var saved=s?JSON.parse(s):null;return saved?deepMerge(DEF_CFG,saved):JSON.parse(JSON.stringify(DEF_CFG));}catch(e){return JSON.parse(JSON.stringify(DEF_CFG));}}
+// Gravação de chaves sincronizáveis: explícita via CloudSync.save (TASK-010); fallback local se CloudSync não carregar.
+function lset(k,v){ if(window.CloudSync&&CloudSync.save) return CloudSync.save(k,v); localStorage.setItem(k,v); }
+function sCfg(c){lset('fp2_cfg',JSON.stringify(c));}
 function lClientes(){try{var s=localStorage.getItem('fp2_clientes');return s?JSON.parse(s):JSON.parse(JSON.stringify(DEF_CLIENTES));}catch(e){return JSON.parse(JSON.stringify(DEF_CLIENTES));}}
-function sClientes(){localStorage.setItem('fp2_clientes',JSON.stringify(clientes));}
+function sClientes(){lset('fp2_clientes',JSON.stringify(clientes));}
 function lViagens(){try{var s=localStorage.getItem('fp2_viagens');return s?JSON.parse(s):JSON.parse(JSON.stringify(DEF_VIAGENS));}catch(e){return JSON.parse(JSON.stringify(DEF_VIAGENS));}}
-function sViagens(){localStorage.setItem('fp2_viagens',JSON.stringify(viagens));}
+function sViagens(){lset('fp2_viagens',JSON.stringify(viagens));}
 
 // ── CUSTO POR KM ─────────────────────────────────────────
 function calcMeses(){
@@ -419,6 +437,8 @@ function calcMeses(){
   var m=(hoje.getFullYear()-minData.getFullYear())*12+(hoje.getMonth()-minData.getMonth())+1;
   return Math.max(1,m);
 }
+// Divisão segura: evita divisão por zero / NaN / Infinity
+function _sdiv(a,b,fb){b=Number(b);if(!b||!isFinite(b))return (fb===undefined?0:fb);var r=Number(a)/b;return isFinite(r)?r:(fb===undefined?0:fb);}
 
 // Custo OPERACIONAL por km (apenas desembolso direto das viagens)
 function calcCustoOperacional(){
@@ -427,10 +447,11 @@ function calcCustoOperacional(){
   var totKm=comCusto.reduce(function(s,v){return s+v.km;},0);
   var totCusto=comCusto.reduce(function(s,v){return s+v.custo;},0);
   return {
-    custoKm: totCusto/totKm,
+    custoKm: _sdiv(totCusto,totKm,0),
     totalKm: totKm,
     totalCusto: totCusto,
     nViagens: comCusto.length,
+    confiavel: (comCusto.length>=3 && totKm>=100),
     itens: [
       {label:'Combustível estimado', val: cfg.diesel/cfg.consumo},
       {label:'Óleo + pneus + manutenção', val: (cfg.oleoCusto/cfg.oleoKm)+(cfg.pneuCusto/cfg.pneuKm)+(cfg.manutCusto/cfg.manutKm)},
@@ -440,10 +461,10 @@ function calcCustoOperacional(){
 
 // Custo TOTAL por km (operacional + rateio dos fixos sobre o faturamento)
 function calcCustoTotal(){
-  var varKm = (cfg.diesel/cfg.consumo) +
-              (cfg.oleoCusto/cfg.oleoKm) +
-              (cfg.pneuCusto/cfg.pneuKm) +
-              (cfg.manutCusto/cfg.manutKm);
+  var varKm = _sdiv(cfg.diesel,cfg.consumo,0) +
+              _sdiv(cfg.oleoCusto,cfg.oleoKm,0) +
+              _sdiv(cfg.pneuCusto,cfg.pneuKm,0) +
+              _sdiv(cfg.manutCusto,cfg.manutKm,0);
 
   var fixoMensal = cfg.parcela + cfg.motorista + (cfg.ipva/12) + (cfg.seguro/12) + (cfg.licen/12);
 
@@ -460,14 +481,15 @@ function calcCustoTotal(){
     fixoKm  = receitaKm * pctFixo;
     metodo  = meses+' meses · '+fmt(Math.round(kmMedio))+' km/mês · '+brl(fatMedio)+'/mês';
   } else {
-    var kmFb = cfg.kmMes||1;
-    pctFixo  = fixoMensal/(kmFb*5);
-    fixoKm   = fixoMensal/kmFb;
+    var kmFb = (cfg.kmMes&&cfg.kmMes>0)?cfg.kmMes:(DEF_CFG.kmMes||2018);
+    pctFixo  = _sdiv(fixoMensal,(kmFb*5),0);
+    fixoKm   = _sdiv(fixoMensal,kmFb,0);
     metodo   = 'estimado (sem histórico suficiente)';
   }
 
   var total = fixoKm + varKm;
-  var preco = total / (1 - (cfg.margem/100) - (cfg.imposto/100));
+  var _den = 1 - (cfg.margem/100) - (cfg.imposto/100);
+  var preco = _den>0 ? total/_den : total;
 
 
   return {
@@ -518,14 +540,15 @@ function renderDash(){
     kpi('Faturamento total', brl(totFat), 'todas as viagens', '') +
     kpi('KM total', fmt(totKm)+' km', 'rodados', '') +
     kpi('Margem geral', pct(margem), '', mc) +
-    kpi('Custo oper./km', op ? 'R$ '+op.custoKm.toFixed(2).replace('.',',') : 'Sem dados', 'desembolso direto', '');
+    kpi('Custo oper./km', op ? 'R$ '+op.custoKm.toFixed(2).replace('.',',') : 'Sem dados', op?(op.confiavel?'desembolso direto':'amostra pequena'):'desembolso direto', '') +
+    kpi('Custo cheio/km (ref.)', 'R$ '+REF_CUSTO_CHEIO_KM.toFixed(2).replace('.',','), 'referência do orçamento', '');
 
   // ── CARD CUSTO DETALHADO ───────────────────────────────
   var opBox = '';
   if(op){
     opBox = '<div style="background:rgba(26,122,64,0.06);border:1px solid rgba(26,122,64,0.2);border-radius:10px;padding:12px;margin-bottom:10px">'+
-      '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--success);margin-bottom:8px">'+
-        '✓ Custo operacional real — baseado em '+op.nViagens+' viagens'+
+      '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:'+(op.confiavel?'var(--success)':'var(--accent)')+';margin-bottom:8px">'+
+        (op.confiavel?('✓ Custo operacional real — baseado em '+op.nViagens+' viagens'):('⚠️ Amostra pequena ('+op.nViagens+' viagem(ns)) — use como referência'))+
       '</div>'+
       '<div style="display:flex;justify-content:space-between;align-items:center">'+
         '<span style="font-size:13px;color:var(--text2)">Combustível + óleo + manutenção (informado)</span>'+
@@ -581,6 +604,9 @@ function renderDash(){
       '<span class="ct-val big">R$ '+tot.fixoKm.toFixed(2).replace('.',',')+'</span></div>'+
     '<div class="ctrow"><span class="ct-label" style="font-weight:700;color:var(--text)">Custo TOTAL/km</span>'+
       '<span class="ct-val big" style="font-size:17px">R$ '+tot.total.toFixed(2).replace('.',',')+'</span></div>'+
+    '<div class="ctrow"><span class="ct-label" style="color:var(--text2)">Custo cheio de referência/km <span style="font-size:10px;color:var(--text4)">(orçamento)</span></span>'+
+      '<span class="ct-val" style="font-family:monospace">R$ '+REF_CUSTO_CHEIO_KM.toFixed(2).replace('.',',')+'</span></div>'+
+    '<div style="font-size:10px;color:var(--text4);text-align:right;margin:-2px 0 6px">real '+(tot.total>=REF_CUSTO_CHEIO_KM?'acima':'abaixo')+' da referência em R$ '+Math.abs(tot.total-REF_CUSTO_CHEIO_KM).toFixed(2).replace('.',',')+'/km</div>'+
     '<div class="ctrow" style="padding:10px 0"><span class="ct-label" style="font-weight:700;color:var(--accent)">Preço sugerido/km</span>'+
       '<span class="ct-val big" style="color:var(--accent);font-size:20px">R$ '+tot.preco.toFixed(2).replace('.',',')+'</span></div>';
 
@@ -942,6 +968,8 @@ function openCfg(){
   g('cfg-pneu-c').value=cfg.pneuCusto;g('cfg-pneu-k').value=cfg.pneuKm;
   g('cfg-manut-c').value=cfg.manutCusto;g('cfg-manut-k').value=cfg.manutKm;
   g('cfg-imposto').value=cfg.imposto;g('cfg-margem').value=cfg.margem;
+  g('cfg-backup-dias').value=cfg.backupDias||7;
+  var _db=_diasDesdeBackup();g('cfg-backup-status').textContent=_db===null?'(último: nunca)':'(último: há '+_db+' dia(s))';
 }
 
 function salvarCfg(){
@@ -953,9 +981,10 @@ function salvarCfg(){
   cfg.pneuCusto=+g('cfg-pneu-c').value||3000;cfg.pneuKm=+g('cfg-pneu-k').value||50000;
   cfg.manutCusto=+g('cfg-manut-c').value||3000;cfg.manutKm=+g('cfg-manut-k').value||50000;
   cfg.imposto=+g('cfg-imposto').value||15.45;cfg.margem=+g('cfg-margem').value||30;
+  cfg.backupDias=Math.max(1,parseInt(g('cfg-backup-dias').value)||7);
   sCfg(cfg);closeModal('cfg-modal');
   renderDash();renderRegistros();renderClientes();
-  toast('✅ Configurações salvas!');
+  toast('✅ Configurações salvas!');try{checkBackupLembrete();}catch(e){}
 }
 
 // ── NAV / MODAL ───────────────────────────────────────────
@@ -1077,6 +1106,25 @@ function salvarRotaCompartilhada(){
 function exportarBackup(){
   var dados={app:'FurgaoPRO',versao:1,exportadoEm:new Date().toISOString(),cfg:cfg,clientes:clientes,viagens:viagens};
   CloudSync.exportBackup('furgaopro-backup', dados, '⬇️ Backup exportado ('+viagens.length+' viagens)');
+  try{localStorage.setItem('fp2_lastbackup',new Date().toISOString());_backupSnooze=false;checkBackupLembrete();}catch(e){}
+}
+
+// Lembrete de backup local (TASK-021): a nuvem já guarda; o arquivo é cópia extra.
+function _diasDesdeBackup(){var t=localStorage.getItem('fp2_lastbackup');if(!t)return null;var d=(Date.now()-new Date(t).getTime())/86400000;return d<0?0:Math.floor(d);}
+var _backupSnooze=false;
+function adiarBackup(){_backupSnooze=true;var el=g('backup-lembrete');if(el&&el.parentNode)el.parentNode.removeChild(el);}
+function checkBackupLembrete(){
+  var lim=(cfg&&cfg.backupDias)||7,dias=_diasDesdeBackup(),vencido=(dias===null)||(dias>=lim),el=g('backup-lembrete');
+  if(_backupSnooze||!vencido){if(el&&el.parentNode)el.parentNode.removeChild(el);return;}
+  if(!el){el=document.createElement('div');el.id='backup-lembrete';var c=document.querySelector('.content');if(!c)return;c.insertBefore(el,c.firstChild);}
+  el.style.cssText='background:var(--accent-dim);border:1px solid var(--accent);border-radius:12px;padding:12px 14px;margin-bottom:12px';
+  var msg=(dias===null)?'Você ainda não exportou um backup local.':('Seu último backup local foi há '+dias+' dia(s).');
+  el.innerHTML='<div style="font-size:13px;color:var(--text);font-weight:700;margin-bottom:4px">💾 Backup recomendado</div>'+
+    '<div style="font-size:12px;color:var(--text2);line-height:1.4;margin-bottom:10px">'+msg+' Exporte uma cópia local de segurança (a nuvem já guarda, mas é bom ter o arquivo).</div>'+
+    '<div style="display:flex;gap:8px">'+
+      '<button onclick="exportarBackup()" style="flex:1;background:var(--accent);color:#fff;border:none;border-radius:9px;padding:9px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">⬇️ Exportar agora</button>'+
+      '<button onclick="adiarBackup()" style="flex:1;background:transparent;color:var(--text2);border:1px solid var(--border2);border-radius:9px;padding:9px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer">Adiar</button>'+
+    '</div>';
 }
 function importarBackup(input){
   CloudSync.importBackup(input, function(d){
@@ -1112,6 +1160,7 @@ if(window.CloudSync){
     onLogout:function(){ try{closeModal('cfg-modal');}catch(e){} }
   });
 }
+try{checkBackupLembrete();}catch(e){}
 </script>
 </body>
 </html>

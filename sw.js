@@ -1,4 +1,4 @@
-const CACHE_NAME = 'rpro-v23';
+const CACHE_NAME = 'rpro-v25';
 const ASSETS = [
   './index.html',
   './manifest.json',
@@ -7,13 +7,16 @@ const ASSETS = [
   './icon-512.png',
   './apple-touch-icon.png',
   './furgao.html',
-  './cloud-sync.js'
+  './cloud-sync.js',
+  './decision-engine.js'
 ];
 
 self.addEventListener('install', e => {
   e.waitUntil(
     caches.open(CACHE_NAME)
-      .then(c => c.addAll(ASSETS))
+      .then(c => Promise.all(
+        ASSETS.map(a => c.add(a).catch(err => console.warn('SW: asset ignorado no cache:', a, err)))
+      ))
       .then(() => self.skipWaiting())
   );
 });

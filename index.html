@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="ResíduosPRO">
-<title>ResíduosPRO</title>
+<title>CerradoPRO</title>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
@@ -261,6 +261,26 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
 .pac-item { padding: 8px 12px; font-size: 13px; cursor: pointer; color: var(--text); }
 .pac-item:hover { background: var(--bg2); }
 .pac-target-input { background-repeat: no-repeat !important; background-position: right 14px center !important; padding-right:38px; }
+
+/* ── Navegação como coluna lateral em telas largas (TASK-023). Mobile fica inalterado. ── */
+@media (min-width:768px){
+  body{ padding-left:212px; }
+  .nav{
+    top:0; bottom:0; left:0; right:auto; width:212px; height:100vh;
+    flex-direction:column; align-items:stretch; justify-content:flex-start;
+    padding:16px 10px; gap:4px; overflow-y:auto;
+    border-top:none; border-right:1px solid rgba(247,153,89,0.15);
+  }
+  .nav-item{
+    flex:0 0 auto; flex-direction:row; justify-content:flex-start; align-items:center;
+    gap:12px; padding:11px 14px; border-radius:12px; min-height:48px;
+  }
+  .nav-item.active{ background:rgba(248,240,221,0.08); }
+  .nav-item.active .nav-icon{ transform:none; }
+  .nav-icon{ font-size:20px; }
+  .nav-label{ font-size:13px; letter-spacing:0.2px; text-transform:none; }
+  .screen{ padding-bottom:16px; }
+}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
@@ -269,9 +289,9 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
 <div class="hdr">
   <div class="hdr-left">
     <div class="hdr-mark">C</div>
-    <div><div class="hdr-title">ResíduosPRO</div><div class="hdr-sub">Cerrado Ambiental</div></div>
+    <div><div class="hdr-title">CerradoPRO</div><div class="hdr-sub">Cerrado Ambiental</div></div>
   </div>
-  <div style="display:flex;gap:8px"><button class="hdr-btn" onclick="window.location.href='furgao.html'" title="FurgãoPRO" style="font-size:14px">🚛</button><button class="hdr-btn" onclick="abrirCfg()">⚙️</button></div>
+  <div style="display:flex;gap:8px"><button class="hdr-btn" onclick="abrirTransbordo()" title="Capacidade/Transbordo">🧮</button><button class="hdr-btn" onclick="window.location.href='furgao.html'" title="FurgãoPRO" style="font-size:14px">🚛</button><button class="hdr-btn" onclick="abrirCfg()">⚙️</button></div>
 </div>
 
 <div class="content">
@@ -279,7 +299,7 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
     <div class="shdr"><div class="shdr-icon">📋</div><div><div class="shdr-title">Novo Orçamento</div><div class="shdr-sub">Preencha os dados do cliente e serviço</div></div></div>
     <div class="card">
       <div class="card-head"><div class="card-icon">👤</div><div class="card-lbl">Cliente</div></div>
-      <div class="field"><label class="flabel">Nome / Razão Social</label><input class="inp" type="text" id="cli-nome" placeholder="Empresa ABC Ltda" autocomplete="off"></div>
+      <div class="field"><label class="flabel">Nome / Razão Social</label><input class="inp" type="text" id="cli-nome" placeholder="Empresa ABC Ltda" autocomplete="off" list="cli-sugestoes" onchange="selecionarCliente(this.value)"><datalist id="cli-sugestoes"></datalist></div>
       <div class="g2">
         <div class="field"><label class="flabel">CNPJ</label><input class="inp inp-mono" type="text" id="cli-cnpj" placeholder="00.000.000/0000-00" maxlength="18" inputmode="numeric" oninput="maskCNPJ(this);buscaCNPJ(this.value)"><div id="cnpj-status" style="font-size:11px;margin-top:4px;min-height:16px"></div></div>
         <div class="field"><label class="flabel">Contato</label><input class="inp" type="text" id="cli-contato" placeholder="Nome"></div>
@@ -301,6 +321,7 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
         </div>
       </div>
       <div class="field"><label class="flabel">Acréscimos de Cabeça (R$)</label><input class="inp inp-mono" type="number" id="acresc" placeholder="0,00" inputmode="numeric" oninput="calcular()"></div>
+      <div class="field"><label class="flabel">Pedágio total (R$)</label><input class="inp inp-mono" type="number" id="pedagio" placeholder="0,00" inputmode="numeric" oninput="calcular()"></div>
       <button class="btn btn-ghost btn-sm" onclick="abrirRota()" style="margin-top:4px">🔗 Rota compartilhada (rateio por km)</button>
     </div>
     <div class="card">
@@ -345,6 +366,7 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
       <button class="btn btn-outline btn-sm" onclick="limparHist()">Limpar</button>
     </div>
     <div class="field" style="margin-bottom:12px"><input class="inp" type="text" id="hist-busca" placeholder="🔎 Buscar por cliente, contato, local..." oninput="renderHist()"></div>
+    <div id="hist-funil" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px"></div>
     <div id="hist-list"></div>
   </div>
 
@@ -389,6 +411,40 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
       <button class="btn btn-primary" onclick="abrirColeta()" style="width:auto;border-radius:24px;box-shadow:0 4px 16px rgba(219,106,29,.4)">+ Nova coleta</button>
     </div>
   </div>
+
+  <div id="screen-contratos" class="screen">
+    <div class="shdr" style="margin-bottom:14px">
+      <div class="shdr-icon">🔁</div>
+      <div style="flex:1"><div class="shdr-title">Contratos</div><div class="shdr-sub">Recorrentes + reajuste · receita garantida</div></div>
+    </div>
+    <div class="col-sum">
+      <div class="col-sum-i"><div class="col-sum-n" id="ct-n-ativos">0</div><div class="col-sum-l">Ativos</div></div>
+      <div class="col-sum-i"><div class="col-sum-n" id="ct-receita" style="font-size:15px">R$ 0</div><div class="col-sum-l">Receita/mês</div></div>
+      <div class="col-sum-i col-sum-venc"><div class="col-sum-n" id="ct-n-reaj">0</div><div class="col-sum-l">Reajuste ≤60d</div></div>
+    </div>
+    <div id="ct-cobertura" style="font-size:12px;color:var(--text2);margin-bottom:12px;text-align:center"></div>
+    <div id="ct-list"></div>
+    <div style="position:fixed;right:16px;bottom:calc(var(--nav-h) + var(--sb) + 16px);z-index:60">
+      <button class="btn btn-primary" onclick="abrirContrato()" style="width:auto;border-radius:24px;box-shadow:0 4px 16px rgba(219,106,29,.4)">+ Novo contrato</button>
+    </div>
+  </div>
+  <div id="screen-parceiros" class="screen">
+    <div class="shdr" style="margin-bottom:14px">
+      <div class="shdr-icon">🚚</div>
+      <div style="flex:1"><div class="shdr-title">Parceiros</div><div class="shdr-sub">Transportadores terceiros · tarifa R$/km</div></div>
+    </div>
+    <div id="pa-list"></div>
+    <div style="position:fixed;right:16px;bottom:calc(var(--nav-h) + var(--sb) + 16px);z-index:60">
+      <button class="btn btn-primary" onclick="abrirParceiro()" style="width:auto;border-radius:24px;box-shadow:0 4px 16px rgba(219,106,29,.4)">+ Novo parceiro</button>
+    </div>
+  </div>
+  <div id="screen-relatorios" class="screen">
+    <div class="shdr" style="margin-bottom:14px">
+      <div class="shdr-icon">📊</div>
+      <div style="flex:1"><div class="shdr-title">Relatórios</div><div class="shdr-sub">Gerencial · a partir do histórico de orçamentos</div></div>
+    </div>
+    <div id="rel-content"></div>
+  </div>
 </div>
 
 <nav class="nav">
@@ -397,6 +453,9 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
   <div class="nav-item" id="nav-proposta" onclick="navTo('proposta',this)"><div class="nav-icon">📄</div><div class="nav-label">Proposta</div></div>
   <div class="nav-item" id="nav-historico" onclick="navTo('historico',this)"><div class="nav-icon">🗂️</div><div class="nav-label">Histórico</div></div>
   <div class="nav-item" id="nav-coletas" onclick="navTo('coletas',this)"><div class="nav-icon">📅</div><div class="nav-label">Coletas</div></div>
+  <div class="nav-item" id="nav-contratos" onclick="navTo('contratos',this)"><div class="nav-icon">🔁</div><div class="nav-label">Contratos</div></div>
+  <div class="nav-item" id="nav-parceiros" onclick="navTo('parceiros',this)"><div class="nav-icon">🚚</div><div class="nav-label">Parceiros</div></div>
+  <div class="nav-item" id="nav-relatorios" onclick="navTo('relatorios',this)"><div class="nav-icon">📊</div><div class="nav-label">Relatórios</div></div>
 </nav>
 
 <!-- MODAL IBAMA -->
@@ -434,14 +493,12 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
         <div class="cfg-r"><div class="cfg-l">Furgão</div><input class="cfg-i" id="cfg-tfu" type="number" step="0.01" value="6.46"></div>
         <div class="cfg-r"><div class="cfg-l">Baú</div><input class="cfg-i" id="cfg-tb" type="number" step="0.01" value="7.00"></div>
         <div class="cfg-r"><div class="cfg-l">Maior</div><input class="cfg-i" id="cfg-tm" type="number" step="0.01" value="10.00"></div>
-        <div class="cfg-r"><div class="cfg-l">Diária</div><input class="cfg-i" id="cfg-td" type="number" step="0.01" value="0.00"></div>
       </div>
       <span class="slabel">Preço ao Cliente — Transporte (R$/km)</span>
       <div class="card" style="margin-bottom:16px">
         <div class="cfg-r"><div class="cfg-l">Furgão</div><input class="cfg-i" id="cfg-cfu" type="number" step="0.01" value="5.00"></div>
         <div class="cfg-r"><div class="cfg-l">Baú</div><input class="cfg-i" id="cfg-cb" type="number" step="0.01" value="8.50"></div>
         <div class="cfg-r"><div class="cfg-l">Maior</div><input class="cfg-i" id="cfg-cm" type="number" step="0.01" value="14.00"></div>
-        <div class="cfg-r"><div class="cfg-l">Diária</div><input class="cfg-i" id="cfg-cd" type="number" step="0.01" value="0.00"></div>
       </div>
       <span class="slabel">Custo Fornecedor — Destinação (R$/kg)</span>
       <div class="card" style="margin-bottom:16px" id="cfg-dest-forn"></div>
@@ -452,11 +509,22 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
         <div class="cfg-r"><div><div class="cfg-l">Imposto (%)</div><div class="cfg-s">sobre total da nota</div></div><input class="cfg-i" id="cfg-imposto" type="number" step="0.01" value="15.45"></div>
         <div class="cfg-r"><div><div class="cfg-l">Margem mínima (%)</div></div><input class="cfg-i" id="cfg-margem-min" type="number" step="1" value="30"></div>
       </div>
+      <span class="slabel">Custos de motorista — viagem (Furgão)</span>
+      <div class="card" style="margin-bottom:16px">
+        <div class="cfg-r"><div><div class="cfg-l">Ajuda — limiar (km)</div><div class="cfg-s">ida+volta acima disto paga ajuda</div></div><input class="cfg-i" id="cfg-mot-limiar" type="number" step="1" value="100"></div>
+        <div class="cfg-r"><div><div class="cfg-l">Ajuda (R$)</div><div class="cfg-s">paga na folha</div></div><input class="cfg-i" id="cfg-mot-ajuda" type="number" step="0.01" value="100"></div>
+        <div class="cfg-r"><div><div class="cfg-l">Bloco da diária (km)</div><div class="cfg-s">a cada bloco = 1 diária</div></div><input class="cfg-i" id="cfg-mot-bloco" type="number" step="1" value="800"></div>
+        <div class="cfg-r"><div class="cfg-l">Café da manhã (R$)</div><input class="cfg-i" id="cfg-mot-cafe" type="number" step="0.01" value="40"></div>
+        <div class="cfg-r"><div class="cfg-l">Almoço (R$)</div><input class="cfg-i" id="cfg-mot-almoco" type="number" step="0.01" value="40"></div>
+        <div class="cfg-r"><div class="cfg-l">Jantar (R$)</div><input class="cfg-i" id="cfg-mot-jantar" type="number" step="0.01" value="40"></div>
+        <div class="cfg-r"><div class="cfg-l">Hospedagem (R$)</div><input class="cfg-i" id="cfg-mot-hosp" type="number" step="0.01" value="200"></div>
+      </div>
       <button class="btn btn-primary" onclick="salvarCfg()">✓ Salvar</button>
       <div style="height:10px"></div>
       <button class="btn btn-outline" onclick="fecharCfg()">Fechar</button>
       <div class="slabel" style="margin:18px 0 10px">Backup dos dados</div>
       <div style="font-size:12px;color:var(--text3);margin-bottom:10px;line-height:1.45">Salva clientes, coletas, histórico e configurações num arquivo. Guarde-o de tempos em tempos — é sua cópia de segurança.</div>
+      <div class="cfg-r" style="margin-bottom:10px"><div><div class="cfg-l">Lembrete de backup (dias)</div><div class="cfg-s" id="cfg-backup-status">—</div></div><input class="cfg-i" id="cfg-backup-dias" type="number" step="1" value="7"></div>
       <button class="btn btn-ghost" onclick="exportarBackup()">⬇️ Exportar backup (.json)</button>
       <div style="height:8px"></div>
       <button class="btn btn-outline" onclick="document.getElementById('rpro-import-file').click()">⬆️ Importar backup</button>
@@ -471,6 +539,82 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
 <div class="toast" id="toast"></div>
 
 <!-- MODAL ROTA COMPARTILHADA (rateio por km) -->
+<div class="overlay" id="contrato-modal" onclick="if(event.target===this)fecharContrato()">
+  <div class="modal">
+    <div class="modal-head"><div class="modal-title" id="contrato-titulo">Novo contrato</div><button class="modal-close-btn" onclick="fecharContrato()">×</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="ct-id">
+      <div class="field"><label class="flabel">Cliente</label><input class="inp" type="text" id="ct-cliente" placeholder="Nome do cliente"></div>
+      <div class="g2">
+        <div class="field"><label class="flabel">Valor (R$)</label><input class="inp inp-mono" type="number" id="ct-valor" placeholder="0,00" inputmode="decimal"></div>
+        <div class="field"><label class="flabel">Periodicidade</label><select class="inp sel" id="ct-period"><option value="mensal">Mensal</option><option value="trimestral">Trimestral</option><option value="semestral">Semestral</option><option value="anual">Anual</option></select></div>
+      </div>
+      <div class="g2">
+        <div class="field"><label class="flabel">Início</label><input class="inp inp-mono" type="date" id="ct-inicio"></div>
+        <div class="field"><label class="flabel">Duração (meses)</label><input class="inp inp-mono" type="number" id="ct-duracao" placeholder="36" inputmode="numeric"></div>
+      </div>
+      <div class="g2">
+        <div class="field"><label class="flabel">Índice de reajuste</label><select class="inp sel" id="ct-indice"><option value="sem">Sem reajuste</option><option value="IPCA">IPCA</option><option value="IGPM">IGP-M</option><option value="OUTRO">Outro</option></select></div>
+        <div class="field"><label class="flabel">Reajuste anual (%)</label><input class="inp inp-mono" type="number" id="ct-reajuste" placeholder="0" inputmode="decimal"></div>
+      </div>
+      <div class="field"><label class="flabel">KM/mês (opcional, ida+volta)</label><input class="inp inp-mono" type="number" id="ct-kmmes" placeholder="0" inputmode="decimal"></div>
+      <div class="field"><label class="flabel">Observações</label><input class="inp" type="text" id="ct-obs" placeholder="Opcional"></div>
+      <div style="height:8px"></div>
+      <button class="btn btn-primary" onclick="salvarContrato()">✓ Salvar contrato</button>
+      <div style="height:8px"></div>
+      <button class="btn btn-outline" id="ct-excluir-btn" onclick="excluirContrato()" style="display:none;color:var(--danger);border-color:var(--danger)">🗑 Excluir</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="parceiro-modal" onclick="if(event.target===this)fecharParceiro()">
+  <div class="modal">
+    <div class="modal-head"><div class="modal-title" id="parceiro-titulo">Novo parceiro</div><button class="modal-close-btn" onclick="fecharParceiro()">×</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="pa-id">
+      <div class="field"><label class="flabel">Nome</label><input class="inp" type="text" id="pa-nome" placeholder="Ex.: Ecoliq"></div>
+      <div class="g2">
+        <div class="field"><label class="flabel">Tarifa (R$/km)</label><input class="inp inp-mono" type="number" id="pa-custokm" placeholder="0,00" inputmode="decimal"></div>
+        <div class="field"><label class="flabel">Capacidade (kg)</label><input class="inp inp-mono" type="number" id="pa-capkg" placeholder="0" inputmode="numeric"></div>
+      </div>
+      <div class="field"><label class="flabel">UF (opcional)</label><input class="inp" type="text" id="pa-uf" placeholder="GO" maxlength="2" style="text-transform:uppercase"></div>
+      <div style="height:8px"></div>
+      <button class="btn btn-primary" onclick="salvarParceiro()">✓ Salvar parceiro</button>
+      <div style="height:8px"></div>
+      <button class="btn btn-outline" id="pa-excluir-btn" onclick="excluirParceiro()" style="display:none;color:var(--danger);border-color:var(--danger)">🗑 Excluir</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="transbordo-modal" onclick="if(event.target===this)fecharTransbordo()">
+  <div class="modal">
+    <div class="modal-head"><div class="modal-title">Capacidade / Transbordo</div><button class="modal-close-btn" onclick="fecharTransbordo()">×</button></div>
+    <div class="modal-body">
+      <div style="font-size:11px;color:var(--text2);margin-bottom:10px;line-height:1.45">Compara fazer a coleta em <b>várias viagens do furgão</b> (1.500 kg / 8 m³) vs. <b>transbordo</b> com caçamba roll-on. Distâncias ida+volta.</div>
+      <div class="g2">
+        <div class="field"><label class="flabel">Peso total (kg)</label><input class="inp inp-mono" type="number" id="tb-peso" placeholder="0" inputmode="decimal"></div>
+        <div class="field"><label class="flabel">Volume total (m³)</label><input class="inp inp-mono" type="number" id="tb-vol" placeholder="0" inputmode="decimal"></div>
+      </div>
+      <div class="field"><label class="flabel">Distância (km, ida+volta)</label><input class="inp inp-mono" type="number" id="tb-km" placeholder="0" inputmode="decimal"></div>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text2);margin-bottom:12px;cursor:pointer"><input type="checkbox" id="tb-motorista" checked style="width:18px;height:18px;flex-shrink:0"> Incluir custo de motorista por viagem (furgão)</label>
+      <div class="card-lbl" style="margin:6px 0 8px">Transbordo (caçamba roll-on)</div>
+      <div class="g2">
+        <div class="field"><label class="flabel">Caçamba — cap. (m³)</label><input class="inp inp-mono" type="number" id="tb-cap-m3" placeholder="0" inputmode="decimal"></div>
+        <div class="field"><label class="flabel">Caçamba — cap. (kg)</label><input class="inp inp-mono" type="number" id="tb-cap-kg" placeholder="0" inputmode="decimal"></div>
+      </div>
+      <div class="field"><label class="flabel">Mobilização (R$ — varia por local)</label><input class="inp inp-mono" type="number" id="tb-mob" placeholder="0,00" inputmode="decimal"></div>
+      <div class="g2">
+        <div class="field"><label class="flabel">Locação (R$)</label><input class="inp inp-mono" type="number" id="tb-loc-valor" placeholder="0,00" inputmode="decimal"></div>
+        <div class="field"><label class="flabel">Período × qtd</label><div style="display:flex;gap:6px"><select class="inp sel" id="tb-loc-unid" style="flex:1;min-width:0"><option value="dia">Dia</option><option value="semana">Semana</option><option value="mes">Mês</option></select><input class="inp inp-mono" type="number" id="tb-loc-qtd" value="1" inputmode="numeric" style="width:62px"></div></div>
+      </div>
+      <div class="field"><label class="flabel">Roll-on (R$/km)</label><input class="inp inp-mono" type="number" id="tb-rollkm" placeholder="10,00" inputmode="decimal"></div>
+      <div style="height:6px"></div>
+      <button class="btn btn-primary" onclick="calcTransbordo()">🧮 Calcular</button>
+      <div id="tb-result" style="margin-top:12px"></div>
+    </div>
+  </div>
+</div>
+
 <div class="overlay" id="coleta-modal" onclick="if(event.target===this)fecharColeta()">
   <div class="modal">
     <div class="modal-head"><div class="modal-title" id="coleta-titulo">Nova coleta</div><button class="modal-close-btn" onclick="fecharColeta()">×</button></div>
@@ -539,7 +683,7 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
 <!-- LOGIN (Firebase) -->
 <div id="login-gate" style="position:fixed;inset:0;z-index:300;background:var(--bg);display:none;flex-direction:column;align-items:center;justify-content:center;padding:30px;text-align:center">
   <div class="hdr-mark" style="width:56px;height:56px;font-size:30px;border-radius:16px;margin-bottom:18px">C</div>
-  <div style="font-size:22px;font-weight:800">ResíduosPRO</div>
+  <div style="font-size:22px;font-weight:800">CerradoPRO</div>
   <div style="font-size:13px;color:var(--text3);margin-bottom:26px">Cerrado Ambiental — acesso restrito</div>
   <div style="width:100%;max-width:340px">
     <div class="field"><input class="inp" type="email" id="lg-email" placeholder="E-mail" autocomplete="username"></div>
@@ -563,8 +707,10 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
 var DEST_KEYS_I  =['ATERRO CLASSE I','BLEND CLASSE I','INCIN CLASSE I','EFLUENTE CLASSE I'];
 var DEST_KEYS_II =['ATERRO CLASSE II','BLEND CLASSE II','INCIN CLASSE II','EFLUENTE CLASSE II','COMPOST CLASSE II'];
 var DEST_KEYS    = DEST_KEYS_I.concat(DEST_KEYS_II);
-var DEF={empresa:'Cerrado Transportes e Soluções Ambientais',cnpj:'',tel:'',validade:15,imposto:15.45,margemMin:30,
-  transp:{forn:{FURGAO:6.46,BAU:7.00,MAIOR:10.00,DIARIA:0},cli:{FURGAO:5.00,BAU:8.50,MAIOR:14.00,DIARIA:0}},
+var DEF={empresa:'Cerrado Transportes e Soluções Ambientais',cnpj:'',tel:'',validade:15,imposto:15.45,margemMin:30,backupDias:7,
+  transp:{forn:{FURGAO:6.46,BAU:7.00,MAIOR:10.00},cli:{FURGAO:5.00,BAU:8.50,MAIOR:14.00}},
+  motorista:{limiarAjudaKm:100,ajudaValor:100,blocoDiariaKm:800,cafe:40,almoco:40,jantar:40,hospedagem:200},
+  transbordo:{rollOnKm:10,cacambaM3:5,cacambaKg:0},
   dest:{forn:{'ATERRO CLASSE I':0.60,'BLEND CLASSE I':0.50,'INCIN CLASSE I':3.20,'EFLUENTE CLASSE I':0.50,'ATERRO CLASSE II':0.135,'BLEND CLASSE II':0.50,'INCIN CLASSE II':0.50,'EFLUENTE CLASSE II':0.30,'COMPOST CLASSE II':0.04},
         cli:{'ATERRO CLASSE I':1.50,'BLEND CLASSE I':2.00,'INCIN CLASSE I':5.00,'EFLUENTE CLASSE I':1.80,'ATERRO CLASSE II':0.55,'BLEND CLASSE II':1.00,'INCIN CLASSE II':5.50,'EFLUENTE CLASSE II':1.00,'COMPOST CLASSE II':0.35}}};
 
@@ -583,20 +729,41 @@ function safeEval(val){
   }catch(e){return parseFloat(s)||0;}
 }
 function pf(id){return parseFloat(g(id).value)||0;}
+function pfd(id,def){var v=g(id).value;if(v==null||(''+v).trim()==='')return def;var n=parseFloat(v);return isNaN(n)?def:n;}
 function brl(n){return 'R$ '+Number(n||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function fmt(n){return Number(n||0).toLocaleString('pt-BR',{maximumFractionDigits:0});}
 function esc(s){return s.replace(/\s+/g,'-').replace(/[^a-zA-Z0-9\-]/g,'');}
 function maskCNPJ(el){var v=el.value.replace(/\D/g,'');v=v.replace(/^(\d{2})(\d)/,'$1.$2');v=v.replace(/^(\d{2})\.(\d{3})(\d)/,'$1.$2.$3');v=v.replace(/\.(\d{3})(\d)/,'.$1/$2');v=v.replace(/(\d{4})(\d)/,'$1-$2');el.value=v;}
 function toast(msg,dur){var t=g('toast');t.textContent=msg;t.classList.add('show');setTimeout(function(){t.classList.remove('show');},dur||2400);}
 
-function lCfg(){try{var s=localStorage.getItem('rpro_cfg');return s?JSON.parse(s):JSON.parse(JSON.stringify(DEF));}catch(e){return JSON.parse(JSON.stringify(DEF));}}
-function sCfg(c){localStorage.setItem('rpro_cfg',JSON.stringify(c));}
+function deepMerge(base,over){
+  if(base===null||typeof base!=='object'||Array.isArray(base)) return (over!==undefined?(over&&typeof over==='object'?JSON.parse(JSON.stringify(over)):over):JSON.parse(JSON.stringify(base)));
+  var out={};
+  Object.keys(base).forEach(function(k){out[k]=(base[k]&&typeof base[k]==='object')?JSON.parse(JSON.stringify(base[k])):base[k];});
+  if(over&&typeof over==='object'&&!Array.isArray(over)){
+    Object.keys(over).forEach(function(k){
+      var bv=base[k],ov=over[k];
+      if(bv&&ov&&typeof bv==='object'&&typeof ov==='object'&&!Array.isArray(bv)&&!Array.isArray(ov)){out[k]=deepMerge(bv,ov);}
+      else{out[k]=(ov&&typeof ov==='object')?JSON.parse(JSON.stringify(ov)):ov;}
+    });
+  }
+  return out;
+}
+function lCfg(){try{var s=localStorage.getItem('rpro_cfg');var saved=s?JSON.parse(s):null;return saved?deepMerge(DEF,saved):JSON.parse(JSON.stringify(DEF));}catch(e){return JSON.parse(JSON.stringify(DEF));}}
+// Gravação de chaves sincronizáveis: explícita via CloudSync.save (TASK-010); fallback local se CloudSync não carregar.
+function lset(k,v){ if(window.CloudSync&&CloudSync.save) return CloudSync.save(k,v); localStorage.setItem(k,v); }
+function sCfg(c){lset('rpro_cfg',JSON.stringify(c));}
 
 function abrirCfg(){
   g('cfg-empresa').value=cfg.empresa||'';g('cfg-cnpj').value=cfg.cnpj||'';g('cfg-tel').value=cfg.tel||'';g('cfg-validade').value=cfg.validade||15;
-  g('cfg-tfu').value=cfg.transp.forn.FURGAO;g('cfg-tb').value=cfg.transp.forn.BAU;g('cfg-tm').value=cfg.transp.forn.MAIOR;g('cfg-td').value=cfg.transp.forn.DIARIA;
-  g('cfg-cfu').value=cfg.transp.cli.FURGAO;g('cfg-cb').value=cfg.transp.cli.BAU;g('cfg-cm').value=cfg.transp.cli.MAIOR;g('cfg-cd').value=cfg.transp.cli.DIARIA;
+  g('cfg-tfu').value=cfg.transp.forn.FURGAO;g('cfg-tb').value=cfg.transp.forn.BAU;g('cfg-tm').value=cfg.transp.forn.MAIOR;
+  g('cfg-cfu').value=cfg.transp.cli.FURGAO;g('cfg-cb').value=cfg.transp.cli.BAU;g('cfg-cm').value=cfg.transp.cli.MAIOR;
   g('cfg-imposto').value=cfg.imposto;g('cfg-margem-min').value=cfg.margemMin||30;
+  var m=cfg.motorista||DEF.motorista;
+  g('cfg-mot-limiar').value=m.limiarAjudaKm;g('cfg-mot-ajuda').value=m.ajudaValor;g('cfg-mot-bloco').value=m.blocoDiariaKm;
+  g('cfg-mot-cafe').value=m.cafe;g('cfg-mot-almoco').value=m.almoco;g('cfg-mot-jantar').value=m.jantar;g('cfg-mot-hosp').value=m.hospedagem;
+  g('cfg-backup-dias').value=cfg.backupDias||7;
+  var _db=_diasDesdeBackup();g('cfg-backup-status').textContent='Último: '+(_db===null?'nunca':'há '+_db+' dia(s)');
   var fE=g('cfg-dest-forn'),cE=g('cfg-dest-cli');fE.innerHTML='';cE.innerHTML='';
   DEST_KEYS.forEach(function(k){
     fE.innerHTML+='<div class="cfg-r"><div class="cfg-l">'+k+'</div><input class="cfg-i" id="cdf-'+esc(k)+'" type="number" step="0.001" value="'+cfg.dest.forn[k]+'"></div>';
@@ -606,29 +773,54 @@ function abrirCfg(){
 }
 function exportarBackup(){
   var dados={app:'ResiduosPRO',versao:1,exportadoEm:new Date().toISOString(),
-    cfg:localStorage.getItem('rpro_cfg'),hist:localStorage.getItem('rpro_hist'),coletas:localStorage.getItem('rpro_coletas')};
+    cfg:localStorage.getItem('rpro_cfg'),hist:localStorage.getItem('rpro_hist'),coletas:localStorage.getItem('rpro_coletas'),contratos:localStorage.getItem('rpro_contratos'),parceiros:localStorage.getItem('rpro_parceiros')};
   var nC=0; try{nC=JSON.parse(localStorage.getItem('rpro_coletas')||'[]').length;}catch(e){}
   CloudSync.exportBackup('residuospro-backup', dados, '⬇️ Backup exportado ('+nC+' coletas)');
+  try{localStorage.setItem('rpro_lastbackup',new Date().toISOString());_backupSnooze=false;checkBackupLembrete();}catch(e){}
+}
+
+// Lembrete de backup local (TASK-021): a nuvem já guarda; o arquivo é cópia extra.
+function _diasDesdeBackup(){var t=localStorage.getItem('rpro_lastbackup');if(!t)return null;var d=(Date.now()-new Date(t).getTime())/86400000;return d<0?0:Math.floor(d);}
+var _backupSnooze=false;
+function adiarBackup(){_backupSnooze=true;var el=g('backup-lembrete');if(el&&el.parentNode)el.parentNode.removeChild(el);}
+function checkBackupLembrete(){
+  var lim=(cfg&&cfg.backupDias)||7,dias=_diasDesdeBackup(),vencido=(dias===null)||(dias>=lim),el=g('backup-lembrete');
+  if(_backupSnooze||!vencido){if(el&&el.parentNode)el.parentNode.removeChild(el);return;}
+  if(!el){el=document.createElement('div');el.id='backup-lembrete';var c=document.querySelector('.content');if(!c)return;c.insertBefore(el,c.firstChild);}
+  el.style.cssText='background:var(--accent-dim);border:1px solid var(--accent);border-radius:12px;padding:12px 14px;margin-bottom:12px';
+  var msg=(dias===null)?'Você ainda não exportou um backup local.':('Seu último backup local foi há '+dias+' dia(s).');
+  el.innerHTML='<div style="font-size:13px;color:var(--text);font-weight:700;margin-bottom:4px">💾 Backup recomendado</div>'+
+    '<div style="font-size:12px;color:var(--text2);line-height:1.4;margin-bottom:10px">'+msg+' Exporte uma cópia local de segurança (a nuvem já guarda, mas é bom ter o arquivo).</div>'+
+    '<div style="display:flex;gap:8px">'+
+      '<button onclick="exportarBackup()" style="flex:1;background:var(--accent);color:#fff;border:none;border-radius:9px;padding:9px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">⬇️ Exportar agora</button>'+
+      '<button onclick="adiarBackup()" style="flex:1;background:transparent;color:var(--text2);border:1px solid var(--border2);border-radius:9px;padding:9px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer">Adiar</button>'+
+    '</div>';
 }
 function importarBackup(input){
   CloudSync.importBackup(input, function(d){
     if(!d||d.app!=='ResiduosPRO')throw new Error('formato');
     if(!confirm('Importar este backup? Ele substitui os dados atuais deste app (coletas, histórico e configurações).'))return;
-    if(d.cfg!=null)localStorage.setItem('rpro_cfg',d.cfg);
-    if(d.hist!=null)localStorage.setItem('rpro_hist',d.hist);
-    if(d.coletas!=null)localStorage.setItem('rpro_coletas',d.coletas);
-    cfg=lCfg(); renderHist(); renderColetas(); fecharCfg();
+    if(d.cfg!=null)lset('rpro_cfg',d.cfg);
+    if(d.hist!=null)lset('rpro_hist',d.hist);
+    if(d.coletas!=null)lset('rpro_coletas',d.coletas);
+    if(d.contratos!=null)lset('rpro_contratos',d.contratos);
+    if(d.parceiros!=null)lset('rpro_parceiros',d.parceiros);
+    cfg=lCfg(); renderHist(); renderColetas(); renderContratos(); renderParceiros(); fecharCfg();
     toast('⬆️ Backup importado!');
   });
 }
 function fecharCfg(){g('cfg-modal').classList.remove('open');}
 function salvarCfg(){
   cfg.empresa=g('cfg-empresa').value||'Cerrado Ambiental';cfg.cnpj=g('cfg-cnpj').value;cfg.tel=g('cfg-tel').value;cfg.validade=parseInt(g('cfg-validade').value)||15;
-  cfg.transp.forn.FURGAO=pf('cfg-tfu');cfg.transp.forn.BAU=pf('cfg-tb');cfg.transp.forn.MAIOR=pf('cfg-tm');cfg.transp.forn.DIARIA=pf('cfg-td');
-  cfg.transp.cli.FURGAO=pf('cfg-cfu');cfg.transp.cli.BAU=pf('cfg-cb');cfg.transp.cli.MAIOR=pf('cfg-cm');cfg.transp.cli.DIARIA=pf('cfg-cd');
+  cfg.transp.forn.FURGAO=pf('cfg-tfu');cfg.transp.forn.BAU=pf('cfg-tb');cfg.transp.forn.MAIOR=pf('cfg-tm');
+  cfg.transp.cli.FURGAO=pf('cfg-cfu');cfg.transp.cli.BAU=pf('cfg-cb');cfg.transp.cli.MAIOR=pf('cfg-cm');
   cfg.imposto=pf('cfg-imposto');cfg.margemMin=pf('cfg-margem-min');
+  cfg.motorista=cfg.motorista||{};var dm=DEF.motorista;
+  cfg.motorista.limiarAjudaKm=pfd('cfg-mot-limiar',dm.limiarAjudaKm);cfg.motorista.ajudaValor=pfd('cfg-mot-ajuda',dm.ajudaValor);cfg.motorista.blocoDiariaKm=pfd('cfg-mot-bloco',dm.blocoDiariaKm);
+  cfg.motorista.cafe=pfd('cfg-mot-cafe',dm.cafe);cfg.motorista.almoco=pfd('cfg-mot-almoco',dm.almoco);cfg.motorista.jantar=pfd('cfg-mot-jantar',dm.jantar);cfg.motorista.hospedagem=pfd('cfg-mot-hosp',dm.hospedagem);
   DEST_KEYS.forEach(function(k){cfg.dest.forn[k]=pf('cdf-'+esc(k));cfg.dest.cli[k]=pf('cdc-'+esc(k));});
-  sCfg(cfg);fecharCfg();toast('✅ Configurações salvas!');
+  cfg.backupDias=Math.max(1,parseInt(g('cfg-backup-dias').value)||7);
+  sCfg(cfg);fecharCfg();toast('✅ Configurações salvas!');try{checkBackupLembrete();}catch(e){}
 }
 
 function renderRes(){
@@ -712,56 +904,15 @@ g('ibama-sinp').oninput=function(){ibamaRender(this.value);};
 g('ibama-overlay').onclick=function(e){if(e.target===this)ibamaFechar();};
 
 // ── CÁLCULO ─────────────────────────────────────────────
-function getCustoFurgao(){
-  // Lê custo/km real do FurgãoPRO via localStorage
-  try {
-    var fp2cfg = localStorage.getItem('fp2_cfg');
-    var fp2viagens = localStorage.getItem('fp2_viagens');
-    if(!fp2cfg || !fp2viagens) return null;
-    var fcfg = JSON.parse(fp2cfg);
-    var fviagens = JSON.parse(fp2viagens);
-
-    // Calcular custo operacional real (viagens com custo informado)
-    var comCusto = fviagens.filter(function(v){return v.km>0&&v.custo!=null&&v.custo>0;});
-    if(!comCusto.length) return null;
-    var totKm = comCusto.reduce(function(s,v){return s+v.km;},0);
-    var totCusto = comCusto.reduce(function(s,v){return s+v.custo;},0);
-    var custoOpKm = totCusto/totKm;
-
-    // Calcular rateio dos fixos
-    var totFat = fviagens.reduce(function(s,v){return s+(v.fat||0);},0);
-    var totKmAll = fviagens.reduce(function(s,v){return s+(v.km||0);},0);
-    if(totFat<=0||totKmAll<=0) return {forn: custoOpKm, tipo:'operacional'};
-
-    // Meses desde primeira viagem
-    var datas = fviagens.filter(function(v){return v.data;}).map(function(v){return new Date(v.data);});
-    var minData = new Date(Math.min.apply(null,datas));
-    var hoje = new Date();
-    var meses = Math.max(1,(hoje.getFullYear()-minData.getFullYear())*12+(hoje.getMonth()-minData.getMonth())+1);
-
-    var fatMedio = totFat/meses;
-    var fixoMensal = fcfg.parcela + fcfg.motorista + (fcfg.ipva/12) + (fcfg.seguro/12) + (fcfg.licen/12);
-    var varKm = (fcfg.diesel/fcfg.consumo) + (fcfg.oleoCusto/fcfg.oleoKm) + (fcfg.pneuCusto/fcfg.pneuKm) + (fcfg.manutCusto/fcfg.manutKm);
-    var receitaKm = totFat/totKmAll;
-    var pctFixo = fixoMensal/fatMedio;
-    var fixoKm = receitaKm * pctFixo;
-    var custoTotalKm = varKm + fixoKm;
-
-    return {
-      forn: custoTotalKm,
-      op: custoOpKm,
-      tipo: 'integrado do FurgãoPRO'
-    };
-  } catch(e){ return null; }
-}
-
 function calcular(){
-  var km=+g('trajeto').value||0,veic=g('veiculo').value,ac=+g('acresc').value||0;
+  var km=+g('trajeto').value||0,veic=g('veiculo').value,ac=+g('acresc').value||0,ped=+g('pedagio').value||0;
   var ctf=km*(cfg.transp.forn[veic]||0),ptc=km*(cfg.transp.cli[veic]||0);
   var cdf=0,pdc=0;
   var itens=residuos.map(function(r){var kg=+r.peso||0,cf=(cfg.dest.forn[r.dest]||0)*kg,cc=(cfg.dest.cli[r.dest]||0)*kg;cdf+=cf;pdc+=cc;return{desc:r.desc,codigo:r.codigo,perigoso:r.perigoso,dest:r.dest,peso:kg,custForn:cf,precCli:cc};});
-  var tot=ptc+pdc+ac,imp=tot*(cfg.imposto/100),ct=ctf+cdf+imp,sob=tot-ct,mar=tot>0?sob/tot:0;
-  ultimoCalculo={km:km,veic:veic,ac:ac,ctf:ctf,ptc:ptc,cdf:cdf,pdc:pdc,itens:itens,tot:tot,imp:imp,ct:ct,sob:sob,mar:mar,custoFurgaoIntegrado:false,
+  var cmot=(veic==='FURGAO'&&window.DecisionEngine&&DecisionEngine.calcularCustoMotoristaViagem)?DecisionEngine.calcularCustoMotoristaViagem(km,cfg):null;
+  var cmotCusto=cmot?cmot.custoTotal:0;
+  var tot=ptc+pdc+ac,imp=tot*(cfg.imposto/100),ct=ctf+cdf+ped+cmotCusto+imp,sob=tot-ct,mar=tot>0?sob/tot:0;
+  ultimoCalculo={km:km,veic:veic,ac:ac,ped:ped,ctf:ctf,ptc:ptc,cdf:cdf,pdc:pdc,cmot:cmot,itens:itens,tot:tot,imp:imp,ct:ct,sob:sob,mar:mar,
     cli:{nome:g('cli-nome').value,cnpj:g('cli-cnpj').value,contato:g('cli-contato').value,local:g('cli-local').value},
     obs:g('obs').value,data:new Date().toLocaleDateString('pt-BR')};
   return ultimoCalculo;
@@ -779,9 +930,45 @@ function renderResultado(r){
     '<div class="rbox-dark"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><div style="font-size:11px;color:rgba(248,240,221,0.45);font-weight:700;letter-spacing:1px;text-transform:uppercase">Margem de Lucro</div><div class="badge '+bc+'">'+pct.toFixed(1)+'%</div></div><div style="font-size:30px;font-weight:800;color:#fff;font-family:\'DM Mono\',monospace;margin-bottom:14px">'+brl(r.sob)+'</div><div class="mbar"><div class="mfill" style="width:'+bw+'%;background:'+fc+'"></div></div><div class="mlabels"><span class="ml">0%</span><span class="ml">mín '+mm+'%</span><span class="ml">100%</span></div></div>'+
     '<div class="rbox-light"><div class="card-head" style="margin-bottom:12px"><div class="card-icon">🚛</div><div class="card-lbl">Transporte — '+r.veic+'</div></div><div class="rrow"><div class="rl">Custo fornecedor ('+fmt(r.km)+' km)</div><div class="rv">'+brl(r.ctf)+'</div></div><div class="rrow"><div class="rl">Cobrado do cliente</div><div class="rv acc">'+brl(r.ptc)+'</div></div>'+(r.ac>0?'<div class="rrow"><div class="rl">Acréscimo de cabeça</div><div class="rv acc">'+brl(r.ac)+'</div></div>':'')+'</div>'+
     (ih?'<div class="rbox-light"><div class="card-head" style="margin-bottom:12px"><div class="card-icon">♻️</div><div class="card-lbl">Destinação</div></div>'+ih+'</div>':'')+
-    '<div class="rbox-light"><div class="card-head" style="margin-bottom:12px"><div class="card-icon">💰</div><div class="card-lbl">Resumo</div></div><div class="rrow"><div class="rl" style="font-weight:700;color:var(--text)">Total da Nota</div><div class="rv" style="font-size:20px;color:var(--accent);font-weight:700">'+brl(r.tot)+'</div></div><div class="rrow"><div class="rl">Imposto ('+cfg.imposto+'%)</div><div class="rv neg">− '+brl(r.imp)+'</div></div><div class="rrow"><div class="rl">Custo total</div><div class="rv neg">− '+brl(r.ct)+'</div></div></div>'+
+    '<div class="rbox-light"><div class="card-head" style="margin-bottom:12px"><div class="card-icon">💰</div><div class="card-lbl">Resumo</div></div><div class="rrow"><div class="rl" style="font-weight:700;color:var(--text)">Total da Nota</div><div class="rv" style="font-size:20px;color:var(--accent);font-weight:700">'+brl(r.tot)+'</div></div><div class="rrow"><div class="rl">Imposto ('+cfg.imposto+'%)</div><div class="rv neg">− '+brl(r.imp)+'</div></div>'+(r.ped>0?'<div class="rrow"><div class="rl">Pedágio</div><div class="rv neg">− '+brl(r.ped)+'</div></div>':'')+(r.cmot&&r.cmot.custoTotal>0?'<div class="rrow"><div class="rl">Custo motorista (viagem)</div><div class="rv neg">− '+brl(r.cmot.custoTotal)+'</div></div>':'')+'<div class="rrow"><div class="rl">Custo total</div><div class="rv neg">− '+brl(r.ct)+'</div></div></div>'+
     analiseNegHTML(r)+
+    pisoMarginalHTML(r)+
+    desembolsoMotoristaHTML(r)+
+    comparativoParceirosHTML(r)+
     '<div class="btn-row"><button class="btn btn-primary" style="flex:2" onclick="gerarProposta()">📄 Gerar Proposta</button><button class="btn btn-outline" style="flex:1" onclick="salvarHist()">💾 Salvar</button></div>';
+}
+
+function pisoMarginalHTML(r){
+  if(!r||r.veic!=='FURGAO')return '';
+  if(!window.DecisionEngine||!DecisionEngine.calcularPrecoMinimo)return '';
+  var km=Number(r.km)||0; if(!km)return '';
+  var custoVarKm=(DecisionEngine.DEFAULTS&&DecisionEngine.DEFAULTS.furgao)?DecisionEngine.DEFAULTS.furgao.custoVariavelKm:1.39;
+  var ped=Number(r.ped)||0;
+  var cmotCusto=(r.cmot&&r.cmot.custoTotal)||0;
+  var p;try{p=DecisionEngine.calcularPrecoMinimo({custoTotal:km*custoVarKm+ped+cmotCusto,km:km,imposto:cfg.imposto,margemAlvo:cfg.margemMin,precoProposto:r.tot,modo:'marginal'});}catch(e){return '';}
+  if(!p||p.precoMinimo==null)return '';
+  var margemPct=p.margemProposta!=null?(p.margemProposta*100).toFixed(1)+'%':'—';
+  return '<div class="rbox-light"><div class="card-head" style="margin-bottom:8px"><div class="card-icon">🚐</div><div class="card-lbl">Piso marginal do furgão</div></div>'+
+    '<div style="font-size:11px;color:var(--text2);margin-bottom:10px;line-height:1.45">Para encaixar uma viagem avulsa na ociosidade <b>quando o custo fixo já está coberto por contratos</b>. Considera só o custo variável ('+brl(custoVarKm)+'/km), sem ratear o fixo. Não use como preço padrão.</div>'+
+    '<div class="rrow"><div class="rl">Preço marginal mínimo <span style="font-size:11px;color:var(--text3)">(break-even)</span></div><div class="rv neg" style="font-weight:700">'+brl(p.precoBreakEven)+'</div></div>'+
+    '<div class="rrow"><div class="rl">Preço recomendado <span style="font-size:11px;color:var(--text3)">('+(cfg.margemMin||30)+'%)</span></div><div class="rv acc" style="font-weight:700">'+brl(p.precoMinimo)+'</div></div>'+
+    '<div class="rrow"><div class="rl">Margem da proposta atual <span style="font-size:11px;color:var(--text3)">(base marginal)</span></div><div class="rv" style="font-weight:700">'+margemPct+'</div></div>'+
+    '<div style="font-size:11px;color:var(--text3);margin-top:8px">Por km: mínimo '+brl(p.breakEvenKm)+'/km · recomendado '+brl(p.pisoMarginalKm)+'/km</div>'+
+  '</div>';
+}
+
+function desembolsoMotoristaHTML(r){
+  if(!r||r.veic!=='FURGAO')return '';
+  var c=r.cmot; if(!c||!c.custoTotal)return '';
+  var linhas=(c.itens||[]).map(function(it){
+    return '<div class="rrow"><div class="rl">'+it.nome+(it.qtd>1?' <span style="color:var(--text3)">×'+it.qtd+'</span>':'')+'</div><div class="rv">'+brl(it.subtotal)+'</div></div>';
+  }).join('');
+  return '<div class="rbox-light"><div class="card-head" style="margin-bottom:8px"><div class="card-icon">🧾</div><div class="card-lbl">Desembolso da viagem (motorista)</div></div>'+
+    '<div style="font-size:11px;color:var(--text2);margin-bottom:10px;line-height:1.45">Dinheiro a entregar ao motorista para <b>alimentação e hospedagem</b> nesta viagem ('+fmt(c.km)+' km ida+volta). A ajuda de '+brl(c.ajuda)+' <b>não</b> entra aqui — é paga na folha.</div>'+
+    (linhas||'<div class="rrow"><div class="rl">Sem diárias para esta distância</div><div class="rv">'+brl(0)+'</div></div>')+
+    '<div class="rrow" style="border-top:1px solid var(--border2);margin-top:6px;padding-top:10px"><div class="rl" style="font-weight:700;color:var(--text)">Total a desembolsar</div><div class="rv acc" style="font-weight:700">'+brl(c.desembolso)+'</div></div>'+
+    (c.diariasCheias>0?'<div style="font-size:11px;color:var(--text3);margin-top:8px">'+c.diariasCheias+' diária(s) cheia(s) + refeições parciais do trecho restante</div>':'')+
+  '</div>';
 }
 
 function analiseNegHTML(r){
@@ -816,16 +1003,51 @@ function gerarProposta(){
 function copiarProposta(){var t=g('txt-proposta').innerText;navigator.clipboard.writeText(t).then(function(){toast('✅ Copiado!');}).catch(function(){var a=document.createElement('textarea');a.value=t;document.body.appendChild(a);a.select();document.execCommand('copy');document.body.removeChild(a);toast('✅ Copiado!');});}
 function whatsappProposta(){window.open('https://wa.me/?text='+encodeURIComponent(g('txt-proposta').innerText),'_blank');}
 
-function salvarHist(){var r=ultimoCalculo;if(!r)return;try{var h=JSON.parse(localStorage.getItem('rpro_hist')||'[]');h.unshift(Object.assign({},r,{id:Date.now()}));if(h.length>50)h=h.slice(0,50);localStorage.setItem('rpro_hist',JSON.stringify(h));toast('💾 Salvo!');renderHist();}catch(e){}}
+var editandoId=null;
+function _preencherForm(x){
+  var c=x.cli||{};
+  g('cli-nome').value=c.nome||'';g('cli-cnpj').value=c.cnpj||'';g('cli-contato').value=c.contato||'';g('cli-local').value=c.local||'';
+  g('trajeto').value=x.km||'';g('veiculo').value=x.veic||'FURGAO';g('acresc').value=x.ac||'';g('pedagio').value=x.ped||'';g('obs').value=x.obs||'';
+  residuos=(x.itens||[]).map(function(r){return{id:nextId++,desc:r.desc||'',codigo:r.codigo||'',perigoso:!!r.perigoso,peso:r.peso||0,dest:r.dest||'ATERRO CLASSE II'};});
+  if(!residuos.length)residuos=[{id:nextId++,desc:'',codigo:'',perigoso:false,peso:0,dest:'ATERRO CLASSE II'}];
+  renderRes();
+}
+var FUNIL={enviado:{l:'Enviado',c:'#c87020'},negociacao:{l:'Em negociação',c:'#2563eb'},fechado:{l:'Fechado',c:'#2a7a40'},perdido:{l:'Perdido',c:'#b03020'}};
+function funilOpts(cur){return Object.keys(FUNIL).map(function(k){return '<option value="'+k+'"'+(k===cur?' selected':'')+'>'+FUNIL[k].l+'</option>';}).join('');}
+function setStatusHist(id,val){try{var h=JSON.parse(localStorage.getItem('rpro_hist')||'[]');h=h.map(function(i){return i.id===id?Object.assign({},i,{status:val}):i;});lset('rpro_hist',JSON.stringify(h));renderHist();}catch(e){}}
+function salvarHist(){var r=ultimoCalculo;if(!r)return;try{var h=JSON.parse(localStorage.getItem('rpro_hist')||'[]');if(editandoId&&h.some(function(i){return i.id===editandoId;})){h=h.map(function(i){return i.id===editandoId?Object.assign({},r,{id:editandoId,status:i.status||'enviado'}):i;});lset('rpro_hist',JSON.stringify(h));toast('✏️ Orçamento atualizado');}else{h.unshift(Object.assign({},r,{id:Date.now(),status:'enviado'}));if(h.length>50)h=h.slice(0,50);lset('rpro_hist',JSON.stringify(h));toast('💾 Salvo!');}editandoId=null;renderHist();}catch(e){}}
 
-function renderHist(){try{var h=JSON.parse(localStorage.getItem('rpro_hist')||'[]'),el=g('hist-list');var q=(g('hist-busca')&&g('hist-busca').value||'').trim().toLowerCase();if(q){h=h.filter(function(x){var c=x.cli||{};return [c.nome,c.contato,c.local,x.obs].join(' ').toLowerCase().indexOf(q)>=0;});}if(!h.length){el.innerHTML='<div class="empty"><span class="empty-ico">🗂️</span><div class="empty-t">'+(q?'Nada encontrado':'Nenhum orçamento salvo')+'</div></div>';return;}el.innerHTML=h.map(function(x){var ok=(x.mar*100)>=(cfg.margemMin||30);var c=x.cli||{};var lucroPct=x.tot>0?(x.sob/x.tot*100):0;return '<div class="hist-card" onclick="carregarHist('+x.id+')"><div class="hist-top"><div class="hist-name">'+(c.nome||'Sem nome')+'</div><div class="hist-date">'+(x.data||'')+'</div></div>'+(c.contato?'<div class="hist-sub">👤 '+c.contato+'</div>':'')+(c.local?'<div class="hist-sub">📍 '+c.local+'</div>':'')+'<div class="hist-bot"><div><div class="hist-sub">NF</div><div class="hist-val">'+brl(x.tot)+'</div></div><div style="text-align:right"><div class="hist-sub">Lucro</div><div class="hist-val">'+brl(x.sob)+' <span style="font-size:11px;color:var(--text3)">('+lucroPct.toFixed(1)+'%)</span></div></div></div><div class="hist-bot" style="margin-top:8px"><div class="badge '+(ok?'b-ok':'b-warn')+'">'+(x.mar*100).toFixed(1)+'% margem</div><div style="display:flex;gap:6px"><button class="btn btn-outline btn-sm" onclick="event.stopPropagation();editarHist('+x.id+')">✏️ Editar</button><button class="btn btn-outline btn-sm" onclick="event.stopPropagation();excluirHist('+x.id+')">🗑️</button></div></div></div>';}).join('');}catch(e){}}
+function renderHist(){try{
+  renderClienteSugestoes();
+  var all=JSON.parse(localStorage.getItem('rpro_hist')||'[]');
+  var counts={};all.forEach(function(x){var s=x.status||'enviado';counts[s]=(counts[s]||0)+1;});
+  var fz=g('hist-funil');if(fz){fz.innerHTML=all.length?Object.keys(FUNIL).map(function(k){return '<span class="badge" style="background:'+FUNIL[k].c+'22;color:'+FUNIL[k].c+';border:1px solid '+FUNIL[k].c+'55">'+FUNIL[k].l+': '+(counts[k]||0)+'</span>';}).join(''):'';}
+  var el=g('hist-list');var q=(g('hist-busca')&&g('hist-busca').value||'').trim().toLowerCase();
+  var h=all;if(q){h=all.filter(function(x){var c=x.cli||{};return [c.nome,c.contato,c.local,x.obs].join(' ').toLowerCase().indexOf(q)>=0;});}
+  if(!h.length){el.innerHTML='<div class="empty"><span class="empty-ico">🗂️</span><div class="empty-t">'+(q?'Nada encontrado':'Nenhum orçamento salvo')+'</div></div>';return;}
+  el.innerHTML=h.map(function(x){
+    var ok=(x.mar*100)>=(cfg.margemMin||30);var c=x.cli||{};var lucroPct=x.tot>0?(x.sob/x.tot*100):0;
+    var st=x.status||'enviado';var fc=FUNIL[st]||FUNIL.enviado;
+    return '<div class="hist-card" onclick="carregarHist('+x.id+')">'+
+      '<div class="hist-top"><div class="hist-name">'+(c.nome||'Sem nome')+'</div><div class="hist-date">'+(x.data||'')+'</div></div>'+
+      (c.contato?'<div class="hist-sub">👤 '+c.contato+'</div>':'')+(c.local?'<div class="hist-sub">📍 '+c.local+'</div>':'')+
+      '<div class="hist-bot"><div><div class="hist-sub">NF</div><div class="hist-val">'+brl(x.tot)+'</div></div><div style="text-align:right"><div class="hist-sub">Lucro</div><div class="hist-val">'+brl(x.sob)+' <span style="font-size:11px;color:var(--text3)">('+lucroPct.toFixed(1)+'%)</span></div></div></div>'+
+      '<div class="hist-bot" style="margin-top:8px"><div class="badge '+(ok?'b-ok':'b-warn')+'">'+(x.mar*100).toFixed(1)+'% margem</div><div style="display:flex;gap:6px"><button class="btn btn-outline btn-sm" onclick="event.stopPropagation();editarHist('+x.id+')">✏️ Editar</button><button class="btn btn-outline btn-sm" onclick="event.stopPropagation();excluirHist('+x.id+')">🗑️</button></div></div>'+
+      '<div class="hist-bot" style="margin-top:8px" onclick="event.stopPropagation()"><span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text2)"><span style="width:9px;height:9px;border-radius:50%;background:'+fc.c+';display:inline-block"></span>'+fc.l+'</span><select class="inp sel" style="width:auto;padding:4px 10px;font-size:12px" onchange="setStatusHist('+x.id+',this.value)">'+funilOpts(st)+'</select></div>'+
+    '</div>';
+  }).join('');
+}catch(e){}}
 
-function carregarHist(id){try{var h=JSON.parse(localStorage.getItem('rpro_hist')||'[]'),x=h.find(function(i){return i.id===id;});if(!x)return;ultimoCalculo=x;renderResultado(x);navTo('resultado',g('nav-resultado'));toast('📋 Carregado');}catch(e){}}
-function excluirHist(id){if(!confirm('Excluir este orçamento?'))return;try{var h=JSON.parse(localStorage.getItem('rpro_hist')||'[]').filter(function(i){return i.id!==id;});localStorage.setItem('rpro_hist',JSON.stringify(h));renderHist();toast('🗑️ Excluído');}catch(e){}}
-function editarHist(id){try{var h=JSON.parse(localStorage.getItem('rpro_hist')||'[]'),x=h.find(function(i){return i.id===id;});if(!x)return;var c=x.cli||{};g('cli-nome').value=c.nome||'';g('cli-cnpj').value=c.cnpj||'';g('cli-contato').value=c.contato||'';g('cli-local').value=c.local||'';g('trajeto').value=x.km||'';g('veiculo').value=x.veic||'FURGAO';g('acresc').value=x.ac||'';g('obs').value=x.obs||'';residuos=(x.itens||[]).map(function(r){return{id:nextId++,desc:r.desc||'',codigo:r.codigo||'',perigoso:!!r.perigoso,peso:r.peso||0,dest:r.dest||'ATERRO CLASSE II'};});if(!residuos.length)residuos=[{id:nextId++,desc:'',codigo:'',perigoso:false,peso:0,dest:'ATERRO CLASSE II'}];renderRes();calcular();var h2=h.filter(function(i){return i.id!==id;});localStorage.setItem('rpro_hist',JSON.stringify(h2));renderHist();navTo('orcamento',g('nav-orcamento'));toast('✏️ Editando — recalcule e salve novamente');}catch(e){}}
+function _normNome(s){return (s||'').toString().trim().replace(/\s+/g,' ').toLowerCase();}
+function _mapClientes(){var map={};try{var h=JSON.parse(localStorage.getItem('rpro_hist')||'[]');h.forEach(function(x){var c=x.cli||{};var nome=(c.nome||'').trim();if(!nome)return;var key=_normNome(nome);if(!map[key])map[key]={nome:nome,cnpj:c.cnpj||'',contato:c.contato||'',local:c.local||''};});}catch(e){}return map;}
+function renderClienteSugestoes(){var dl=g('cli-sugestoes');if(!dl)return;var map=_mapClientes();dl.innerHTML=Object.keys(map).sort().map(function(k){return '<option value="'+map[k].nome.replace(/"/g,'&quot;')+'"></option>';}).join('');}
+function selecionarCliente(val){var c=_mapClientes()[_normNome(val)];if(!c)return;g('cli-nome').value=c.nome;if(c.cnpj)g('cli-cnpj').value=c.cnpj;if(c.contato)g('cli-contato').value=c.contato;if(c.local)g('cli-local').value=c.local;}
+function carregarHist(id){try{var h=JSON.parse(localStorage.getItem('rpro_hist')||'[]'),x=h.find(function(i){return i.id===id;});if(!x)return;_preencherForm(x);editandoId=null;renderResultado(calcular());navTo('resultado',g('nav-resultado'));toast('📋 Carregado — campos preenchidos');}catch(e){}}
+function excluirHist(id){if(!confirm('Excluir este orçamento?'))return;try{var h=JSON.parse(localStorage.getItem('rpro_hist')||'[]').filter(function(i){return i.id!==id;});lset('rpro_hist',JSON.stringify(h));renderHist();toast('🗑️ Excluído');}catch(e){}}
+function editarHist(id){try{var h=JSON.parse(localStorage.getItem('rpro_hist')||'[]'),x=h.find(function(i){return i.id===id;});if(!x)return;_preencherForm(x);editandoId=id;calcular();navTo('orcamento',g('nav-orcamento'));toast('✏️ Editando — ajuste e salve');}catch(e){}}
 function limparHist(){if(confirm('Apagar todo o histórico?')){localStorage.removeItem('rpro_hist');renderHist();toast('🗑️ Limpo');}}
 
-function navTo(id,el){document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active');});document.querySelectorAll('.nav-item').forEach(function(n){n.classList.remove('active');});g('screen-'+id).classList.add('active');el.classList.add('active');if(id==='historico')renderHist();if(id==='coletas')renderColetas();}
+function navTo(id,el){document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active');});document.querySelectorAll('.nav-item').forEach(function(n){n.classList.remove('active');});g('screen-'+id).classList.add('active');el.classList.add('active');if(id==='historico')renderHist();if(id==='coletas')renderColetas();if(id==='contratos')renderContratos();if(id==='parceiros')renderParceiros();if(id==='relatorios')renderRelatorios();}
 
 function atualizarDestSelect(id){
   var r=residuos.find(function(x){return x.id===id;});
@@ -1538,8 +1760,237 @@ function usarRotaKm(km,nome){
 var _filtroColeta='todas', _vista='lista', _mesRef=new Date(), _diaSel=new Date().toISOString().slice(0,10);
 var MESES=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
 var DIAS_SEM=['dom','seg','ter','qua','qui','sex','sáb'];
+/* ── Contratos recorrentes (consome DecisionEngine.avaliarContrato / aplicarReajuste) ── */
+var MESES_PERIODO={mensal:1,trimestral:3,semestral:6,anual:12};
+function _cap(s){return s?s.charAt(0).toUpperCase()+s.slice(1):s;}
+function lContratos(){try{return JSON.parse(localStorage.getItem('rpro_contratos')||'[]');}catch(e){return [];}}
+function sContratos(a){try{lset('rpro_contratos',JSON.stringify(a));}catch(e){}}
+function _mesesEntre(iniStr){if(!iniStr)return 0;var ini=new Date(iniStr+'T00:00:00'),hoje=new Date();if(isNaN(ini))return 0;var m=(hoje.getFullYear()-ini.getFullYear())*12+(hoje.getMonth()-ini.getMonth());if(hoje.getDate()<ini.getDate())m--;return Math.max(0,m);}
+function _addMeses(iniStr,n){var d=new Date(iniStr+'T00:00:00');if(isNaN(d))return '';d.setMonth(d.getMonth()+n);return d.toLocaleDateString('pt-BR');}
+function _avaliarContratoUI(c){
+  var perMeses=MESES_PERIODO[c.periodicidade]||1;
+  var valorMensalBase=(Number(c.valor)||0)/perMeses;
+  var dec=_mesesEntre(c.inicio);
+  var semReaj=(!c.reajusteIndice||c.reajusteIndice==='sem'||!Number(c.reajustePercent));
+  var reaj=DecisionEngine.aplicarReajuste({valorBase:valorMensalBase,percentualAnual:semReaj?0:c.reajustePercent,mesesDecorridos:dec});
+  var aval=DecisionEngine.avaliarContrato({valorMensal:reaj.valorAtual,kmMes:Number(c.kmMes)||0,duracaoMeses:Number(c.duracao)||0,mesesDecorridos:dec,reajusteIndice:semReaj?null:c.reajusteIndice,inflacaoAnual:Number(c.reajustePercent)||0});
+  var encerrado=(Number(c.duracao)>0 && dec>=Number(c.duracao));
+  return {valorMensalAtual:reaj.valorAtual,reaj:reaj,aval:aval,dec:dec,semReaj:semReaj,encerrado:encerrado};
+}
+function renderContratos(){
+  var arr=lContratos(),list=g('ct-list');if(!list)return;
+  var fixo=(DecisionEngine.DEFAULTS&&DecisionEngine.DEFAULTS.furgao)?DecisionEngine.DEFAULTS.furgao.fixoMes:10214;
+  var receita=0,ativos=0,contribTot=0,nReaj=0;
+  if(!arr.length){
+    list.innerHTML='<div class="empty"><div class="empty-ico">🔁</div><div class="empty-t">Nenhum contrato</div><div class="empty-s">Cadastre contratos recorrentes para acompanhar a receita garantida e os reajustes.</div></div>';
+  }else{
+    var html='';
+    arr.slice().sort(function(a,b){return (a.cliente||'').localeCompare(b.cliente||'');}).forEach(function(c){
+      var r=_avaliarContratoUI(c),a=r.aval;
+      if(!r.encerrado){receita+=r.valorMensalAtual;ativos++;contribTot+=a.contribuicaoMes;if(!r.semReaj&&r.reaj.proximoReajusteEmMeses<=2)nReaj++;}
+      var badgeCls=a.contribuicaoMes<=0?'b-danger':(/Aten|corr/i.test(a.risco)?'b-warn':'b-ok');
+      var proxData=r.semReaj?'—':_addMeses(c.inicio,(r.reaj.reajustesAplicados+1)*12);
+      html+='<div class="hist-card" onclick="abrirContrato('+c.id+')">'+
+        '<div class="hist-top"><div class="hist-name">'+(c.cliente||'(sem nome)')+(r.encerrado?' <span style="color:var(--text3);font-weight:400">· encerrado</span>':'')+'</div><div class="hist-val">'+brl(r.valorMensalAtual)+'<span style="font-size:11px;color:var(--text3)">/mês</span></div></div>'+
+        '<div class="hist-sub">'+_cap(c.periodicidade||'mensal')+' · '+(Number(c.duracao)||0)+' meses · faltam '+(a.mesesRestantes==null?'—':a.mesesRestantes)+'</div>'+
+        '<div class="hist-bot" style="flex-wrap:wrap;gap:6px">'+
+          '<span class="badge '+badgeCls+'">cobre '+(a.coberturaFixo!=null?(a.coberturaFixo*100).toFixed(0)+'% do fixo':'—')+'</span>'+
+          '<span class="badge b-ok">margem contrib. '+(a.margemContribuicao*100).toFixed(0)+'%</span>'+
+          (r.semReaj?'<span class="badge b-warn">sem reajuste · fim '+(a.margemProjetadaFim*100).toFixed(0)+'%</span>':'<span class="badge b-ok">reajuste '+(Number(c.reajustePercent)||0)+'% · próx. '+proxData+'</span>')+
+        '</div>'+
+        (a.risco?'<div style="font-size:11px;color:var(--text2);margin-top:6px">⚠️ '+a.risco+'</div>':'')+
+      '</div>';
+    });
+    list.innerHTML=html;
+  }
+  g('ct-n-ativos').textContent=ativos;
+  g('ct-receita').textContent=brl(receita);
+  g('ct-n-reaj').textContent=nReaj;
+  g('ct-cobertura').textContent='Cobertura do custo fixo do furgão ('+brl(fixo)+'/mês): '+(fixo>0?(contribTot/fixo*100).toFixed(0):'0')+'% pela contribuição dos contratos ativos.';
+}
+function abrirContrato(id){
+  var arr=lContratos(),c=(typeof id==='number')?arr.find(function(x){return x.id===id;}):null;
+  g('ct-id').value=c?c.id:'';g('contrato-titulo').textContent=c?'Editar contrato':'Novo contrato';
+  g('ct-cliente').value=c?c.cliente||'':'';g('ct-valor').value=c?c.valor||'':'';
+  g('ct-period').value=c?c.periodicidade||'mensal':'mensal';g('ct-inicio').value=c?c.inicio||'':'';
+  g('ct-duracao').value=c?c.duracao||'':'';g('ct-indice').value=c?c.reajusteIndice||'sem':'sem';
+  g('ct-reajuste').value=c?(c.reajustePercent||''):'';g('ct-kmmes').value=c?(c.kmMes||''):'';g('ct-obs').value=c?c.obs||'':'';
+  g('ct-excluir-btn').style.display=c?'block':'none';
+  g('contrato-modal').classList.add('open');
+}
+function fecharContrato(){g('contrato-modal').classList.remove('open');}
+function salvarContrato(){
+  var arr=lContratos(),id=g('ct-id').value?Number(g('ct-id').value):null;
+  var cliente=(g('ct-cliente').value||'').trim();
+  if(!cliente){toast('⚠️ Informe o cliente');return;}
+  var obj={id:id||Date.now(),cliente:cliente,valor:Number(g('ct-valor').value)||0,periodicidade:g('ct-period').value,inicio:g('ct-inicio').value||'',duracao:Number(g('ct-duracao').value)||0,reajusteIndice:g('ct-indice').value,reajustePercent:Number(g('ct-reajuste').value)||0,kmMes:Number(g('ct-kmmes').value)||0,obs:(g('ct-obs').value||'').trim()};
+  if(id){arr=arr.map(function(x){return x.id===id?obj:x;});}else{arr.push(obj);}
+  sContratos(arr);fecharContrato();renderContratos();toast('✅ Contrato salvo');
+}
+function excluirContrato(){
+  var id=Number(g('ct-id').value);if(!id)return;
+  if(!confirm('Excluir este contrato?'))return;
+  sContratos(lContratos().filter(function(x){return x.id!==id;}));
+  fecharContrato();renderContratos();toast('🗑️ Excluído');
+}
+
+// ── TRANSPORTADORES PARCEIROS (TASK-015) ──
+function lParceiros(){try{return JSON.parse(localStorage.getItem('rpro_parceiros')||'[]');}catch(e){return [];}}
+function sParceiros(a){try{lset('rpro_parceiros',JSON.stringify(a));}catch(e){}}
+function renderTranspSugestoes(){
+  var dl=g('dl-transp');if(!dl)return;
+  var opts='<option value="Cerrado (Furgão)">';
+  lParceiros().slice().sort(function(a,b){return (a.nome||'').localeCompare(b.nome||'');}).forEach(function(p){if(p.nome)opts+='<option value="'+p.nome.replace(/"/g,'&quot;')+'">';});
+  dl.innerHTML=opts;
+}
+function renderParceiros(){
+  var arr=lParceiros(),list=g('pa-list');if(!list)return;
+  if(!arr.length){
+    list.innerHTML='<div class="empty"><div class="empty-ico">🚚</div><div class="empty-t">Nenhum parceiro</div><div class="empty-s">Cadastre transportadores terceiros com a tarifa R$/km para comparar com o furgão próprio no Resultado.</div></div>';
+  }else{
+    list.innerHTML=arr.slice().sort(function(a,b){return (a.nome||'').localeCompare(b.nome||'');}).map(function(p){
+      return '<div class="hist-card" onclick="abrirParceiro('+p.id+')">'+
+        '<div class="hist-top"><div class="hist-name">'+(p.nome||'(sem nome)')+(p.uf?' <span style="color:var(--text3);font-weight:400">· '+p.uf+'</span>':'')+'</div><div class="hist-val">'+brl(p.custoKm||0)+'<span style="font-size:11px;color:var(--text3)">/km</span></div></div>'+
+        '<div class="hist-sub">Capacidade: '+(p.capacidadeKg?fmt(p.capacidadeKg)+' kg':'—')+'</div>'+
+      '</div>';
+    }).join('');
+  }
+  renderTranspSugestoes();
+}
+function abrirParceiro(id){
+  var arr=lParceiros(),p=(typeof id==='number')?arr.find(function(x){return x.id===id;}):null;
+  g('pa-id').value=p?p.id:'';g('parceiro-titulo').textContent=p?'Editar parceiro':'Novo parceiro';
+  g('pa-nome').value=p?p.nome||'':'';g('pa-custokm').value=p?(p.custoKm||''):'';
+  g('pa-capkg').value=p?(p.capacidadeKg||''):'';g('pa-uf').value=p?p.uf||'':'';
+  g('pa-excluir-btn').style.display=p?'block':'none';
+  g('parceiro-modal').classList.add('open');
+}
+function fecharParceiro(){g('parceiro-modal').classList.remove('open');}
+function salvarParceiro(){
+  var arr=lParceiros(),id=g('pa-id').value?Number(g('pa-id').value):null;
+  var nome=(g('pa-nome').value||'').trim();
+  if(!nome){toast('⚠️ Informe o nome');return;}
+  var obj={id:id||Date.now(),nome:nome,custoKm:Number(g('pa-custokm').value)||0,capacidadeKg:Number(g('pa-capkg').value)||0,uf:(g('pa-uf').value||'').trim().toUpperCase()};
+  if(id){arr=arr.map(function(x){return x.id===id?obj:x;});}else{arr.push(obj);}
+  sParceiros(arr);fecharParceiro();renderParceiros();toast('✅ Parceiro salvo');
+}
+function excluirParceiro(){
+  var id=Number(g('pa-id').value);if(!id)return;
+  if(!confirm('Excluir este parceiro?'))return;
+  sParceiros(lParceiros().filter(function(x){return x.id!==id;}));
+  fecharParceiro();renderParceiros();toast('🗑️ Excluído');
+}
+function comparativoParceirosHTML(r){
+  if(!window.DecisionEngine||!DecisionEngine.escolherMelhorParceiro)return '';
+  var parceiros=lParceiros();if(!parceiros.length)return '';
+  var km=Number(r.km)||0;if(!km)return '';
+  var pesoKg=(r.itens||[]).reduce(function(s,it){return s+(Number(it.peso)||0);},0);
+  var lista=parceiros.map(function(p){return {nome:p.nome,custoKm:Number(p.custoKm)||0,capacidadeKg:Number(p.capacidadeKg)||0};});
+  var res;try{res=DecisionEngine.escolherMelhorParceiro({km:km,pesoKg:pesoKg>0?pesoKg:null,parceiros:lista,incluirFurgao:true});}catch(e){return '';}
+  if(!res||!res.ranking||!res.ranking.length)return '';
+  var linhas=res.ranking.map(function(x){
+    var rec=res.recomendado&&res.recomendado.nome===x.nome;
+    return '<div class="rrow"><div class="rl">'+(rec?'⭐ ':'')+x.nome+(x.viavel?'':' <span style="font-size:11px;color:var(--danger)">(inviável'+(x.motivo?': '+x.motivo:'')+')</span>')+'</div>'+
+      '<div style="text-align:right"><div class="rv '+(rec?'acc':'')+'" style="font-weight:'+(rec?'700':'600')+'">'+brl(x.custoTotal)+'</div><div style="font-size:11px;color:var(--text4);margin-top:2px">'+brl(x.custoKm)+'/km</div></div></div>';
+  }).join('');
+  return '<div class="rbox-light"><div class="card-head" style="margin-bottom:8px"><div class="card-icon">🚚</div><div class="card-lbl">Comparativo de transporte</div></div>'+
+    '<div style="font-size:11px;color:var(--text2);margin-bottom:10px;line-height:1.45">Custo de transporte para esta rota ('+fmt(km)+' km ida+volta'+(pesoKg>0?' · '+fmt(pesoKg)+' kg':'')+'), comparando o furgão próprio com os parceiros cadastrados. Informativo — não altera o orçamento.</div>'+
+    linhas+
+    '<div style="margin-top:10px;padding:10px 12px;border-radius:11px;background:var(--accent-dim);color:var(--accent);font-size:13px;font-weight:600;line-height:1.4">💡 '+res.motivo+'</div>'+
+  '</div>';
+}
+
+// ── RELATÓRIOS GERENCIAIS (TASK-023) — a partir do rpro_hist ──
+function _relMesAno(dstr){var p=(''+(dstr||'')).split('/');if(p.length<3)return null;return p[2]+'-'+p[1];}
+function _relMesLabel(ym){var p=ym.split('-');var nomes=['','jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];return (nomes[Number(p[1])]||p[1])+'/'+p[0].slice(2);}
+function renderRelatorios(){
+  var el=g('rel-content');if(!el)return;
+  var hist=[];try{hist=JSON.parse(localStorage.getItem('rpro_hist')||'[]');}catch(e){}
+  if(!hist.length){el.innerHTML='<div class="empty"><div class="empty-ico">📊</div><div class="empty-t">Sem dados</div><div class="empty-s">Salve orçamentos no histórico para ver faturamento, margem e rankings aqui.</div></div>';return;}
+  var n=hist.length;
+  var fatTotal=hist.reduce(function(s,x){return s+(Number(x.tot)||0);},0);
+  var margN=0,margSum=0;hist.forEach(function(x){if(x.mar!=null){margSum+=Number(x.mar);margN++;}});
+  var margGeral=margN?margSum/margN:null;
+  var fechados=hist.filter(function(x){return (x.status||'enviado')==='fechado';});
+  var fatFechado=fechados.reduce(function(s,x){return s+(Number(x.tot)||0);},0);
+  var taxa=n>0?(fechados.length/n*100):0;
+  var kpis='<div class="rbox-light"><div class="card-head" style="margin-bottom:10px"><div class="card-icon">📈</div><div class="card-lbl">Visão geral</div></div>'+
+    '<div class="rrow"><div class="rl">Orçamentos</div><div class="rv">'+n+'</div></div>'+
+    '<div class="rrow"><div class="rl">Faturamento proposto</div><div class="rv acc" style="font-weight:700">'+brl(fatTotal)+'</div></div>'+
+    '<div class="rrow"><div class="rl">Fechados</div><div class="rv">'+fechados.length+' · '+brl(fatFechado)+'</div></div>'+
+    '<div class="rrow"><div class="rl">Taxa de fechamento</div><div class="rv">'+taxa.toFixed(0)+'%</div></div>'+
+    '<div class="rrow"><div class="rl">Margem média</div><div class="rv">'+(margGeral!=null?(margGeral*100).toFixed(1)+'%':'—')+'</div></div>'+
+  '</div>';
+  var porMes={};hist.forEach(function(x){var m=_relMesAno(x.data);if(!m)return;porMes[m]=(porMes[m]||0)+(Number(x.tot)||0);});
+  var meses=Object.keys(porMes).sort().slice(-6);
+  var maxMes=Math.max.apply(null,meses.map(function(m){return porMes[m];}).concat([1]));
+  var mesBars=meses.map(function(m){var w=(porMes[m]/maxMes*100).toFixed(1);
+    return '<div style="margin-bottom:9px"><div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="font-size:12px;color:var(--text2);font-weight:700">'+_relMesLabel(m)+'</span><span style="font-size:11px;font-family:\'DM Mono\',monospace;color:var(--text2)">'+brl(porMes[m])+'</span></div><div style="background:var(--bg);border-radius:4px;height:7px;overflow:hidden"><div style="width:'+w+'%;height:100%;background:var(--accent);border-radius:4px"></div></div></div>';
+  }).join('');
+  var mesBox='<div class="rbox-light"><div class="card-head" style="margin-bottom:10px"><div class="card-icon">🗓️</div><div class="card-lbl">Faturamento por mês (proposto)</div></div>'+(mesBars||'<div style="font-size:12px;color:var(--text3)">Sem datas válidas.</div>')+'</div>';
+  var porCli={};hist.forEach(function(x){var nome=(((x.cli&&x.cli.nome)||'').trim())||'(sem nome)';(porCli[nome]=porCli[nome]||[]).push(x);});
+  var rankCli=Object.keys(porCli).map(function(nome){return DecisionEngine.analisarRentabilidadeCliente({cliente:nome,registros:porCli[nome]});}).sort(function(a,b){return b.faturamentoTotal-a.faturamentoTotal;}).slice(0,10);
+  var cliRows=rankCli.map(function(a){
+    return '<div class="rrow"><div class="rl"><div style="font-weight:600;color:var(--text)">'+a.cliente+'</div><div style="font-size:11px;color:var(--text3)">'+a.nViagens+' orç. · '+(a.reaisPorKm!=null?brl(a.reaisPorKm)+'/km':'—')+'</div></div><div style="text-align:right"><div class="rv acc" style="font-weight:700">'+brl(a.faturamentoTotal)+'</div><div style="font-size:11px;color:var(--text4);margin-top:2px">margem '+(a.margemMedia!=null?(a.margemMedia*100).toFixed(0)+'%':'—')+(a.classificacao?' · '+a.classificacao:'')+'</div></div></div>';
+  }).join('');
+  var cliBox='<div class="rbox-light"><div class="card-head" style="margin-bottom:10px"><div class="card-icon">🏆</div><div class="card-lbl">Ranking de clientes</div></div>'+cliRows+'</div>';
+  var porLoc={};hist.forEach(function(x){var loc=((x.cli&&x.cli.local)||'').trim();if(!loc)return;porLoc[loc]=(porLoc[loc]||0)+(Number(x.tot)||0);});
+  var rankLoc=Object.keys(porLoc).map(function(l){return {local:l,fat:porLoc[l]};}).sort(function(a,b){return b.fat-a.fat;}).slice(0,8);
+  var locBox='';
+  if(rankLoc.length){
+    var locRows=rankLoc.map(function(r){return '<div class="rrow"><div class="rl">📍 '+r.local+'</div><div class="rv">'+brl(r.fat)+'</div></div>';}).join('');
+    locBox='<div class="rbox-light"><div class="card-head" style="margin-bottom:10px"><div class="card-icon">🗺️</div><div class="card-lbl">Ranking de rotas/locais</div></div>'+locRows+'</div>';
+  }
+  el.innerHTML=kpis+mesBox+cliBox+locBox;
+}
+
+// ── CALCULADORA DE CAPACIDADE / TRANSBORDO (TASK-014) ──
+function abrirTransbordo(){
+  var t=(cfg&&cfg.transbordo)||DEF.transbordo;
+  g('tb-rollkm').value=t.rollOnKm!=null?t.rollOnKm:10;
+  g('tb-cap-m3').value=t.cacambaM3||'';
+  g('tb-cap-kg').value=t.cacambaKg||'';
+  g('tb-result').innerHTML='';
+  g('transbordo-modal').classList.add('open');
+}
+function fecharTransbordo(){g('transbordo-modal').classList.remove('open');}
+function calcTransbordo(){
+  if(!window.DecisionEngine||!DecisionEngine.calcularCapacidadeTransbordo){toast('⚠️ Engine indisponível');return;}
+  var p={pesoKg:pf('tb-peso'),volumeM3:pf('tb-vol'),km:pf('tb-km'),
+    incluirMotorista:g('tb-motorista').checked,cfg:cfg,
+    capCacambaM3:pf('tb-cap-m3'),capCacambaKg:pf('tb-cap-kg'),
+    mobilizacao:pf('tb-mob'),locacaoValor:pf('tb-loc-valor'),locacaoQtd:pf('tb-loc-qtd'),
+    custoRollOnKm:pf('tb-rollkm')};
+  var r=DecisionEngine.calcularCapacidadeTransbordo(p);
+  cfg.transbordo={rollOnKm:p.custoRollOnKm||10,cacambaM3:p.capCacambaM3||0,cacambaKg:p.capCacambaKg||0};
+  try{sCfg(cfg);}catch(e){}
+  g('tb-result').innerHTML=transbordoResultHTML(r);
+}
+function transbordoResultHTML(r){
+  if(!r.temCarga)return '<div style="font-size:12px;color:var(--danger)">Informe peso e/ou volume da carga.</div>';
+  function box(titulo,rec,linhas,total){
+    return '<div class="rbox-light" style="margin-bottom:8px;'+(rec?'border:1.5px solid var(--accent)':'')+'"><div class="card-head" style="margin-bottom:8px"><div class="card-lbl">'+(rec?'⭐ ':'')+titulo+'</div></div>'+linhas+
+      '<div class="rrow" style="border-top:1px solid var(--border2);margin-top:6px;padding-top:8px"><div class="rl" style="font-weight:700">Total</div><div class="rv '+(rec?'acc':'')+'" style="font-weight:700">'+brl(total)+'</div></div></div>';
+  }
+  var d=r.direta,t=r.transbordo,recD=r.recomendado==='direta',recT=r.recomendado==='transbordo';
+  var dLin='<div class="rrow"><div class="rl">Viagens (furgão)</div><div class="rv">'+d.nViagens+'</div></div>'+
+    '<div class="rrow"><div class="rl">Transporte</div><div class="rv">'+brl(d.custoTransporte)+'</div></div>'+
+    (d.custoMotorista>0?'<div class="rrow"><div class="rl">Motorista (viagens)</div><div class="rv">'+brl(d.custoMotorista)+'</div></div>':'');
+  var out=box('Coleta direta',recD,dLin,d.custoTotal);
+  if(t.viavel){
+    var tLin='<div class="rrow"><div class="rl">Hauls (caçamba)</div><div class="rv">'+t.nHauls+'</div></div>'+
+      '<div class="rrow"><div class="rl">Mobilização</div><div class="rv">'+brl(t.mobilizacao)+'</div></div>'+
+      '<div class="rrow"><div class="rl">Locação</div><div class="rv">'+brl(t.locacao)+'</div></div>'+
+      '<div class="rrow"><div class="rl">Transporte roll-on</div><div class="rv">'+brl(t.custoTransporte)+'</div></div>';
+    out+=box('Transbordo',recT,tLin,t.custoTotal);
+  }else{
+    out+='<div style="font-size:12px;color:var(--text3);margin:4px 0 8px">Informe a capacidade da caçamba (m³ ou kg) para comparar o transbordo.</div>';
+  }
+  out+='<div style="padding:10px 12px;border-radius:11px;background:var(--accent-dim);color:var(--accent);font-size:13px;font-weight:600;line-height:1.4">💡 '+r.motivo+(r.economia!=null&&r.economia>0?' Economia: '+brl(r.economia)+'.':'')+'</div>';
+  return out;
+}
 function lColetas(){try{return JSON.parse(localStorage.getItem('rpro_coletas')||'[]');}catch(e){return [];}}
-function sColetas(a){try{localStorage.setItem('rpro_coletas',JSON.stringify(a));}catch(e){}}
+function sColetas(a){try{lset('rpro_coletas',JSON.stringify(a));}catch(e){}}
 function brData(d){if(!d)return '';var p=(''+d).split('-');return p.length===3?p[2]+'/'+p[1]+'/'+p[0]:d;}
 function hdrData(ds){var dt=new Date(ds+'T00:00:00');return DIAS_SEM[dt.getDay()]+', '+brData(ds);}
 function diasDesde(d){if(!d)return 0;return Math.floor((Date.now()-new Date(d+'T00:00:00').getTime())/86400000);}
@@ -1650,17 +2101,20 @@ function excluirColeta(){
 renderRes();
 renderHist();
 renderColetas();
+renderContratos();
+renderParceiros();
 if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(function(){});}
 
 // ── FIREBASE: login + sincronização (camada compartilhada cloud-sync.js) ──
 if(window.CloudSync){
   CloudSync.initSync({
     collection:'residuospro',
-    syncKeys:['rpro_cfg','rpro_hist','rpro_coletas'],
-    onRemote:function(k){ if(k==='rpro_cfg')cfg=lCfg(); renderHist(); renderColetas(); },
+    syncKeys:['rpro_cfg','rpro_hist','rpro_coletas','rpro_contratos','rpro_parceiros'],
+    onRemote:function(k){ if(k==='rpro_cfg')cfg=lCfg(); renderHist(); renderColetas(); renderContratos(); renderParceiros(); },
     onLogout:function(){ try{fecharCfg();}catch(e){} }
   });
 }
+try{checkBackupLembrete();}catch(e){}
 </script>
 </body>
 </html>

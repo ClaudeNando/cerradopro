@@ -41,28 +41,108 @@
   function _g(id) { return document.getElementById(id); }
   function _toast(m) { if (typeof global.toast === 'function') global.toast(m); }
 
+  /* ---- Resolução de conflito (timestamp por chave + auditoria) ---- */
+  var _META = '__cs_ts_';      // prefixo: timestamp da última edição local de cada chave
+  var _LOG  = '__cs_conflog';  // log de conflitos (auditável)
+  var _initTime = 0;           // marca o início da sincronização (evita avisos no login)
+  var _remote = {};            // último snapshot conhecido por chave: { value, ts } (proteção TASK-016)
+  function _now() { return Date.now(); }
+  // Valor "vazio" = sem dados úteis: usado para não semear/sobrescrever a nuvem a partir de um aparelho vazio.
+  function _isVazio(v) {
+    if (v == null) return true;
+    var s = String(v).trim();
+    return s === '' || s === '[]' || s === '{}' || s === 'null';
+  }
+  function _getLocalTs(k) { var t = Number(localStorage.getItem(_META + k)); return isNaN(t) ? 0 : t; }
+  function _setLocalTs(k, ts) { try { _setItem.call(window.localStorage, _META + k, String(ts)); } catch (e) {} }
+  function _logConflito(k, acao, localTs, remoteTs) {
+    var ev = { k: k, acao: acao, localTs: localTs, remoteTs: remoteTs, em: new Date().toISOString() };
+    try { console.info('[CloudSync] conflito de sincronização:', ev); } catch (e) {}
+    try {
+      var arr = JSON.parse(localStorage.getItem(_LOG) || '[]'); arr.push(ev);
+      if (arr.length > 50) arr = arr.slice(-50);
+      _setItem.call(window.localStorage, _LOG, JSON.stringify(arr));
+    } catch (e) {}
+    // aviso leve só após a sincronização inicial (não polui durante o login)
+    if (_now() - _initTime > 4000) {
+      if (acao === 'remoto-aplicado') _toast('🔄 Dados atualizados de outro dispositivo');
+      else if (acao === 'local-mantido') _toast('✓ Mantida a versão mais recente deste aparelho');
+    }
+  }
+
+  /* ---- Gravação explícita (substitui a antiga interceptação de Storage.setItem, TASK-010) ---- */
+  /* Grava no localStorage e, se a chave é sincronizável e há sessão, carimba o timestamp
+     e agenda o push (mesmo comportamento que o override fazia, agora explícito). */
+  function save(k, v) {
+    _setItem.call(window.localStorage, k, v == null ? '' : String(v));
+    if (_syncKeys.indexOf(k) >= 0 && !_applyingRemote && _auth && _auth.currentUser) {
+      _setLocalTs(k, _now());
+      clearTimeout(_timers[k]); _timers[k] = setTimeout(function () { _pushCloud(k); }, 400);
+    }
+    return v;
+  }
+
   /* ---- Sincronização (local -> nuvem e nuvem -> local) ---- */
   function _pushCloud(k) {
     if (!_auth || !_auth.currentUser) return;
+    var localVal = localStorage.getItem(k) || '';
+    // Proteção (TASK-016): nunca enviar valor VAZIO que apagaria a nuvem.
+    // - Se já conhecemos um remoto CHEIO: re-semeia este aparelho a partir dele e bloqueia o overwrite.
+    // - Se o remoto ainda é desconhecido (snapshot não chegou) ou também vazio: não há o que enviar — ignora o push vazio.
+    if (_isVazio(localVal)) {
+      var rem = _remote[k];
+      if (rem && !_isVazio(rem.value)) {
+        _logConflito(k, 'overwrite-vazio-bloqueado', _getLocalTs(k), rem.ts);
+        _applyingRemote = true; _setItem.call(localStorage, k, rem.value); _applyingRemote = false;
+        _setLocalTs(k, rem.ts);
+        if (_onRemote) { try { _onRemote(k, rem.value); } catch (e) {} }
+      }
+      return;
+    }
+    var ts = _getLocalTs(k); if (!ts) { ts = _now(); _setLocalTs(k, ts); }
     _db.collection(_col).doc(k).set({
-      value: localStorage.getItem(k) || '', ts: Date.now(), by: _auth.currentUser.email || ''
+      value: localVal, ts: ts, by: _auth.currentUser.email || ''
     }).catch(function () {});
   }
-  function _aplicarRemoto(k, val) {
-    if (localStorage.getItem(k) === val) return;
-    _applyingRemote = true; _setItem.call(localStorage, k, val == null ? '' : val); _applyingRemote = false;
-    if (_onRemote) { try { _onRemote(k, val); } catch (e) {} }
+  function _aplicarRemoto(k, val, remoteTs) {
+    remoteTs = Number(remoteTs) || 0;
+    var localTs = _getLocalTs(k);
+    // Conteúdo igual: nada a fazer (só converge o timestamp para o maior conhecido).
+    if (localStorage.getItem(k) === val) { if (remoteTs > localTs) _setLocalTs(k, remoteTs); return; }
+    if (remoteTs >= localTs) {
+      // Remoto é mais novo (ou do mesmo instante): aplica e re-renderiza.
+      _applyingRemote = true; _setItem.call(localStorage, k, val == null ? '' : val); _applyingRemote = false;
+      _setLocalTs(k, remoteTs);
+      if (_onRemote) { try { _onRemote(k, val); } catch (e) {} }
+      if (localTs > 0) _logConflito(k, 'remoto-aplicado', localTs, remoteTs);
+    } else if (_isVazio(localStorage.getItem(k)) && !_isVazio(val)) {
+      // Local é mais novo MAS está vazio e o remoto tem dados: NÃO sobrescreve a nuvem
+      // (proteção TASK-016 contra semeadura por aparelho vazio). Re-semeia o local a partir do remoto.
+      _applyingRemote = true; _setItem.call(localStorage, k, val); _applyingRemote = false;
+      _setLocalTs(k, remoteTs);
+      if (_onRemote) { try { _onRemote(k, val); } catch (e) {} }
+      _logConflito(k, 'overwrite-vazio-bloqueado', localTs, remoteTs);
+    } else {
+      // Local é mais novo e tem conteúdo: NÃO sobrescreve; reenvia o local para a nuvem (sem perda silenciosa).
+      _logConflito(k, 'local-mantido', localTs, remoteTs);
+      _pushCloud(k);
+    }
   }
   function _iniciarSync() {
     _syncKeys.forEach(function (k) {
       var un = _db.collection(_col).doc(k).onSnapshot(function (doc) {
-        if (doc.exists) { var d = doc.data(); if (d && typeof d.value === 'string') _aplicarRemoto(k, d.value); }
-        else if (localStorage.getItem(k)) _pushCloud(k);
+        if (doc.exists) {
+          var d = doc.data();
+          if (d && typeof d.value === 'string') { _remote[k] = { value: d.value, ts: Number(d.ts) || 0 }; _aplicarRemoto(k, d.value, d.ts); }
+        } else {
+          _remote[k] = { value: '', ts: 0 };               // nuvem sem este doc: seguro semear com local cheio
+          if (localStorage.getItem(k)) _pushCloud(k);
+        }
       }, function () {});
       _unsub.push(un);
     });
   }
-  function _pararSync() { _unsub.forEach(function (u) { try { u(); } catch (e) {} }); _unsub = []; }
+  function _pararSync() { _unsub.forEach(function (u) { try { u(); } catch (e) {} }); _unsub = []; _remote = {}; }
 
   /* ---- Login / Logout ---- */
   function login() {
@@ -94,13 +174,10 @@
     _col = opts.collection; _syncKeys = opts.syncKeys || [];
     _onRemote = opts.onRemote || null; _onLogout = opts.onLogout || null;
     _onConnection = opts.onConnection || null;
+    _initTime = _now();
 
-    Storage.prototype.setItem = function (k, v) {
-      _setItem.call(this, k, v);
-      if (this === window.localStorage && _syncKeys.indexOf(k) >= 0 && !_applyingRemote && _auth.currentUser) {
-        clearTimeout(_timers[k]); _timers[k] = setTimeout(function () { _pushCloud(k); }, 400);
-      }
-    };
+    /* Gravação de chaves sincronizáveis é explícita via CloudSync.save (TASK-010):
+       não há mais override de Storage.prototype.setItem. */
 
     _auth.onAuthStateChanged(function (user) {
       if (user) {
@@ -150,16 +227,21 @@
   }
 
   function isOnline() { return _online; }
+  function getConflictLog() { try { return JSON.parse(localStorage.getItem(_LOG) || '[]'); } catch (e) { return []; } }
+  function clearConflictLog() { try { _setItem.call(window.localStorage, _LOG, '[]'); } catch (e) {} }
 
   global.CloudSync = {
-    _version: '1.0.0',
+    _version: '1.2.0',
     config: FB_CONFIG,
     initSync: initSync,
+    save: save,
     login: login,
     logout: logout,
     exportBackup: exportBackup,
     importBackup: importBackup,
-    isOnline: isOnline
+    isOnline: isOnline,
+    getConflictLog: getConflictLog,
+    clearConflictLog: clearConflictLog
   };
 
 })(typeof window !== 'undefined' ? window : this);
