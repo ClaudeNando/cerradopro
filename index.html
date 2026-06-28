@@ -582,6 +582,17 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
     <div class="card">
       <div class="card-head"><div class="card-icon"><i data-lucide="truck"></i></div><div class="card-lbl">Transporte</div></div>
       <div class="g2">
+        <div class="field"><label class="flabel">Transportador</label>
+          <select class="inp sel" id="orc-transp" onchange="orcTranspChange()"><option value="">— selecionar —</option></select>
+        </div>
+        <div class="field" id="orc-veic-wrap" style="display:none"><label class="flabel">Veículo do parceiro</label>
+          <select class="inp sel" id="orc-veic" onchange="calcular()"><option value="">— selecionar —</option></select>
+        </div>
+      </div>
+      <div class="field"><label class="flabel">Destinador</label>
+        <select class="inp sel" id="orc-destinador" onchange="calcular()"><option value="">— selecionar —</option></select>
+      </div>
+      <div class="g2">
         <div class="field" style="display:flex; gap:8px;">
           <div style="flex:1"><label class="flabel">Trajeto (km)</label><input class="inp inp-mono" type="number" id="trajeto" placeholder="0" inputmode="numeric" oninput="calcular()"></div>
           <button class="btn btn-ghost" style="width:52px; align-self:flex-end;" onclick="abrirMaps()" title="Calcular Rota Automática">📍</button>
@@ -774,6 +785,7 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
         <div class="cfg-r"><div><div class="cfg-l">Nome</div></div><input class="cfg-i cfg-i-wide" id="cfg-empresa" placeholder="Cerrado Ambiental"></div>
         <div class="cfg-r"><div><div class="cfg-l">CNPJ</div></div><input class="cfg-i cfg-i-wide" id="cfg-cnpj"></div>
         <div class="cfg-r"><div><div class="cfg-l">Telefone</div></div><input class="cfg-i cfg-i-wide" id="cfg-tel"></div>
+        <div class="cfg-r"><div><div class="cfg-l">Minha base</div><div class="cfg-s">origem da rota</div></div><input class="cfg-i cfg-i-wide" id="cfg-minhabase" placeholder="Endereço da sua base"></div>
         <div class="cfg-r"><div><div class="cfg-l">Validade</div><div class="cfg-s">dias</div></div><input class="cfg-i" id="cfg-validade" type="number" value="15"></div>
       </div>
       <span class="slabel">Custo Fornecedor — Transporte (R$/km)</span>
@@ -1030,7 +1042,7 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
 var DEST_KEYS_I  =['ATERRO CLASSE I','BLEND CLASSE I','INCIN CLASSE I','EFLUENTE CLASSE I'];
 var DEST_KEYS_II =['ATERRO CLASSE II','BLEND CLASSE II','INCIN CLASSE II','EFLUENTE CLASSE II','COMPOST CLASSE II'];
 var DEST_KEYS    = DEST_KEYS_I.concat(DEST_KEYS_II);
-var DEF={empresa:'Cerrado Transportes e Soluções Ambientais',cnpj:'',tel:'',validade:15,imposto:15.45,margemMin:30,backupDias:7,
+var DEF={empresa:'Cerrado Transportes e Soluções Ambientais',cnpj:'',tel:'',minhaBase:'',validade:15,imposto:15.45,margemMin:30,backupDias:7,
   transp:{forn:{FURGAO:6.46,BAU:7.00,MAIOR:10.00},cli:{FURGAO:5.00,BAU:8.50,MAIOR:14.00}},
   motorista:{limiarAjudaKm:100,ajudaValor:100,blocoDiariaKm:800,cafe:40,almoco:40,jantar:40,hospedagem:200},
   transbordo:{rollOnKm:10,cacambaM3:5,cacambaKg:0},
@@ -1078,7 +1090,7 @@ function lset(k,v){ if(window.CloudSync&&CloudSync.save) return CloudSync.save(k
 function sCfg(c){lset('rpro_cfg',JSON.stringify(c));}
 
 function abrirCfg(){
-  g('cfg-empresa').value=cfg.empresa||'';g('cfg-cnpj').value=cfg.cnpj||'';g('cfg-tel').value=cfg.tel||'';g('cfg-validade').value=cfg.validade||15;
+  g('cfg-empresa').value=cfg.empresa||'';g('cfg-cnpj').value=cfg.cnpj||'';g('cfg-tel').value=cfg.tel||'';g('cfg-minhabase').value=cfg.minhaBase||'';g('cfg-validade').value=cfg.validade||15;
   g('cfg-tfu').value=cfg.transp.forn.FURGAO;g('cfg-tb').value=cfg.transp.forn.BAU;g('cfg-tm').value=cfg.transp.forn.MAIOR;
   g('cfg-cfu').value=cfg.transp.cli.FURGAO;g('cfg-cb').value=cfg.transp.cli.BAU;g('cfg-cm').value=cfg.transp.cli.MAIOR;
   g('cfg-imposto').value=cfg.imposto;g('cfg-margem-min').value=cfg.margemMin||30;
@@ -1135,7 +1147,7 @@ function importarBackup(input){
 }
 function fecharCfg(){g('cfg-modal').classList.remove('open');}
 function salvarCfg(){
-  cfg.empresa=g('cfg-empresa').value||'Cerrado Ambiental';cfg.cnpj=g('cfg-cnpj').value;cfg.tel=g('cfg-tel').value;cfg.validade=parseInt(g('cfg-validade').value)||15;
+  cfg.empresa=g('cfg-empresa').value||'Cerrado Ambiental';cfg.cnpj=g('cfg-cnpj').value;cfg.tel=g('cfg-tel').value;cfg.minhaBase=(g('cfg-minhabase').value||'').trim();cfg.validade=parseInt(g('cfg-validade').value)||15;
   cfg.transp.forn.FURGAO=pf('cfg-tfu');cfg.transp.forn.BAU=pf('cfg-tb');cfg.transp.forn.MAIOR=pf('cfg-tm');
   cfg.transp.cli.FURGAO=pf('cfg-cfu');cfg.transp.cli.BAU=pf('cfg-cb');cfg.transp.cli.MAIOR=pf('cfg-cm');
   cfg.imposto=pf('cfg-imposto');cfg.margemMin=pf('cfg-margem-min');
@@ -1236,7 +1248,13 @@ function calcular(){
   var cmot=(veic==='FURGAO'&&window.DecisionEngine&&DecisionEngine.calcularCustoMotoristaViagem)?DecisionEngine.calcularCustoMotoristaViagem(km,cfg):null;
   var cmotCusto=cmot?cmot.custoTotal:0;
   var tot=ptc+pdc+ac,imp=tot*(cfg.imposto/100),ct=ctf+cdf+ped+cmotCusto+imp,sob=tot-ct,mar=tot>0?sob/tot:0;
+  // Parceiros: dados CADASTRAIS (não entram em nenhum cálculo; guardados para uso futuro)
+  var _tpId=g('orc-transp')?g('orc-transp').value:'', _tp=_tpId?lParceiros().find(function(x){return String(x.id)===String(_tpId);}):null;
+  var _vId=g('orc-veic')?g('orc-veic').value:'', _vSnap=null;
+  if(_tp&&_vId){var _vv=(_tp.veiculos||[]).find(function(x){return String(x.id)===String(_vId);});if(_vv)_vSnap={nome:_vv.nome,capacidadeT:_vv.capacidadeT,capacidadeM3:_vv.capacidadeM3,custoKm:_vv.custoKm};}
+  var _dId=g('orc-destinador')?g('orc-destinador').value:'', _dp=_dId?lParceiros().find(function(x){return String(x.id)===String(_dId);}):null;
   ultimoCalculo={km:km,veic:veic,ac:ac,ped:ped,ctf:ctf,ptc:ptc,cdf:cdf,pdc:pdc,cmot:cmot,itens:itens,tot:tot,imp:imp,ct:ct,sob:sob,mar:mar,
+    transportadorId:_tpId||null,transportadorNome:_tp?_tp.nome:'',veiculoId:_vId||null,veicSnapshot:_vSnap,destinadorId:_dId||null,destinadorNome:_dp?_dp.nome:'',
     cli:{nome:g('cli-nome').value,cnpj:g('cli-cnpj').value,contato:g('cli-contato').value,local:g('cli-local').value},
     obs:g('obs').value,data:new Date().toLocaleDateString('pt-BR')};
   return ultimoCalculo;
@@ -1342,6 +1360,8 @@ function _preencherForm(x){
   var c=x.cli||{};
   g('cli-nome').value=c.nome||'';g('cli-cnpj').value=c.cnpj||'';g('cli-contato').value=c.contato||'';g('cli-local').value=c.local||'';
   g('trajeto').value=x.km||'';g('veiculo').value=x.veic||'FURGAO';g('acresc').value=x.ac||'';g('pedagio').value=x.ped||'';g('obs').value=x.obs||'';
+  if(g('orc-transp')){g('orc-transp').value=x.transportadorId||'';orcTranspChange(true);if(g('orc-veic'))g('orc-veic').value=x.veiculoId||'';}
+  if(g('orc-destinador'))g('orc-destinador').value=x.destinadorId||'';
   residuos=(x.itens||[]).map(function(r){return{id:nextId++,desc:r.desc||'',codigo:r.codigo||'',perigoso:!!r.perigoso,peso:r.peso||0,dest:r.dest||'ATERRO CLASSE II'};});
   if(!residuos.length)residuos=[{id:nextId++,desc:'',codigo:'',perigoso:false,peso:0,dest:'ATERRO CLASSE II'}];
   renderRes();
@@ -1910,13 +1930,13 @@ function initMapsTools(){
 
 function abrirMaps(){
   initMapsTools();
-  if(_mapsStops.length === 0){
-    // Cria estado default: Origem, 1 Cliente
-    _mapsStops = [
-      { id:_mapsNextId++, tipo:'origem', val:'Senador Canedo - GO' },
-      { id:_mapsNextId++, tipo:'cliente', val:g('cli-nome').value || '' }
-    ];
-  }
+  // Monta automaticamente: Minha Base → Gerador (local da coleta) → Destinador (base do parceiro) → volta à Base
+  var base=(cfg.minhaBase||'').trim()||'Senador Canedo - GO';
+  var cliente=(g('cli-local').value||'').trim();
+  var destId=g('orc-destinador')?g('orc-destinador').value:'', destBase='';
+  if(destId){var dp=lParceiros().find(function(p){return String(p.id)===String(destId);});if(dp)destBase=(dp.base||'').trim();}
+  _mapsStops=[ {id:_mapsNextId++,tipo:'origem',val:base}, {id:_mapsNextId++,tipo:'cliente',val:cliente} ];
+  if(destBase) _mapsStops.push({id:_mapsNextId++,tipo:'destinador',val:destBase});
   g('maps-resumo-box').style.display = 'none';
   g('btn-usar-rota').style.display = 'none';
   renderMapsStops();
@@ -1933,7 +1953,7 @@ function renderMapsStops(){
   var temDestino = _mapsStops.length > 0 && _mapsStops[_mapsStops.length-1].tipo === 'destino';
   var listToRender = _mapsStops.slice();
   if(!temDestino && listToRender.length > 0) {
-    listToRender.push({ id:'fim', tipo:'destino', val:'Senador Canedo - GO' });
+    listToRender.push({ id:'fim', tipo:'destino', val:(cfg.minhaBase||'').trim()||'Senador Canedo - GO' });
   }
 
   listToRender.forEach(function(st, i){
@@ -1947,16 +1967,7 @@ function renderMapsStops(){
     } else if(st.tipo === 'destino') {
       inp = '<input class="inp maps-stop-inp autocomplete-maps" type="text" id="mstop-'+st.id+'" placeholder="Endereço de retorno/destino final" value="'+st.val+'" onchange="updMapsStop('+st.id+',this.value)">';
     } else if(st.tipo === 'destinador') {
-      // Destinador vira um select para facilitar endereços reais depois se o usuario quiser.
-      // Por ora, endereços textuais genéricos.
-      var opts = [
-        'Aterro Sanitário - Goiânia, GO',
-        'Aterro Classe I Candeias, GO',
-        'Coprocessamento de Resíduos, GO',
-        'Tratamento de Efluentes, GO'
-      ].map(function(o){ return '<option value="'+o+'" '+(st.val===o?'selected':'')+'>'+o+'</option>'; }).join('');
-      inp = '<select class="inp sel maps-stop-inp" id="mstop-'+st.id+'" onchange="updMapsStop('+st.id+',this.value)">'+
-            '<option value="">Selecione destinador...</option>'+opts+'</select>';
+      inp = '<input class="inp maps-stop-inp autocomplete-maps" type="text" id="mstop-'+st.id+'" placeholder="Endereço do destinador" value="'+st.val+'" onchange="updMapsStop('+st.id+',this.value)">';
     } else {
       // Cliente input
       inp = '<input class="inp maps-stop-inp autocomplete-maps" type="text" id="mstop-'+st.id+'" placeholder="Endereço do cliente (Rua, Número, Cidade)" value="'+st.val+'" onchange="updMapsStop('+st.id+',this.value)">';
@@ -2239,6 +2250,24 @@ function renderParceiros(){
     }).join('');
   }
   renderTranspSugestoes();
+  renderOrcParceiros();
+}
+// ---- Selects de parceiro no ORÇAMENTO (Transportador / Veículo / Destinador) ----
+function _orcOpts(arr){return arr.slice().sort(function(a,b){return (a.nome||'').localeCompare(b.nome||'');}).map(function(p){return '<option value="'+p.id+'">'+(p.nome||'(sem nome)')+'</option>';}).join('');}
+function renderOrcParceiros(){
+  var arr=lParceiros(), ts=g('orc-transp'), ds=g('orc-destinador');
+  if(ts){var cur=ts.value;ts.innerHTML='<option value="">— selecionar —</option>'+_orcOpts(arr.filter(function(p){return p.transportador;}));ts.value=cur;}
+  if(ds){var curd=ds.value;ds.innerHTML='<option value="">— selecionar —</option>'+_orcOpts(arr.filter(function(p){return p.destinador;}));ds.value=curd;}
+  orcTranspChange(true);
+}
+function orcTranspChange(silent){
+  var ts=g('orc-transp'), vs=g('orc-veic'), wrap=g('orc-veic-wrap'); if(!ts||!vs)return;
+  var cur=vs.value, p=lParceiros().find(function(x){return String(x.id)===String(ts.value);}), veics=(p&&p.veiculos)||[];
+  if(ts.value&&veics.length){
+    vs.innerHTML='<option value="">— selecionar —</option>'+veics.map(function(v){var caps=[];if(v.capacidadeT)caps.push(fmt(v.capacidadeT)+' t');if(v.capacidadeM3)caps.push(fmt(v.capacidadeM3)+' m³');return '<option value="'+v.id+'">'+(v.nome||'Veículo')+(caps.length?' · '+caps.join(' | '):'')+(v.custoKm?' · '+brl(v.custoKm)+'/km':'')+'</option>';}).join('');
+    vs.value=cur; if(wrap)wrap.style.display='';
+  }else{ vs.innerHTML='<option value="">— selecionar —</option>'; if(wrap)wrap.style.display='none'; }
+  if(!silent)calcular();
 }
 // ---- Veículos do parceiro (estado de edição em memória) ----
 var _paVeiculos=[], _paVehEdit=null;
