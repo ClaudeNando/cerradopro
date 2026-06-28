@@ -8,7 +8,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="FurgãoPRO">
 <title>FurgãoPRO</title>
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
 :root{
@@ -19,7 +20,7 @@
   --success:#1a7a40;--danger:#b03020;--warning:#b07010;
   --nav-h:68px;--st:env(safe-area-inset-top,0px);--sb:env(safe-area-inset-bottom,0px);
 }
-html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;overflow:hidden}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;overflow:hidden}
 body{display:flex;flex-direction:column;padding-top:var(--st)}
 input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none}
 .hdr{background:var(--dark);padding:14px 16px 12px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
@@ -49,13 +50,13 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
 .kpi-sub{font-size:11px;color:var(--text4);margin-top:3px}
 .field{margin-bottom:12px}.field:last-child{margin-bottom:0}
 .flabel{font-size:11px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:var(--text3);margin-bottom:6px;display:block}
-.inp{width:100%;background:var(--bg);border:1.5px solid var(--border);border-radius:12px;padding:13px 14px;color:var(--text);font-family:'Syne',sans-serif;font-size:16px;outline:none;-webkit-appearance:none}
+.inp{width:100%;background:var(--bg);border:1.5px solid var(--border);border-radius:12px;padding:13px 14px;color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;font-size:16px;outline:none;-webkit-appearance:none}
 .inp:focus{border-color:var(--accent);background:#fff}
 .inp::placeholder{color:var(--text4)}
 .inp-mono{font-family:monospace}
 .sel{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath fill='%231a6bb5' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;padding-right:38px;cursor:pointer}
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:15px;border-radius:13px;font-family:'Syne',sans-serif;font-size:15px;font-weight:700;cursor:pointer;border:none;transition:transform .12s}
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:15px;border-radius:13px;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;font-size:15px;font-weight:700;cursor:pointer;border:none;transition:transform .12s}
 .btn:active{transform:scale(0.97)}
 .btn-primary{background:var(--accent);color:#fff;box-shadow:0 4px 16px rgba(26,107,181,0.28)}
 .btn-success{background:var(--success);color:#fff}
@@ -125,6 +126,65 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
 .secao-titulo{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin:16px 0 8px}
 .tag-real{font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;background:rgba(26,122,64,0.12);color:var(--success);border:1px solid rgba(26,122,64,0.2)}
 .tag-est{font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;background:rgba(26,107,181,0.10);color:var(--accent);border:1px solid rgba(26,107,181,0.18)}
+
+/* ===========================================================================
+   DESIGN V2 (azul) — mesma estrutura do CerradoPRO, identidade azul preservada.
+   =========================================================================== */
+:root{
+  --border:#D9E1EA; --border2:#E9EEF3;
+  --text-muted:#5a7088; --text3:#5a7088;
+  --shadow-sm:0 1px 2px rgba(13,33,55,0.05);
+}
+body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
+.flabel,.card-lbl,.secao-titulo,.nav-label,.rnum-lbl{ text-transform:none; letter-spacing:0; }
+.flabel{ font-size:12px; font-weight:500; color:var(--text-muted); }
+.card-lbl{ font-size:14px; font-weight:600; color:var(--text); }
+.shdr-title{ font-size:22px; }
+.card,.kpi,.ccard,.rcard,.info-box{ background:#fff; border:1px solid var(--border); border-radius:8px; box-shadow:var(--shadow-sm); }
+.card{ padding:18px 20px; }
+.card-icon{ width:auto; height:auto; background:none; }
+.card-icon svg{ width:18px; height:18px; color:var(--accent); }
+.inp{ background:#fff; border:1px solid var(--border); border-radius:6px; font-size:13.5px; }
+.inp:focus{ border-color:var(--accent-light); box-shadow:0 0 0 3px rgba(26,107,181,0.15); background:#fff; }
+.btn{ border-radius:6px; }
+.btn-primary{ box-shadow:none; }
+.btn-primary:hover{ opacity:.92; }
+[data-lucide]{ display:inline-flex; align-items:center; justify-content:center; line-height:0; }
+.nav-icon svg{ width:21px; height:21px; }
+.hdr-btn svg,.side-btn svg{ width:18px; height:18px; }
+.btn svg{ width:16px; height:16px; }
+.nav-brand{ display:none; align-items:center; gap:10px; padding:2px 8px 14px; }
+.nav-brand .bm{ width:34px;height:34px;border-radius:8px;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:18px;flex-shrink:0; }
+.nav-brand .bn{ font-weight:700;font-size:15px;color:var(--text);line-height:1; }
+.nav-brand .bs{ font-size:11px;color:var(--text-muted);margin-top:2px; }
+.nav-footer{ display:none; margin-top:auto; padding-top:14px; border-top:1px solid var(--border); gap:8px; }
+.side-btn{ flex:1;height:38px;border:1px solid var(--border);background:#fff;border-radius:6px;color:var(--text-muted);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.15s; }
+.side-btn:hover{ border-color:var(--accent-light);color:var(--accent); }
+
+@media (min-width:768px){
+  html,body{ overflow:visible; height:auto; }
+  .content{ overflow:visible; }
+  .screen{ overflow:visible; max-width:none; margin:0; padding:24px 32px; }
+  .hdr{ display:none; }
+  body{ padding-left:240px; }
+  .nav{ top:0; bottom:0; left:0; right:auto; width:240px; height:100vh; flex-direction:column; align-items:stretch; justify-content:flex-start; padding:16px 12px; gap:3px; overflow-y:auto; background:#fff; border-top:none; border-right:1px solid var(--border); box-shadow:2px 0 18px rgba(13,33,55,0.06); }
+  .nav-brand{ display:flex; }
+  .nav-footer{ display:flex; }
+  .nav-item{ flex:0 0 auto; flex-direction:row; justify-content:flex-start; align-items:center; gap:13px; padding:12px 14px; border-radius:6px; min-height:46px; color:var(--text-muted); }
+  .nav-item:hover{ background:#f2f6fa; color:var(--text); }
+  .nav-item.active{ background:rgba(26,107,181,0.10); }
+  .nav-item.active .nav-label,.nav-item.active .nav-icon{ color:var(--accent); }
+  .nav-icon{ color:var(--text-muted); }
+  .nav-label{ color:var(--text-muted); font-weight:500; font-size:13.5px; text-transform:none; letter-spacing:0; }
+  .nav-item.active .nav-icon{ transform:none; }
+  .kpi-grid{ grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); }
+  .inp{ min-height:38px; padding:0 11px; }
+  textarea.inp{ height:auto; min-height:72px; padding:9px 11px; }
+  .overlay{ align-items:center; justify-content:center; padding:24px; }
+  .modal{ width:100%; max-width:620px; border-radius:12px; border:1px solid var(--border); max-height:88vh; transform:translateY(10px) scale(.985); }
+  .overlay.open .modal{ transform:none; }
+  .modal-body{ padding:24px 28px; }
+}
 </style>
 </head>
 <body>
@@ -133,7 +193,7 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
     <div class="hdr-mark">F</div>
     <div><div class="hdr-title">FurgãoPRO</div><div class="hdr-sub">Cerrado Ambiental</div></div>
   </div>
-  <div style="display:flex;gap:8px"><button class="hdr-btn" onclick="window.location.href='index.html'" title="CerradoPRO" style="font-size:14px">♻️</button><button class="hdr-btn" onclick="openModal('cfg-modal')">⚙️</button></div>
+  <div style="display:flex;gap:8px"><button class="hdr-btn" onclick="window.location.href='index.html'" title="CerradoPRO"><i data-lucide="recycle"></i></button><button class="hdr-btn" onclick="openModal('cfg-modal')"><i data-lucide="settings"></i></button></div>
 </div>
 <div class="content">
 
@@ -142,11 +202,11 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
     <div class="shdr"><div class="shdr-title">Dashboard</div><div id="dash-sub" style="font-size:11px;color:var(--text4);font-family:monospace"></div></div>
     <div class="kpi-grid" id="kpi-area"></div>
     <div class="card" id="custo-card">
-      <div class="card-head"><div class="card-icon">📐</div><div class="card-lbl">Custo por km</div></div>
+      <div class="card-head"><div class="card-icon"><i data-lucide="gauge"></i></div><div class="card-lbl">Custo por km</div></div>
       <div id="custo-detalhe"></div>
     </div>
     <div class="card">
-      <div class="card-head"><div class="card-icon">📊</div><div class="card-lbl">Desempenho por cliente</div></div>
+      <div class="card-head"><div class="card-icon"><i data-lucide="bar-chart-3"></i></div><div class="card-lbl">Desempenho por cliente</div></div>
       <div id="dash-barras"></div>
     </div>
   </div>
@@ -175,9 +235,14 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
 
 </div>
 <nav class="nav">
-  <div class="nav-item active" id="nav-dash" onclick="navTo('dash',this)"><div class="nav-icon">📊</div><div class="nav-label">Dashboard</div></div>
-  <div class="nav-item" id="nav-registros" onclick="navTo('registros',this)"><div class="nav-icon">🗒️</div><div class="nav-label">Viagens</div></div>
-  <div class="nav-item" id="nav-clientes" onclick="navTo('clientes',this)"><div class="nav-icon">🏢</div><div class="nav-label">Clientes</div></div>
+  <div class="nav-brand"><div class="bm">F</div><div><div class="bn">FurgãoPRO</div><div class="bs">Cerrado Ambiental</div></div></div>
+  <div class="nav-item active" id="nav-dash" onclick="navTo('dash',this)"><div class="nav-icon"><i data-lucide="layout-dashboard"></i></div><div class="nav-label">Dashboard</div></div>
+  <div class="nav-item" id="nav-registros" onclick="navTo('registros',this)"><div class="nav-icon"><i data-lucide="route"></i></div><div class="nav-label">Viagens</div></div>
+  <div class="nav-item" id="nav-clientes" onclick="navTo('clientes',this)"><div class="nav-icon"><i data-lucide="building-2"></i></div><div class="nav-label">Clientes</div></div>
+  <div class="nav-footer">
+    <button class="side-btn" onclick="window.location.href='index.html'" title="CerradoPRO"><i data-lucide="recycle"></i></button>
+    <button class="side-btn" onclick="openModal('cfg-modal')" title="Configurações"><i data-lucide="settings"></i></button>
+  </div>
 </nav>
 
 <!-- MODAL: REGISTRAR VIAGEM -->
@@ -1161,6 +1226,10 @@ if(window.CloudSync){
   });
 }
 try{checkBackupLembrete();}catch(e){}
+</script>
+<script>
+(function(){ function _i(){ if(window.lucide&&lucide.createIcons){try{lucide.createIcons();}catch(e){}} } _i();
+  if(window.MutationObserver&&document.body){ var t; new MutationObserver(function(){ clearTimeout(t); t=setTimeout(_i,60); }).observe(document.body,{childList:true,subtree:true}); } })();
 </script>
 </body>
 </html>
