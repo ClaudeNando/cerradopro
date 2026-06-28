@@ -861,27 +861,42 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
         <div class="field c12">
           <label class="flabel">Atuação</label>
           <div class="chk-row">
-            <label class="chk"><input type="checkbox" id="pa-transp"> Atua como transportador</label>
-            <label class="chk"><input type="checkbox" id="pa-dest"> Atua como destinador</label>
+            <label class="chk"><input type="checkbox" id="pa-transp" onchange="paToggleSecoes()"> Atua como transportador</label>
+            <label class="chk"><input type="checkbox" id="pa-dest" onchange="paToggleSecoes()"> Atua como destinador</label>
           </div>
         </div>
         <div class="field c8"><label class="flabel">Base operacional (endereço)</label><input class="inp" type="text" id="pa-base" placeholder="Rua, nº — Cidade/UF"></div>
         <div class="field c4"><label class="flabel">UF</label><input class="inp" type="text" id="pa-uf" placeholder="GO" maxlength="2" style="text-transform:uppercase"></div>
       </div>
 
-      <div class="pa-vehicles">
-        <div class="pa-vh-head"><span class="card-lbl">Veículos</span><button type="button" class="btn res-btn-sec btn-sm" onclick="paVeiculoNovo()">＋ Adicionar veículo</button></div>
+      <div class="pa-vehicles" id="pa-sec-transp">
+        <div class="pa-vh-head"><span class="card-lbl">Veículos (transporte)</span><button type="button" class="btn res-btn-sec btn-sm" onclick="paVeiculoNovo()">＋ Adicionar veículo</button></div>
         <div id="pa-vh-list"></div>
         <div id="pa-vh-form" style="display:none">
           <div class="form-grid" style="margin-top:10px">
             <div class="field c6"><label class="flabel">Nome / tipo</label><input class="inp" type="text" id="pav-nome" placeholder="Truck, Toco, Roll-on..."></div>
             <div class="field c3"><label class="flabel">Capacidade (t)</label><input class="inp inp-mono" type="number" id="pav-capt" placeholder="0" inputmode="decimal"></div>
             <div class="field c3"><label class="flabel">Capacidade (m³)</label><input class="inp inp-mono" type="number" id="pav-capm3" placeholder="0" inputmode="decimal"></div>
-            <div class="field c6"><label class="flabel">Preço mínimo / diária (R$)</label><input class="inp inp-mono" type="number" id="pav-preco" placeholder="0,00" inputmode="decimal"></div>
+            <div class="field c6"><label class="flabel">Preço (R$/km)</label><input class="inp inp-mono" type="number" id="pav-custokm" placeholder="0,00" inputmode="decimal"></div>
           </div>
           <div style="display:flex;gap:8px;margin-top:10px">
             <button type="button" class="btn btn-primary btn-sm" onclick="paVeiculoSalvar()">Salvar veículo</button>
             <button type="button" class="btn res-btn-sec btn-sm" onclick="paVeiculoCancelar()">Cancelar</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="pa-vehicles" id="pa-sec-dest">
+        <div class="pa-vh-head"><span class="card-lbl">Destinações</span><button type="button" class="btn res-btn-sec btn-sm" onclick="paDestNovo()">＋ Adicionar destinação</button></div>
+        <div id="pa-dest-list"></div>
+        <div id="pa-dest-form" style="display:none">
+          <div class="form-grid" style="margin-top:10px">
+            <div class="field c8"><label class="flabel">Tipo de destinação</label><input class="inp" type="text" id="pad-tipo" placeholder="Aterro Classe I, Incineração, Coprocessamento..."></div>
+            <div class="field c4"><label class="flabel">Preço (R$/ton)</label><input class="inp inp-mono" type="number" id="pad-rton" placeholder="0,00" inputmode="decimal"></div>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:10px">
+            <button type="button" class="btn btn-primary btn-sm" onclick="paDestSalvar()">Salvar destinação</button>
+            <button type="button" class="btn res-btn-sec btn-sm" onclick="paDestCancelar()">Cancelar</button>
           </div>
         </div>
       </div>
@@ -2192,7 +2207,8 @@ function lParceiros(){
       destinador: !!p.destinador,
       base: p.base||'',
       uf: p.uf||'',
-      veiculos: Array.isArray(p.veiculos)?p.veiculos:[]
+      veiculos: (Array.isArray(p.veiculos)?p.veiculos:[]).map(function(v){v=v||{};return {id:v.id,nome:v.nome||'',capacidadeT:v.capacidadeT||0,capacidadeM3:v.capacidadeM3||0,custoKm:v.custoKm!=null?v.custoKm:(v.precoMin||0)};}),
+      destinacoes: (Array.isArray(p.destinacoes)?p.destinacoes:[]).map(function(d){d=d||{};return {id:d.id,tipo:d.tipo||'',rton:d.rton||0};})
     };
   });
 }
@@ -2211,12 +2227,14 @@ function renderParceiros(){
   }else{
     list.innerHTML=arr.slice().sort(function(a,b){return (a.nome||'').localeCompare(b.nome||'');}).map(function(p){
       var papeis=_paPapeis(p).map(function(t){return '<span class="role-badge">'+t+'</span>';}).join('');
-      var nv=(p.veiculos||[]).length;
+      var nv=(p.veiculos||[]).length, nd=(p.destinacoes||[]).length, info=[];
+      if(p.transportador)info.push(nv+' veículo'+(nv!==1?'s':''));
+      if(p.destinador)info.push(nd+' destinaç'+(nd!==1?'ões':'ão'));
       return '<div class="hist-card" onclick="abrirParceiro('+p.id+')">'+
         '<div class="hist-top"><div class="hist-name">'+(p.nome||'(sem nome)')+'</div></div>'+
         (papeis?'<div style="display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 2px">'+papeis+'</div>':'<div class="hist-sub">sem atuação definida</div>')+
         ((p.base||p.uf)?'<div class="hist-sub">📍 '+(p.base||p.uf)+'</div>':'')+
-        '<div class="hist-sub">'+(nv?nv+' veículo'+(nv>1?'s':''):'sem veículos')+'</div>'+
+        '<div class="hist-sub">'+(info.join(' · ')||'—')+'</div>'+
       '</div>';
     }).join('');
   }
@@ -2226,7 +2244,7 @@ function renderParceiros(){
 var _paVeiculos=[], _paVehEdit=null;
 function _fmtVeic(v){
   var caps=[];if(v.capacidadeT)caps.push(fmt(v.capacidadeT)+' t');if(v.capacidadeM3)caps.push(fmt(v.capacidadeM3)+' m³');
-  var s=caps.join(' | ');if(v.precoMin)s+=(s?' · ':'')+'Preço mínimo: '+brl(v.precoMin);
+  var s=caps.join(' | ');if(v.custoKm)s+=(s?' · ':'')+brl(v.custoKm)+'/km';
   return s||'—';
 }
 function renderPaVeiculos(){
@@ -2237,17 +2255,42 @@ function renderPaVeiculos(){
       '<div class="pa-vh-acts"><button type="button" class="ico-btn" title="Editar" onclick="paVeiculoEditar('+v.id+')"><i data-lucide="pencil"></i></button><button type="button" class="ico-btn danger" title="Excluir" onclick="paVeiculoExcluir('+v.id+')"><i data-lucide="trash-2"></i></button></div></div>';
   }).join('');
 }
-function _paVehInputs(v){g('pav-nome').value=v?v.nome||'':'';g('pav-capt').value=(v&&v.capacidadeT)||'';g('pav-capm3').value=(v&&v.capacidadeM3)||'';g('pav-preco').value=(v&&v.precoMin)||'';}
+function _paVehInputs(v){g('pav-nome').value=v?v.nome||'':'';g('pav-capt').value=(v&&v.capacidadeT)||'';g('pav-capm3').value=(v&&v.capacidadeM3)||'';g('pav-custokm').value=(v&&v.custoKm)||'';}
 function paVeiculoNovo(){_paVehEdit=null;_paVehInputs(null);g('pa-vh-form').style.display='block';try{g('pav-nome').focus();}catch(e){}}
 function paVeiculoEditar(vid){var v=_paVeiculos.find(function(x){return x.id===vid;});if(!v)return;_paVehEdit=vid;_paVehInputs(v);g('pa-vh-form').style.display='block';}
 function paVeiculoCancelar(){g('pa-vh-form').style.display='none';_paVehEdit=null;}
 function paVeiculoSalvar(){
   var nome=(g('pav-nome').value||'').trim();if(!nome){toast('⚠️ Informe o nome/tipo do veículo');return;}
-  var v={id:_paVehEdit||Date.now(),nome:nome,capacidadeT:Number(g('pav-capt').value)||0,capacidadeM3:Number(g('pav-capm3').value)||0,precoMin:Number(g('pav-preco').value)||0};
+  var v={id:_paVehEdit||Date.now(),nome:nome,capacidadeT:Number(g('pav-capt').value)||0,capacidadeM3:Number(g('pav-capm3').value)||0,custoKm:Number(g('pav-custokm').value)||0};
   if(_paVehEdit){_paVeiculos=_paVeiculos.map(function(x){return x.id===_paVehEdit?v:x;});}else{_paVeiculos.push(v);}
   _paVehEdit=null;g('pa-vh-form').style.display='none';renderPaVeiculos();
 }
 function paVeiculoExcluir(vid){_paVeiculos=_paVeiculos.filter(function(x){return x.id!==vid;});renderPaVeiculos();}
+// ---- Destinações do parceiro (estado de edição em memória) ----
+var _paDest=[], _paDestEdit=null;
+function renderPaDest(){
+  var el=g('pa-dest-list');if(!el)return;
+  if(!_paDest.length){el.innerHTML='<div style="font-size:12px;color:var(--text-muted);padding:4px 0">Nenhuma destinação cadastrada.</div>';return;}
+  el.innerHTML=_paDest.map(function(d){
+    return '<div class="pa-vh-item"><div class="pa-vh-info"><div class="pa-vh-nome">'+(d.tipo||'Destinação')+'</div><div class="pa-vh-sub">'+(d.rton?brl(d.rton)+'/ton':'—')+'</div></div>'+
+      '<div class="pa-vh-acts"><button type="button" class="ico-btn" title="Editar" onclick="paDestEditar('+d.id+')"><i data-lucide="pencil"></i></button><button type="button" class="ico-btn danger" title="Excluir" onclick="paDestExcluir('+d.id+')"><i data-lucide="trash-2"></i></button></div></div>';
+  }).join('');
+}
+function paDestNovo(){_paDestEdit=null;g('pad-tipo').value='';g('pad-rton').value='';g('pa-dest-form').style.display='block';try{g('pad-tipo').focus();}catch(e){}}
+function paDestEditar(did){var d=_paDest.find(function(x){return x.id===did;});if(!d)return;_paDestEdit=did;g('pad-tipo').value=d.tipo||'';g('pad-rton').value=d.rton||'';g('pa-dest-form').style.display='block';}
+function paDestCancelar(){g('pa-dest-form').style.display='none';_paDestEdit=null;}
+function paDestSalvar(){
+  var tipo=(g('pad-tipo').value||'').trim();if(!tipo){toast('⚠️ Informe o tipo de destinação');return;}
+  var d={id:_paDestEdit||Date.now(),tipo:tipo,rton:Number(g('pad-rton').value)||0};
+  if(_paDestEdit){_paDest=_paDest.map(function(x){return x.id===_paDestEdit?d:x;});}else{_paDest.push(d);}
+  _paDestEdit=null;g('pa-dest-form').style.display='none';renderPaDest();
+}
+function paDestExcluir(did){_paDest=_paDest.filter(function(x){return x.id!==did;});renderPaDest();}
+function paToggleSecoes(){
+  var t=g('pa-transp').checked, d=g('pa-dest').checked;
+  g('pa-sec-transp').style.display=t?'block':'none';
+  g('pa-sec-dest').style.display=d?'block':'none';
+}
 function abrirParceiro(id){
   var arr=lParceiros(),p=(typeof id==='number')?arr.find(function(x){return x.id===id;}):null;
   g('pa-id').value=p?p.id:'';g('parceiro-titulo').textContent=p?'Editar parceiro':'Novo parceiro';
@@ -2257,7 +2300,10 @@ function abrirParceiro(id){
   g('pa-base').value=p?p.base||'':'';
   g('pa-uf').value=p?p.uf||'':'';
   _paVeiculos=(p&&Array.isArray(p.veiculos))?p.veiculos.map(function(v){return Object.assign({},v);}):[];
-  _paVehEdit=null;g('pa-vh-form').style.display='none';renderPaVeiculos();
+  _paDest=(p&&Array.isArray(p.destinacoes))?p.destinacoes.map(function(d){return Object.assign({},d);}):[];
+  _paVehEdit=null;_paDestEdit=null;
+  g('pa-vh-form').style.display='none';g('pa-dest-form').style.display='none';
+  renderPaVeiculos();renderPaDest();paToggleSecoes();
   g('pa-excluir-btn').style.display=p?'block':'none';
   g('parceiro-modal').classList.add('open');
 }
@@ -2266,7 +2312,7 @@ function salvarParceiro(){
   var arr=lParceiros(),id=g('pa-id').value?Number(g('pa-id').value):null;
   var nome=(g('pa-nome').value||'').trim();
   if(!nome){toast('⚠️ Informe o nome');return;}
-  var obj={id:id||Date.now(),nome:nome,transportador:g('pa-transp').checked,destinador:g('pa-dest').checked,base:(g('pa-base').value||'').trim(),uf:(g('pa-uf').value||'').trim().toUpperCase(),veiculos:_paVeiculos.slice()};
+  var obj={id:id||Date.now(),nome:nome,transportador:g('pa-transp').checked,destinador:g('pa-dest').checked,base:(g('pa-base').value||'').trim(),uf:(g('pa-uf').value||'').trim().toUpperCase(),veiculos:_paVeiculos.slice(),destinacoes:_paDest.slice()};
   if(id){arr=arr.map(function(x){return x.id===id?obj:x;});}else{arr.push(obj);}
   sParceiros(arr);fecharParceiro();renderParceiros();toast('✅ Parceiro salvo');
 }
