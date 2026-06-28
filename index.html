@@ -583,29 +583,30 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
       <div class="card-head"><div class="card-icon"><i data-lucide="truck"></i></div><div class="card-lbl">Transporte</div></div>
       <div class="g2">
         <div class="field"><label class="flabel">Transportador</label>
-          <select class="inp sel" id="orc-transp" onchange="orcTranspChange()"><option value="">— selecionar —</option></select>
-        </div>
-        <div class="field" id="orc-veic-wrap" style="display:none"><label class="flabel">Veículo do parceiro</label>
-          <select class="inp sel" id="orc-veic" onchange="calcular()"><option value="">— selecionar —</option></select>
-        </div>
-      </div>
-      <div class="field"><label class="flabel">Destinador</label>
-        <select class="inp sel" id="orc-destinador" onchange="calcular()"><option value="">— selecionar —</option></select>
-      </div>
-      <div class="g2">
-        <div class="field" style="display:flex; gap:8px;">
-          <div style="flex:1"><label class="flabel">Trajeto (km)</label><input class="inp inp-mono" type="number" id="trajeto" placeholder="0" inputmode="numeric" oninput="calcular()"></div>
-          <button class="btn btn-ghost" style="width:52px; align-self:flex-end;" onclick="abrirMaps()" title="Calcular Rota Automática">📍</button>
+          <select class="inp sel" id="orc-transp" onchange="orcTranspChange()"><option value="">Não cadastrado (manual)</option></select>
         </div>
         <div class="field"><label class="flabel">Veículo</label>
-          <select class="inp sel" id="veiculo" onchange="calcular()">
-            <option value="FURGAO" selected>Furgão</option>
-            <option value="BAU">Baú</option><option value="MAIOR">Maior (Roll-on, Caçamba, Munk, Vácuo)</option>
-          </select>
+          <select class="inp sel" id="orc-veic" onchange="orcVeicChange()"><option value="">— selecionar —</option></select>
         </div>
       </div>
-      <div class="field"><label class="flabel">Acréscimos de Cabeça (R$)</label><input class="inp inp-mono" type="number" id="acresc" placeholder="0,00" inputmode="numeric" oninput="calcular()"></div>
-      <div class="field"><label class="flabel">Pedágio total (R$)</label><input class="inp inp-mono" type="number" id="pedagio" placeholder="0,00" inputmode="numeric" oninput="calcular()"></div>
+      <div class="g2">
+        <div class="field"><label class="flabel">Fornecedor cobra (R$/km)</label>
+          <input class="inp inp-mono" type="number" id="orc-custoft" placeholder="0,00" inputmode="decimal" step="0.01" oninput="calcular()"></div>
+        <div class="field"><label class="flabel">Eu cobro (R$/km)</label>
+          <input class="inp inp-mono" type="number" id="orc-clikm" placeholder="0,00" inputmode="decimal" step="0.01" oninput="calcular()"></div>
+      </div>
+      <div class="cfg-s" id="orc-veic-cap" style="margin:-4px 0 10px;min-height:0"></div>
+      <div class="field"><label class="flabel">Destinador</label>
+        <select class="inp sel" id="orc-destinador" onchange="orcDestinadorChange()"><option value="">Não cadastrado (manual)</option></select>
+      </div>
+      <div class="field" style="display:flex; gap:8px;">
+        <div style="flex:1"><label class="flabel">Trajeto (km)</label><input class="inp inp-mono" type="number" id="trajeto" placeholder="0" inputmode="numeric" oninput="calcular()"></div>
+        <button class="btn btn-ghost" style="width:52px; align-self:flex-end;" onclick="abrirMaps()" title="Calcular Rota Automática">📍</button>
+      </div>
+      <div class="g2">
+        <div class="field"><label class="flabel">Acréscimos de Cabeça (R$)</label><input class="inp inp-mono" type="number" id="acresc" placeholder="0,00" inputmode="numeric" oninput="calcular()"></div>
+        <div class="field"><label class="flabel">Pedágio total (R$)</label><input class="inp inp-mono" type="number" id="pedagio" placeholder="0,00" inputmode="numeric" oninput="calcular()"></div>
+      </div>
       <button class="btn btn-ghost btn-sm" onclick="abrirRota()" style="margin-top:4px">🔗 Rota compartilhada (rateio por km)</button>
     </div>
     <div class="card" id="card-residuos">
@@ -788,22 +789,9 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
         <div class="cfg-r"><div><div class="cfg-l">Minha base</div><div class="cfg-s">origem da rota</div></div><input class="cfg-i cfg-i-wide" id="cfg-minhabase" placeholder="Endereço da sua base"></div>
         <div class="cfg-r"><div><div class="cfg-l">Validade</div><div class="cfg-s">dias</div></div><input class="cfg-i" id="cfg-validade" type="number" value="15"></div>
       </div>
-      <span class="slabel">Custo Fornecedor — Transporte (R$/km)</span>
-      <div class="card" style="margin-bottom:16px">
-        <div class="cfg-r"><div class="cfg-l">Furgão</div><input class="cfg-i" id="cfg-tfu" type="number" step="0.01" value="6.46"></div>
-        <div class="cfg-r"><div class="cfg-l">Baú</div><input class="cfg-i" id="cfg-tb" type="number" step="0.01" value="7.00"></div>
-        <div class="cfg-r"><div class="cfg-l">Maior</div><input class="cfg-i" id="cfg-tm" type="number" step="0.01" value="10.00"></div>
+      <div class="card" style="margin-bottom:16px;background:var(--accent-dim);border-color:var(--accent)">
+        <div style="font-size:12px;color:var(--text2);line-height:1.5">💡 Os preços de <b>transporte</b> e <b>destinação</b> agora vêm do <b>cadastro de fornecedores</b> (aba Parceiros) e são escolhidos no orçamento. Aqui ficam só os dados da Cerrado e os parâmetros financeiros.</div>
       </div>
-      <span class="slabel">Preço ao Cliente — Transporte (R$/km)</span>
-      <div class="card" style="margin-bottom:16px">
-        <div class="cfg-r"><div class="cfg-l">Furgão</div><input class="cfg-i" id="cfg-cfu" type="number" step="0.01" value="5.00"></div>
-        <div class="cfg-r"><div class="cfg-l">Baú</div><input class="cfg-i" id="cfg-cb" type="number" step="0.01" value="8.50"></div>
-        <div class="cfg-r"><div class="cfg-l">Maior</div><input class="cfg-i" id="cfg-cm" type="number" step="0.01" value="14.00"></div>
-      </div>
-      <span class="slabel">Custo Fornecedor — Destinação (R$/kg)</span>
-      <div class="card" style="margin-bottom:16px" id="cfg-dest-forn"></div>
-      <span class="slabel">Preço ao Cliente — Destinação (R$/kg)</span>
-      <div class="card" style="margin-bottom:16px" id="cfg-dest-cli"></div>
       <span class="slabel">Financeiro</span>
       <div class="card" style="margin-bottom:16px">
         <div class="cfg-r"><div><div class="cfg-l">Imposto (%)</div><div class="cfg-s">sobre total da nota</div></div><input class="cfg-i" id="cfg-imposto" type="number" step="0.01" value="15.45"></div>
@@ -875,7 +863,9 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
           <div class="chk-row">
             <label class="chk"><input type="checkbox" id="pa-transp" onchange="paToggleSecoes()"> Atua como transportador</label>
             <label class="chk"><input type="checkbox" id="pa-dest" onchange="paToggleSecoes()"> Atua como destinador</label>
+            <label class="chk"><input type="checkbox" id="pa-proprio"> Frota própria (Cerrado)</label>
           </div>
+          <div class="cfg-s" style="margin-top:4px">Marque "Frota própria" no cadastro da Cerrado: ao escolhê-la no orçamento, entram as ponderações do furgão (custo de motorista, piso marginal).</div>
         </div>
         <div class="field c8"><label class="flabel">Base operacional (endereço)</label><input class="inp" type="text" id="pa-base" placeholder="Rua, nº — Cidade/UF"></div>
         <div class="field c4"><label class="flabel">UF</label><input class="inp" type="text" id="pa-uf" placeholder="GO" maxlength="2" style="text-transform:uppercase"></div>
@@ -1049,7 +1039,7 @@ var DEF={empresa:'Cerrado Transportes e Soluções Ambientais',cnpj:'',tel:'',mi
   dest:{forn:{'ATERRO CLASSE I':0.60,'BLEND CLASSE I':0.50,'INCIN CLASSE I':3.20,'EFLUENTE CLASSE I':0.50,'ATERRO CLASSE II':0.135,'BLEND CLASSE II':0.50,'INCIN CLASSE II':0.50,'EFLUENTE CLASSE II':0.30,'COMPOST CLASSE II':0.04},
         cli:{'ATERRO CLASSE I':1.50,'BLEND CLASSE I':2.00,'INCIN CLASSE I':5.00,'EFLUENTE CLASSE I':1.80,'ATERRO CLASSE II':0.55,'BLEND CLASSE II':1.00,'INCIN CLASSE II':5.50,'EFLUENTE CLASSE II':1.00,'COMPOST CLASSE II':0.35}}};
 
-var cfg=lCfg(),residuos=[{id:1,desc:'',codigo:'',perigoso:false,peso:0,dest:'ATERRO CLASSE II'}],nextId=2,ultimoCalculo=null,ibamaResId=null;
+var cfg=lCfg(),residuos=[{id:1,desc:'',codigo:'',perigoso:false,peso:0,dest:'',custoTon:0,cobraTon:0}],nextId=2,ultimoCalculo=null,ibamaResId=null;
 // Custo real do furgão = R$6,46/km (análise das viagens no FurgãoPRO). Ajuste único p/ configs antigas.
 if(cfg && !cfg._furgaoV2){ cfg.transp=cfg.transp||{forn:{},cli:{}}; cfg.transp.forn=cfg.transp.forn||{}; cfg.transp.forn.FURGAO=6.46; cfg._furgaoV2=true; try{sCfg(cfg);}catch(e){} }
 
@@ -1068,6 +1058,7 @@ function pfd(id,def){var v=g(id).value;if(v==null||(''+v).trim()==='')return def
 function brl(n){return 'R$ '+Number(n||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function fmt(n){return Number(n||0).toLocaleString('pt-BR',{maximumFractionDigits:0});}
 function esc(s){return s.replace(/\s+/g,'-').replace(/[^a-zA-Z0-9\-]/g,'');}
+function esca(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;');}
 function maskCNPJ(el){var v=el.value.replace(/\D/g,'');v=v.replace(/^(\d{2})(\d)/,'$1.$2');v=v.replace(/^(\d{2})\.(\d{3})(\d)/,'$1.$2.$3');v=v.replace(/\.(\d{3})(\d)/,'.$1/$2');v=v.replace(/(\d{4})(\d)/,'$1-$2');el.value=v;}
 function toast(msg,dur){var t=g('toast');t.textContent=msg;t.classList.add('show');setTimeout(function(){t.classList.remove('show');},dur||2400);}
 
@@ -1091,19 +1082,13 @@ function sCfg(c){lset('rpro_cfg',JSON.stringify(c));}
 
 function abrirCfg(){
   g('cfg-empresa').value=cfg.empresa||'';g('cfg-cnpj').value=cfg.cnpj||'';g('cfg-tel').value=cfg.tel||'';g('cfg-minhabase').value=cfg.minhaBase||'';g('cfg-validade').value=cfg.validade||15;
-  g('cfg-tfu').value=cfg.transp.forn.FURGAO;g('cfg-tb').value=cfg.transp.forn.BAU;g('cfg-tm').value=cfg.transp.forn.MAIOR;
-  g('cfg-cfu').value=cfg.transp.cli.FURGAO;g('cfg-cb').value=cfg.transp.cli.BAU;g('cfg-cm').value=cfg.transp.cli.MAIOR;
   g('cfg-imposto').value=cfg.imposto;g('cfg-margem-min').value=cfg.margemMin||30;
   var m=cfg.motorista||DEF.motorista;
   g('cfg-mot-limiar').value=m.limiarAjudaKm;g('cfg-mot-ajuda').value=m.ajudaValor;g('cfg-mot-bloco').value=m.blocoDiariaKm;
   g('cfg-mot-cafe').value=m.cafe;g('cfg-mot-almoco').value=m.almoco;g('cfg-mot-jantar').value=m.jantar;g('cfg-mot-hosp').value=m.hospedagem;
   g('cfg-backup-dias').value=cfg.backupDias||7;
   var _db=_diasDesdeBackup();g('cfg-backup-status').textContent='Último: '+(_db===null?'nunca':'há '+_db+' dia(s)');
-  var fE=g('cfg-dest-forn'),cE=g('cfg-dest-cli');fE.innerHTML='';cE.innerHTML='';
-  DEST_KEYS.forEach(function(k){
-    fE.innerHTML+='<div class="cfg-r"><div class="cfg-l">'+k+'</div><input class="cfg-i" id="cdf-'+esc(k)+'" type="number" step="0.001" value="'+cfg.dest.forn[k]+'"></div>';
-    cE.innerHTML+='<div class="cfg-r"><div class="cfg-l">'+k+'</div><input class="cfg-i" id="cdc-'+esc(k)+'" type="number" step="0.01" value="'+cfg.dest.cli[k]+'"></div>';
-  });
+  try{bindStaticAutocomplete();}catch(e){}
   g('cfg-modal').classList.add('open');
 }
 function exportarBackup(){
@@ -1148,24 +1133,26 @@ function importarBackup(input){
 function fecharCfg(){g('cfg-modal').classList.remove('open');}
 function salvarCfg(){
   cfg.empresa=g('cfg-empresa').value||'Cerrado Ambiental';cfg.cnpj=g('cfg-cnpj').value;cfg.tel=g('cfg-tel').value;cfg.minhaBase=(g('cfg-minhabase').value||'').trim();cfg.validade=parseInt(g('cfg-validade').value)||15;
-  cfg.transp.forn.FURGAO=pf('cfg-tfu');cfg.transp.forn.BAU=pf('cfg-tb');cfg.transp.forn.MAIOR=pf('cfg-tm');
-  cfg.transp.cli.FURGAO=pf('cfg-cfu');cfg.transp.cli.BAU=pf('cfg-cb');cfg.transp.cli.MAIOR=pf('cfg-cm');
   cfg.imposto=pf('cfg-imposto');cfg.margemMin=pf('cfg-margem-min');
   cfg.motorista=cfg.motorista||{};var dm=DEF.motorista;
   cfg.motorista.limiarAjudaKm=pfd('cfg-mot-limiar',dm.limiarAjudaKm);cfg.motorista.ajudaValor=pfd('cfg-mot-ajuda',dm.ajudaValor);cfg.motorista.blocoDiariaKm=pfd('cfg-mot-bloco',dm.blocoDiariaKm);
   cfg.motorista.cafe=pfd('cfg-mot-cafe',dm.cafe);cfg.motorista.almoco=pfd('cfg-mot-almoco',dm.almoco);cfg.motorista.jantar=pfd('cfg-mot-jantar',dm.jantar);cfg.motorista.hospedagem=pfd('cfg-mot-hosp',dm.hospedagem);
-  DEST_KEYS.forEach(function(k){cfg.dest.forn[k]=pf('cdf-'+esc(k));cfg.dest.cli[k]=pf('cdc-'+esc(k));});
   cfg.backupDias=Math.max(1,parseInt(g('cfg-backup-dias').value)||7);
   sCfg(cfg);fecharCfg();toast('✅ Configurações salvas!');try{checkBackupLembrete();}catch(e){}
 }
 
 function renderRes(){
   var el=g('res-list');el.innerHTML='';
+  var dp=_orcDestinador(), dlist=(dp&&dp.destinacoes)||[];
   residuos.forEach(function(r,i){
-    var destKeys = r.perigoso ? DEST_KEYS_I : DEST_KEYS_II;
-    // Se destinação atual não for compatível, resetar
-    if(destKeys.indexOf(r.dest)<0){ r.dest=destKeys[0]; updRes(r.id,'dest',r.dest); }
-    var dOpts=destKeys.map(function(k){return '<option value="'+k+'"'+(r.dest===k?' selected':'')+'>'+k+'</option>';}).join('');
+    // Destinação: tipos vêm do destinador selecionado (com R$/ton de custo); manual = texto livre
+    var destField;
+    if(dlist.length){
+      if(dlist.map(function(d){return d.tipo;}).indexOf(r.dest)<0){ r.dest=dlist[0].tipo; r.custoTon=dlist[0].rton||0; }
+      destField='<select class="inp sel res-dest">'+dlist.map(function(d){return '<option value="'+esca(d.tipo)+'"'+(r.dest===d.tipo?' selected':'')+'>'+d.tipo+(d.rton?(' · '+brl(d.rton)+'/ton'):'')+'</option>';}).join('')+'</select>';
+    }else{
+      destField='<input class="inp res-dest" type="text" placeholder="Tipo de destinação" value="'+esca(r.dest||'')+'">';
+    }
     var div=document.createElement('div');
     div.className='res-row';
     div.innerHTML=
@@ -1183,23 +1170,35 @@ function renderRes(){
         '<div class="res-badge" id="badge-'+r.id+'">'+mkBadge(r)+'</div>'+
       '</div>'+
       '<div class="g2">'+
-        '<div class="field"><label class="flabel">Peso (kg)</label><input class="inp inp-mono" type="number" placeholder="0" inputmode="text" value="'+(r.peso||'')+'"></div>'+
-        '<div class="field"><label class="flabel">Destinação</label><select class="inp sel">'+dOpts+'</select></div>'+
+        '<div class="field"><label class="flabel">Peso (kg)</label><input class="inp inp-mono res-peso" type="number" placeholder="0" inputmode="text" value="'+(r.peso||'')+'"></div>'+
+        '<div class="field"><label class="flabel">Destinação</label>'+destField+'</div>'+
+      '</div>'+
+      '<div class="g2">'+
+        '<div class="field"><label class="flabel">Custo destinação (R$/ton)</label><input class="inp inp-mono res-custoton" type="number" step="0.01" placeholder="0,00" inputmode="decimal" value="'+(r.custoTon||'')+'"><div class="cfg-s res-obs-custo" style="margin-top:3px"></div></div>'+
+        '<div class="field"><label class="flabel">Eu cobro (R$/ton)</label><input class="inp inp-mono res-cobraton" type="number" step="0.01" placeholder="0,00" inputmode="decimal" value="'+(r.cobraTon||'')+'"><div class="cfg-s res-obs-cobra" style="margin-top:3px"></div></div>'+
       '</div>';
 
     var del=div.querySelector('.res-del');
     if(del) del.onclick=function(){delRes(r.id);};
-
-    // BOTÃO IBAMA — onclick simples e direto
     var btn=div.querySelector('.ibama-btn');
     btn.onclick=function(){ibamaAbrir(r.id);};
 
-    var pi=div.querySelector('input.inp-mono');
+    var pi=div.querySelector('.res-peso');
     pi.oninput=function(){updRes(r.id,'peso',+this.value);calcular();};
 
-    var sl=div.querySelector('select');
-    sl.onchange=function(){updRes(r.id,'dest',this.value);calcular();};
+    var ctEl=div.querySelector('.res-custoton'), cbEl=div.querySelector('.res-cobraton');
+    var obsC=div.querySelector('.res-obs-custo'), obsB=div.querySelector('.res-obs-cobra');
+    function _obs(){ obsC.textContent=(+ctEl.value)?('= '+brl((+ctEl.value)/1000)+'/kg'):''; obsB.textContent=(+cbEl.value)?('= '+brl((+cbEl.value)/1000)+'/kg'):''; }
+    ctEl.oninput=function(){updRes(r.id,'custoTon',+this.value);_obs();calcular();};
+    cbEl.oninput=function(){updRes(r.id,'cobraTon',+this.value);_obs();calcular();};
 
+    var sl=div.querySelector('.res-dest');
+    sl.onchange=function(){
+      updRes(r.id,'dest',this.value);
+      if(dlist.length){var d=dlist.find(function(x){return x.tipo===sl.value;});if(d){r.custoTon=d.rton||0;ctEl.value=r.custoTon||'';updRes(r.id,'custoTon',r.custoTon);_obs();}}
+      calcular();
+    };
+    _obs();
     el.appendChild(div);
   });
 }
@@ -1209,7 +1208,7 @@ function mkBadge(r){
   return '<span class="code-tag">'+r.codigo+'</span><span class="per-tag '+(r.perigoso?'danger':'safe')+'">'+(r.perigoso?'⚠️ Perigoso':'✓ Não Perigoso')+'</span>';
 }
 
-function addRes(){residuos.push({id:nextId++,desc:'',codigo:'',perigoso:false,peso:0,dest:'ATERRO CLASSE II'});renderRes();}
+function addRes(){residuos.push({id:nextId++,desc:'',codigo:'',perigoso:false,peso:0,dest:'',custoTon:0,cobraTon:0});renderRes();}
 function delRes(id){residuos=residuos.filter(function(r){return r.id!==id;});renderRes();calcular();}
 function updRes(id,f,v){var r=residuos.find(function(x){return x.id===id;});if(r)r[f]=v;}
 
@@ -1241,19 +1240,23 @@ g('ibama-overlay').onclick=function(e){if(e.target===this)ibamaFechar();};
 
 // ── CÁLCULO ─────────────────────────────────────────────
 function calcular(){
-  var km=+g('trajeto').value||0,veic=g('veiculo').value,ac=+g('acresc').value||0,ped=+g('pedagio').value||0;
-  var ctf=km*(cfg.transp.forn[veic]||0),ptc=km*(cfg.transp.cli[veic]||0);
+  var km=+g('trajeto').value||0,ac=+g('acresc').value||0,ped=+g('pedagio').value||0;
+  // Transporte: custo (fornecedor cobra) e preço (eu cobro) vêm do card — R$/km (TASK Transporte)
+  var custoftKm=+g('orc-custoft').value||0, clikm=+g('orc-clikm').value||0;
+  var ctf=km*custoftKm, ptc=km*clikm;
+  var _tp=_orcTransp(), proprio=!!(_tp&&_tp.proprio);
+  var _tpId=g('orc-transp')?g('orc-transp').value:'';
+  var _vId=g('orc-veic')?g('orc-veic').value:'', _vSnap=null, veicNome='';
+  if(_tp&&_vId){var _vv=(_tp.veiculos||[]).find(function(x){return String(x.id)===String(_vId);});if(_vv){_vSnap={nome:_vv.nome,capacidadeT:_vv.capacidadeT,capacidadeM3:_vv.capacidadeM3,custoKm:_vv.custoKm};veicNome=_vv.nome||'';}}
+  else if(_vId){veicNome=_vId;} // manual: o value é o próprio nome do tipo
+  var _dp=_orcDestinador(), _dId=g('orc-destinador')?g('orc-destinador').value:'';
+  // Destinação por resíduo: custo (R$/ton fornecedor) e preço (R$/ton eu cobro)
   var cdf=0,pdc=0;
-  var itens=residuos.map(function(r){var kg=+r.peso||0,cf=(cfg.dest.forn[r.dest]||0)*kg,cc=(cfg.dest.cli[r.dest]||0)*kg;cdf+=cf;pdc+=cc;return{desc:r.desc,codigo:r.codigo,perigoso:r.perigoso,dest:r.dest,peso:kg,custForn:cf,precCli:cc};});
-  var cmot=(veic==='FURGAO'&&window.DecisionEngine&&DecisionEngine.calcularCustoMotoristaViagem)?DecisionEngine.calcularCustoMotoristaViagem(km,cfg):null;
+  var itens=residuos.map(function(r){var kg=+r.peso||0,ton=kg/1000,ctn=+r.custoTon||0,cbn=+r.cobraTon||0,cf=ctn*ton,cc=cbn*ton;cdf+=cf;pdc+=cc;return{desc:r.desc,codigo:r.codigo,perigoso:r.perigoso,dest:r.dest,peso:kg,custoTon:ctn,cobraTon:cbn,custForn:cf,precCli:cc};});
+  var cmot=(proprio&&window.DecisionEngine&&DecisionEngine.calcularCustoMotoristaViagem)?DecisionEngine.calcularCustoMotoristaViagem(km,cfg):null;
   var cmotCusto=cmot?cmot.custoTotal:0;
   var tot=ptc+pdc+ac,imp=tot*(cfg.imposto/100),ct=ctf+cdf+ped+cmotCusto+imp,sob=tot-ct,mar=tot>0?sob/tot:0;
-  // Parceiros: dados CADASTRAIS (não entram em nenhum cálculo; guardados para uso futuro)
-  var _tpId=g('orc-transp')?g('orc-transp').value:'', _tp=_tpId?lParceiros().find(function(x){return String(x.id)===String(_tpId);}):null;
-  var _vId=g('orc-veic')?g('orc-veic').value:'', _vSnap=null;
-  if(_tp&&_vId){var _vv=(_tp.veiculos||[]).find(function(x){return String(x.id)===String(_vId);});if(_vv)_vSnap={nome:_vv.nome,capacidadeT:_vv.capacidadeT,capacidadeM3:_vv.capacidadeM3,custoKm:_vv.custoKm};}
-  var _dId=g('orc-destinador')?g('orc-destinador').value:'', _dp=_dId?lParceiros().find(function(x){return String(x.id)===String(_dId);}):null;
-  ultimoCalculo={km:km,veic:veic,ac:ac,ped:ped,ctf:ctf,ptc:ptc,cdf:cdf,pdc:pdc,cmot:cmot,itens:itens,tot:tot,imp:imp,ct:ct,sob:sob,mar:mar,
+  ultimoCalculo={km:km,veic:veicNome||'Transporte',proprio:proprio,custoftKm:custoftKm,clikm:clikm,ac:ac,ped:ped,ctf:ctf,ptc:ptc,cdf:cdf,pdc:pdc,cmot:cmot,itens:itens,tot:tot,imp:imp,ct:ct,sob:sob,mar:mar,
     transportadorId:_tpId||null,transportadorNome:_tp?_tp.nome:'',veiculoId:_vId||null,veicSnapshot:_vSnap,destinadorId:_dId||null,destinadorNome:_dp?_dp.nome:'',
     cli:{nome:g('cli-nome').value,cnpj:g('cli-cnpj').value,contato:g('cli-contato').value,local:g('cli-local').value},
     obs:g('obs').value,data:new Date().toLocaleDateString('pt-BR')};
@@ -1289,7 +1292,7 @@ function renderResultado(r){
 }
 
 function pisoMarginalHTML(r){
-  if(!r||r.veic!=='FURGAO')return '';
+  if(!r||!r.proprio)return '';
   if(!window.DecisionEngine||!DecisionEngine.calcularPrecoMinimo)return '';
   var km=Number(r.km)||0; if(!km)return '';
   var custoVarKm=(DecisionEngine.DEFAULTS&&DecisionEngine.DEFAULTS.furgao)?DecisionEngine.DEFAULTS.furgao.custoVariavelKm:1.39;
@@ -1308,7 +1311,7 @@ function pisoMarginalHTML(r){
 }
 
 function desembolsoMotoristaHTML(r){
-  if(!r||r.veic!=='FURGAO')return '';
+  if(!r||!r.proprio)return '';
   var c=r.cmot; if(!c||!c.custoTotal)return '';
   var linhas=(c.itens||[]).map(function(it){
     return '<div class="rrow"><div class="rl">'+it.nome+(it.qtd>1?' <span style="color:var(--text3)">×'+it.qtd+'</span>':'')+'</div><div class="rv">'+brl(it.subtotal)+'</div></div>';
@@ -1346,7 +1349,7 @@ function gerarProposta(){
   var fd=function(d){return d.toLocaleDateString('pt-BR');};
   var np=hj.getFullYear()+String(hj.getMonth()+1).padStart(2,'0')+String(hj.getDate()).padStart(2,'0')+'-'+String(Math.floor(Math.random()*900)+100);
   var lr='';
-  r.itens.forEach(function(it,i){if((it.peso||0)>0){lr+='  • '+(it.desc||'Resíduo '+(i+1))+'\n    Peso: '+fmt(it.peso)+' kg | Dest.: '+it.dest+(it.perigoso?' ⚠️ PERIGOSO':'')+'\n    R$ '+(cfg.dest.cli[it.dest]||0).toFixed(2)+'/kg | Subtotal: '+brl(it.precCli)+'\n\n';}});
+  r.itens.forEach(function(it,i){if((it.peso||0)>0){lr+='  • '+(it.desc||'Resíduo '+(i+1))+'\n    Peso: '+fmt(it.peso)+' kg | Dest.: '+it.dest+(it.perigoso?' ⚠️ PERIGOSO':'')+'\n    R$ '+((it.cobraTon||0)/1000).toFixed(2)+'/kg | Subtotal: '+brl(it.precCli)+'\n\n';}});
   var txt='━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nPROPOSTA COMERCIAL Nº '+np+'\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nPRESTADOR\n'+(cfg.empresa||'Cerrado Ambiental')+(cfg.cnpj?'\nCNPJ: '+cfg.cnpj:'')+(cfg.tel?'\nTel: '+cfg.tel:'')+'\n\nCLIENTE\n'+(r.cli.nome||'—')+(r.cli.cnpj?'\nCNPJ: '+r.cli.cnpj:'')+(r.cli.contato?'\nContato: '+r.cli.contato:'')+'\n\nData: '+fd(hj)+' | Validade: '+fd(val)+'\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSERVIÇOS\n\n▸ COLETA E TRANSPORTE\n  Veículo: '+r.veic+' | Trajeto: '+fmt(r.km)+' km\n  Valor: '+brl(r.ptc)+(r.ac>0?'\n  Acréscimos: '+brl(r.ac):'')+'\n\n▸ TRATAMENTO E DESTINAÇÃO\n'+lr+'━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nVALOR TOTAL: '+brl(r.tot)+'\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n'+(r.obs?'\nOBSERVAÇÕES\n'+r.obs+'\n\n':'')+'\nServiços em conformidade com a legislação ambiental vigente.\nDocumentação de destinação fornecida após execução.\n\n'+(cfg.empresa||'Cerrado Ambiental');
   g('proposta-content').innerHTML='<div class="card"><div class="card-head"><div class="card-icon">📄</div><div class="card-lbl">Proposta Gerada</div></div><div class="proposta-txt" id="txt-proposta">'+txt+'</div></div><div class="btn-row"><button class="btn btn-primary" onclick="gerarPDF()">📥 Baixar PDF</button><button class="btn btn-dark" onclick="whatsappProposta()">💬 WhatsApp</button></div><div style="height:6px"></div><div class="btn-row"><button class="btn btn-outline" onclick="copiarProposta()">📋 Copiar texto</button></div>';
   navTo('proposta',g('nav-proposta'));
@@ -1359,11 +1362,22 @@ var editandoId=null;
 function _preencherForm(x){
   var c=x.cli||{};
   g('cli-nome').value=c.nome||'';g('cli-cnpj').value=c.cnpj||'';g('cli-contato').value=c.contato||'';g('cli-local').value=c.local||'';
-  g('trajeto').value=x.km||'';g('veiculo').value=x.veic||'FURGAO';g('acresc').value=x.ac||'';g('pedagio').value=x.ped||'';g('obs').value=x.obs||'';
+  g('trajeto').value=x.km||'';g('acresc').value=x.ac||'';g('pedagio').value=x.ped||'';g('obs').value=x.obs||'';
   if(g('orc-transp')){g('orc-transp').value=x.transportadorId||'';orcTranspChange(true);if(g('orc-veic'))g('orc-veic').value=x.veiculoId||'';}
   if(g('orc-destinador'))g('orc-destinador').value=x.destinadorId||'';
-  residuos=(x.itens||[]).map(function(r){return{id:nextId++,desc:r.desc||'',codigo:r.codigo||'',perigoso:!!r.perigoso,peso:r.peso||0,dest:r.dest||'ATERRO CLASSE II'};});
-  if(!residuos.length)residuos=[{id:nextId++,desc:'',codigo:'',perigoso:false,peso:0,dest:'ATERRO CLASSE II'}];
+  // R$/km: usa o salvo; retrocompat deriva de ctf/ptc dos orçamentos antigos
+  var _km=+x.km||0;
+  var _custoftKm=x.custoftKm!=null?x.custoftKm:(_km?((x.ctf||0)/_km):0);
+  var _clikm=x.clikm!=null?x.clikm:(_km?((x.ptc||0)/_km):0);
+  if(g('orc-custoft'))g('orc-custoft').value=_custoftKm||'';
+  if(g('orc-clikm'))g('orc-clikm').value=_clikm||'';
+  residuos=(x.itens||[]).map(function(r){
+    var _kg=r.peso||0,_ton=_kg/1000;
+    var _ctn=r.custoTon!=null?r.custoTon:(_ton?((r.custForn||0)/_ton):0);
+    var _cbn=r.cobraTon!=null?r.cobraTon:(_ton?((r.precCli||0)/_ton):0);
+    return{id:nextId++,desc:r.desc||'',codigo:r.codigo||'',perigoso:!!r.perigoso,peso:_kg,dest:r.dest||'',custoTon:_ctn,cobraTon:_cbn};
+  });
+  if(!residuos.length)residuos=[{id:nextId++,desc:'',codigo:'',perigoso:false,peso:0,dest:'',custoTon:0,cobraTon:0}];
   renderRes();
 }
 var FUNIL={enviado:{l:'Enviado',c:'#c87020'},negociacao:{l:'Em negociação',c:'#2563eb'},fechado:{l:'Fechado',c:'#2a7a40'},perdido:{l:'Perdido',c:'#b03020'}};
@@ -1417,18 +1431,7 @@ function limparHist(){if(confirm('Apagar todo o histórico?')){localStorage.remo
 
 function navTo(id,el){document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active');});document.querySelectorAll('.nav-item').forEach(function(n){n.classList.remove('active');});g('screen-'+id).classList.add('active');el.classList.add('active');if(id==='historico')renderHist();if(id==='coletas')renderColetas();if(id==='contratos')renderContratos();if(id==='parceiros')renderParceiros();if(id==='relatorios')renderRelatorios();}
 
-function atualizarDestSelect(id){
-  var r=residuos.find(function(x){return x.id===id;});
-  if(!r)return;
-  var destKeys=r.perigoso?DEST_KEYS_I:DEST_KEYS_II;
-  if(destKeys.indexOf(r.dest)<0){r.dest=destKeys[0];}
-  var row=g('res-list').querySelectorAll('.res-row')[residuos.findIndex(function(x){return x.id===id;})];
-  if(!row)return;
-  var sel=row.querySelector('select');
-  if(!sel)return;
-  sel.innerHTML=destKeys.map(function(k){return '<option value="'+k+'"'+(r.dest===k?' selected':'')+'>'+k+'</option>';}).join('');
-  sel.onchange=function(){updRes(id,'dest',this.value);calcular();};
-}
+function atualizarDestSelect(id){ renderRes(); }
 
 function gerarPDF(){
   var r=ultimoCalculo;
@@ -1592,7 +1595,7 @@ function gerarPDF(){
   // Linhas resíduos — uma por item
   r.itens.forEach(function(it,i){
     if((it.peso||0)<=0) return;
-    var vUnit=cfg.dest.cli[it.dest]||0;
+    var vUnit=(it.cobraTon||0)/1000;
     var descLinha=(it.desc||'Resíduo '+(i+1))+' — '+it.dest+(it.perigoso?' (PERIGOSO)':'');
     tRow(descLinha,'KG',fmt(it.peso)+' kg','R$ '+vUnit.toFixed(2)+'/kg',brl(it.precCli));
   });
@@ -1920,7 +1923,17 @@ var _directionsService = null;
 function initMapsCallback(){
   // Chamado pelo Google Maps quando API carrega
   _directionsService = new google.maps.DirectionsService();
+  try{bindStaticAutocomplete();}catch(e){}
 }
+// Autocomplete de endereço (Google Places) nos campos fixos do app
+function _bindAutocompleteEl(el){
+  if(!el||el.dataset.acBound)return;
+  if(typeof google==='undefined'||!google.maps||!google.maps.places)return;
+  var ac=new google.maps.places.Autocomplete(el,{componentRestrictions:{country:'br'},fields:['formatted_address']});
+  ac.addListener('place_changed',function(){var p=ac.getPlace();if(p&&p.formatted_address){el.value=p.formatted_address;el.dispatchEvent(new Event('change'));}});
+  el.dataset.acBound='1';
+}
+function bindStaticAutocomplete(){['cli-local','cfg-minhabase','pa-base'].forEach(function(id){_bindAutocompleteEl(g(id));});}
 
 function initMapsTools(){
   if(!_directionsService && typeof google !== 'undefined' && google.maps) {
@@ -2216,6 +2229,7 @@ function lParceiros(){
       nome:p.nome||'',
       transportador: p.transportador!=null?!!p.transportador:true,  // antigos = transportadores
       destinador: !!p.destinador,
+      proprio: !!p.proprio,
       base: p.base||'',
       uf: p.uf||'',
       veiculos: (Array.isArray(p.veiculos)?p.veiculos:[]).map(function(v){v=v||{};return {id:v.id,nome:v.nome||'',capacidadeT:v.capacidadeT||0,capacidadeM3:v.capacidadeM3||0,custoKm:v.custoKm!=null?v.custoKm:(v.precoMin||0)};}),
@@ -2253,22 +2267,43 @@ function renderParceiros(){
   renderOrcParceiros();
 }
 // ---- Selects de parceiro no ORÇAMENTO (Transportador / Veículo / Destinador) ----
-function _orcOpts(arr){return arr.slice().sort(function(a,b){return (a.nome||'').localeCompare(b.nome||'');}).map(function(p){return '<option value="'+p.id+'">'+(p.nome||'(sem nome)')+'</option>';}).join('');}
+function _orcOpts(arr){return arr.slice().sort(function(a,b){return (a.nome||'').localeCompare(b.nome||'');}).map(function(p){return '<option value="'+p.id+'">'+(p.nome||'(sem nome)')+(p.proprio?' (frota própria)':'')+'</option>';}).join('');}
+var MANUAL_VEICS=['Furgão','Baú','Vácuo','Caçamba','Roll-on','Munk'];
+function _orcTransp(){var ts=g('orc-transp');return (ts&&ts.value)?lParceiros().find(function(x){return String(x.id)===String(ts.value);}):null;}
+function _orcDestinador(){var ds=g('orc-destinador');return (ds&&ds.value)?lParceiros().find(function(x){return String(x.id)===String(ds.value);}):null;}
 function renderOrcParceiros(){
   var arr=lParceiros(), ts=g('orc-transp'), ds=g('orc-destinador');
-  if(ts){var cur=ts.value;ts.innerHTML='<option value="">— selecionar —</option>'+_orcOpts(arr.filter(function(p){return p.transportador;}));ts.value=cur;}
-  if(ds){var curd=ds.value;ds.innerHTML='<option value="">— selecionar —</option>'+_orcOpts(arr.filter(function(p){return p.destinador;}));ds.value=curd;}
+  if(ts){var cur=ts.value;ts.innerHTML='<option value="">Não cadastrado (manual)</option>'+_orcOpts(arr.filter(function(p){return p.transportador;}));ts.value=cur;}
+  if(ds){var curd=ds.value;ds.innerHTML='<option value="">Não cadastrado (manual)</option>'+_orcOpts(arr.filter(function(p){return p.destinador;}));ds.value=curd;}
   orcTranspChange(true);
 }
 function orcTranspChange(silent){
-  var ts=g('orc-transp'), vs=g('orc-veic'), wrap=g('orc-veic-wrap'); if(!ts||!vs)return;
-  var cur=vs.value, p=lParceiros().find(function(x){return String(x.id)===String(ts.value);}), veics=(p&&p.veiculos)||[];
-  if(ts.value&&veics.length){
-    vs.innerHTML='<option value="">— selecionar —</option>'+veics.map(function(v){var caps=[];if(v.capacidadeT)caps.push(fmt(v.capacidadeT)+' t');if(v.capacidadeM3)caps.push(fmt(v.capacidadeM3)+' m³');return '<option value="'+v.id+'">'+(v.nome||'Veículo')+(caps.length?' · '+caps.join(' | '):'')+(v.custoKm?' · '+brl(v.custoKm)+'/km':'')+'</option>';}).join('');
-    vs.value=cur; if(wrap)wrap.style.display='';
-  }else{ vs.innerHTML='<option value="">— selecionar —</option>'; if(wrap)wrap.style.display='none'; }
-  if(!silent)calcular();
+  var ts=g('orc-transp'), vs=g('orc-veic'); if(!ts||!vs)return;
+  var p=_orcTransp(), cur=vs.value;
+  if(p){ // fornecedor cadastrado → veículos do parceiro (value = id)
+    vs.innerHTML='<option value="">— selecionar —</option>'+(p.veiculos||[]).map(function(v){var caps=[];if(v.capacidadeT)caps.push(fmt(v.capacidadeT)+' t');if(v.capacidadeM3)caps.push(fmt(v.capacidadeM3)+' m³');return '<option value="'+v.id+'">'+(v.nome||'Veículo')+(caps.length?' · '+caps.join(' | '):'')+(v.custoKm?' · '+brl(v.custoKm)+'/km':'')+'</option>';}).join('');
+  }else{ // não cadastrado → tipos manuais (value = nome)
+    vs.innerHTML='<option value="">— selecionar —</option>'+MANUAL_VEICS.map(function(t){return '<option value="'+t+'">'+t+'</option>';}).join('');
+  }
+  vs.value=cur;
+  if(!silent){ // troca de transportador zera os preços do orçamento (são daquele fornecedor)
+    if(g('orc-custoft'))g('orc-custoft').value='';
+    if(g('orc-clikm'))g('orc-clikm').value='';
+    orcVeicChange();
+  }
 }
+function orcVeicChange(){
+  var p=_orcTransp(), vs=g('orc-veic'), cap=g('orc-veic-cap'), custoft=g('orc-custoft');
+  if(p&&vs&&vs.value){ // veículo cadastrado: traz R$/km de referência (editável) + capacidade
+    var v=(p.veiculos||[]).find(function(x){return String(x.id)===String(vs.value);});
+    if(v){
+      if(custoft)custoft.value=v.custoKm||'';
+      if(cap){var c=[];if(v.capacidadeT)c.push(fmt(v.capacidadeT)+' t');if(v.capacidadeM3)c.push(fmt(v.capacidadeM3)+' m³');cap.textContent=c.length?('Capacidade: '+c.join(' | ')+(v.custoKm?(' · ref. '+brl(v.custoKm)+'/km'):'')):'';}
+    }
+  }else if(cap){cap.textContent='';}
+  calcular();
+}
+function orcDestinadorChange(){ renderRes(); calcular(); }
 // ---- Veículos do parceiro (estado de edição em memória) ----
 var _paVeiculos=[], _paVehEdit=null;
 function _fmtVeic(v){
@@ -2326,6 +2361,7 @@ function abrirParceiro(id){
   g('pa-nome').value=p?p.nome||'':'';
   g('pa-transp').checked=p?!!p.transportador:true;
   g('pa-dest').checked=p?!!p.destinador:false;
+  g('pa-proprio').checked=p?!!p.proprio:false;
   g('pa-base').value=p?p.base||'':'';
   g('pa-uf').value=p?p.uf||'':'';
   _paVeiculos=(p&&Array.isArray(p.veiculos))?p.veiculos.map(function(v){return Object.assign({},v);}):[];
@@ -2334,6 +2370,7 @@ function abrirParceiro(id){
   g('pa-vh-form').style.display='none';g('pa-dest-form').style.display='none';
   renderPaVeiculos();renderPaDest();paToggleSecoes();
   g('pa-excluir-btn').style.display=p?'block':'none';
+  try{bindStaticAutocomplete();}catch(e){}
   g('parceiro-modal').classList.add('open');
 }
 function fecharParceiro(){g('parceiro-modal').classList.remove('open');}
@@ -2341,7 +2378,7 @@ function salvarParceiro(){
   var arr=lParceiros(),id=g('pa-id').value?Number(g('pa-id').value):null;
   var nome=(g('pa-nome').value||'').trim();
   if(!nome){toast('⚠️ Informe o nome');return;}
-  var obj={id:id||Date.now(),nome:nome,transportador:g('pa-transp').checked,destinador:g('pa-dest').checked,base:(g('pa-base').value||'').trim(),uf:(g('pa-uf').value||'').trim().toUpperCase(),veiculos:_paVeiculos.slice(),destinacoes:_paDest.slice()};
+  var obj={id:id||Date.now(),nome:nome,transportador:g('pa-transp').checked,destinador:g('pa-dest').checked,proprio:g('pa-proprio').checked,base:(g('pa-base').value||'').trim(),uf:(g('pa-uf').value||'').trim().toUpperCase(),veiculos:_paVeiculos.slice(),destinacoes:_paDest.slice()};
   if(id){arr=arr.map(function(x){return x.id===id?obj:x;});}else{arr.push(obj);}
   sParceiros(arr);fecharParceiro();renderParceiros();toast('✅ Parceiro salvo');
 }
