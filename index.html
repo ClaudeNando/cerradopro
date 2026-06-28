@@ -16,6 +16,7 @@
 <script src="ibama.js"></script>
 <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDizyPou7T-K7kADAexu2dJ71U87YOEMTs&libraries=places&callback=initMapsCallback"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 :root{
@@ -55,6 +56,15 @@ body{display:flex;flex-direction:column;padding-top:var(--st)}
 .nav-label{font-size:10px;font-weight:700;letter-spacing:0.3px;color:rgba(248,240,221,0.35);text-transform:uppercase}
 .nav-item.active .nav-label{color:var(--accent-light)}
 .nav-item.active .nav-icon{transform:scale(1.12)}
+/* Ícones Lucide (SVG) */
+[data-lucide]{display:inline-flex;align-items:center;justify-content:center;line-height:0}
+.card-icon svg{width:17px;height:17px;color:var(--accent)}
+.shdr-icon svg{width:21px;height:21px;color:var(--accent)}
+.hdr-btn svg{width:19px;height:19px}
+.nav-icon{color:rgba(248,240,221,0.62)}
+.nav-icon svg{width:21px;height:21px}
+.nav-item.active .nav-icon{color:var(--accent-light)}
+.btn svg{width:17px;height:17px}
 .shdr{display:flex;align-items:center;gap:10px;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid var(--border2)}
 .shdr-icon{width:42px;height:42px;border-radius:13px;background:var(--accent-dim);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
 .shdr-title{font-size:19px;font-weight:800;letter-spacing:-0.4px}
@@ -154,13 +164,17 @@ textarea.inp{resize:none;min-height:80px;line-height:1.6}
 .ag-grid-head{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:4px}
 .ag-grid-head span{text-align:center;font-size:10px;font-weight:700;color:var(--text3)}
 .ag-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
-.ag-cell{aspect-ratio:1;border-radius:9px;border:1px solid var(--border2);background:var(--card);display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding-top:5px;font-size:12px;font-weight:700;cursor:pointer;position:relative}
+.ag-cell{min-height:112px;border-radius:6px;border:1px solid var(--border);background:var(--card);display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;padding:6px;font-size:12px;cursor:pointer;position:relative;overflow:hidden}
 .ag-cell.empty{background:transparent;border:none;cursor:default}
-.ag-cell.hoje{border-color:var(--accent);border-width:1.5px}
+.ag-cell.hoje{border-color:var(--accent)}
 .ag-cell.sel{background:var(--accent-dim);border-color:var(--accent)}
-.ag-dots{display:flex;gap:2px;margin-top:3px;flex-wrap:wrap;justify-content:center}
-.ag-dot{width:5px;height:5px;border-radius:50%}
-.ag-dot.pend{background:#c87020}.ag-dot.venc{background:var(--danger)}.ag-dot.ok{background:var(--success)}
+.ag-daynum{font-size:12px;font-weight:500;color:var(--text-muted);text-align:right;line-height:1;margin-bottom:4px}
+.ag-cell.hoje .ag-daynum{color:var(--accent);font-weight:700}
+.ag-evs{display:flex;flex-direction:column;gap:2px;min-height:0}
+.ag-ev{display:block;padding:3px 6px;font-size:11px;font-weight:500;border-radius:4px;background:#FAF5EB;border:1px solid var(--border);color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ag-ev.ev-vencida{background:#FEF2F2;border-color:#FECACA;color:#991B1B}
+.ag-ev.ev-recebido{background:#F0FDF4;border-color:#BBF7D0;color:#166534}
+.ag-more{font-size:11px;color:var(--accent);font-weight:600;margin-top:2px}
 .ag-dia-hdr{font-size:12px;font-weight:800;letter-spacing:0.5px;text-transform:uppercase;color:var(--text3);margin:16px 0 8px}
 .b-bad{background:rgba(176,48,32,0.12);color:var(--danger);border:1px solid rgba(176,48,32,0.22)}
 .proposta-txt{background:var(--bg);border:1.5px solid var(--border);border-radius:12px;padding:16px;font-size:12px;line-height:1.8;color:var(--text2);font-family:'DM Mono',monospace;white-space:pre-wrap;max-height:340px;overflow-y:auto}
@@ -273,9 +287,9 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
 
 /* ── Navegação como coluna lateral em telas largas (TASK-023). Mobile fica inalterado. ── */
 @media (min-width:768px){
-  body{ padding-left:236px; }
+  body{ padding-left:240px; }
   .nav{
-    top:0; bottom:0; left:0; right:auto; width:236px; height:100vh;
+    top:0; bottom:0; left:0; right:auto; width:240px; height:100vh;
     flex-direction:column; align-items:stretch; justify-content:flex-start;
     padding:18px 14px; gap:3px; overflow-y:auto;
     background:var(--side-grad); border-top:none;
@@ -305,11 +319,17 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
   #screen-orcamento>.card{ margin-bottom:0; }
   #card-residuos{ grid-column:1 / -1; }   /* Resíduos ocupa a largura inteira */
   #screen-orcamento>.btn{ grid-column:1 / -1; }
-  /* telas de lista/painel: grades que preenchem a tela */
-  #hist-list, #ct-list, #pa-list{ display:grid; grid-template-columns:repeat(auto-fill,minmax(340px,1fr)); gap:14px; align-items:start; }
-  #hist-list>*, #ct-list>*, #pa-list>*{ margin-bottom:0; }
-  #rel-content{ display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:14px; align-items:start; }
-  #rel-content>*{ margin-bottom:0; }
+  /* telas de lista/painel: grades que preenchem a tela (Contratos/Parceiros = cards) */
+  #ct-list{ display:grid; grid-template-columns:repeat(auto-fill,minmax(340px,1fr)); gap:14px; align-items:start; }
+  #pa-list{ display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:20px; width:100%; align-items:start; }
+  #ct-list>*, #pa-list>*{ margin-bottom:0; }
+  #parceiro-modal .modal{ max-width:760px; }
+  /* Histórico é uma tabela (não grade): ocupa a largura toda */
+  #hist-list{ display:block; width:100%; }
+  #rel-content{ display:grid; grid-template-columns:repeat(12,1fr); gap:24px; width:100%; align-items:start; }
+  #rel-content>*{ grid-column:span 3; margin-bottom:0; }
+  #rel-content .rl{ min-width:0; }
+  #rel-content .rl>div{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   /* texto mais confortável no desktop */
   .shdr-title{ font-size:22px; } .shdr-sub{ font-size:13px; }
   .rl{ font-size:14.5px; } .rv{ font-size:15.5px; }
@@ -319,6 +339,208 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
   /* interações desktop */
   .hist-card:hover,.col-card:hover{ transform:translateY(-2px); box-shadow:var(--shadow-lg); border-color:var(--border); }
   .btn:hover{ filter:brightness(1.03); }
+}
+
+/* ===========================================================================
+   DESIGN V2 — Corporativo / flat (referência Stripe/Linear). Só aparência;
+   sobrescreve o tema sobre o markup existente. Fácil de calibrar ou remover.
+   =========================================================================== */
+:root{
+  --card:#ffffff;
+  --border:#E2DCD0;
+  --border2:#ECE6DA;
+  --text-muted:#7A6558;
+  --text3:#7A6558;
+  --ok:#2f7d54;
+  --shadow-sm:0 1px 2px rgba(69,40,24,0.04);
+  --shadow-md:0 1px 3px rgba(69,40,24,0.06);
+  --shadow-accent:none;
+}
+body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
+
+/* caixa mista (sem caixa-alta) */
+.flabel,.card-lbl,.slabel,.col-sum-l,.nav-label,.ag-dia-hdr,.res-title{ text-transform:none; letter-spacing:0; }
+.flabel{ font-size:12px; font-weight:500; color:var(--text-muted); }
+.card-lbl{ font-size:14px; font-weight:600; color:var(--text); letter-spacing:0; }
+.slabel{ font-size:12px; font-weight:600; color:var(--text-muted); }
+
+/* cards brancos, flat, cantos discretos */
+.card,.rbox-light,.hist-card,.col-card,.col-sum-i{
+  background:var(--card); border:1px solid var(--border); border-radius:8px; box-shadow:var(--shadow-sm);
+}
+.card{ padding:18px 20px; }
+.rbox-dark{ border-radius:10px; }
+
+/* cabeçalho de tela: só título + subtítulo (sem azulejo de ícone) */
+.shdr{ border-bottom:none; padding-bottom:0; margin-bottom:20px; }
+.shdr-icon{ display:none; }
+.shdr-sub{ color:var(--text-muted); }
+
+/* ícone do card vira SVG inline discreto (sem tile) */
+.card-icon{ width:auto; height:auto; background:none; border:none; }
+.card-icon svg{ width:18px; height:18px; color:var(--accent); }
+
+/* inputs flat */
+.inp{ background:#fff; border:1px solid var(--border); border-radius:6px; font-size:13.5px; }
+.inp:focus{ border-color:var(--accent-light); box-shadow:0 0 0 3px rgba(247,153,89,0.18); background:#fff; }
+.cfg-i{ border-radius:6px; }
+
+/* botões flat */
+.btn{ border-radius:6px; }
+.btn-primary{ background:var(--accent); box-shadow:none; }
+.btn-primary:hover{ opacity:.92; }
+
+/* Resultado (Análise financeira) — tokens e componentes */
+:root{ --bg-alert:rgba(220,38,38,0.05); --text-alert:#DC2626; }
+.rrow{ border-bottom:1px dashed var(--border); }
+/* KPI de margem: trilho fino + marcador de meta */
+.mtrack{ position:relative; height:6px; background:var(--border); border-radius:3px; margin-top:14px; }
+.mtrack-fill{ height:100%; background:var(--accent); border-radius:3px; }
+.mtrack-goal{ position:absolute; top:-3px; width:2px; height:12px; background:var(--text-muted); border-radius:1px; }
+/* tabela de simulação de cenários */
+.sim-table{ width:100%; border-collapse:collapse; font-size:13px; margin-top:2px; }
+.sim-table th{ text-align:right; font-size:11px; font-weight:600; color:var(--text-muted); padding:6px 8px; border-bottom:1px solid var(--border); }
+.sim-table th:first-child{ text-align:left; }
+.sim-table td{ padding:9px 8px; border-bottom:1px dashed var(--border); text-align:right; font-family:'DM Mono',monospace; font-variant-numeric:tabular-nums; color:var(--text); }
+.sim-table td:first-child{ text-align:left; font-family:inherit; }
+.sim-table tbody tr:last-child td{ border-bottom:none; }
+.sim-table .neg{ color:var(--text-alert); font-weight:600; }
+.sim-table .pos{ color:var(--ok); font-weight:600; }
+.sim-table tbody tr{ transition:background .12s; }
+.sim-table tbody tr:hover{ background:#FAF8F5; }
+/* respiro horizontal nas linhas de custo do Resultado */
+#resultado-content .rrow{ padding-left:16px; padding-right:16px; }
+/* comparativo de transporte: nome + status na mesma linha */
+#resultado-content .rl{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+/* barra de ações do Resultado: botões compactos, lado a lado, à esquerda */
+.res-actions{ display:flex; gap:12px; justify-content:flex-start; margin-top:6px; }
+.res-actions .btn{ width:auto; padding:10px 24px; flex:0 0 auto; }
+.res-btn-sec{ background:#ffffff; border:1px solid var(--border); color:var(--text); }
+.res-btn-sec:hover{ border-color:var(--accent-light); }
+
+/* Formulários em grid de 12 colunas (modais) */
+.form-grid{ display:grid; grid-template-columns:repeat(12,1fr); gap:16px; }
+.form-grid .field{ margin-bottom:0; }
+.c12{ grid-column:span 12; } .c6{ grid-column:span 12; } .c4{ grid-column:span 12; }  /* mobile: empilha */
+.form-actions{ display:flex; align-items:center; gap:12px; justify-content:flex-end; margin-top:24px; }
+.btn-save{ width:auto; padding:12px 24px; }
+.btn-del{ width:auto; padding:12px 24px; background:transparent; border:1px solid var(--border); color:#b91c1c; font-weight:500; margin-right:auto; }
+.btn-del:hover{ border-color:#b91c1c; }
+/* callout de recomendação */
+.callout{ margin-top:14px; padding:12px 14px; border-radius:8px; background:var(--accent-dim); color:var(--accent); border-left:4px solid var(--accent); font-size:13px; font-weight:500; line-height:1.45; }
+.callout.danger{ background:var(--bg-alert); color:var(--text-alert); border-left-color:var(--text-alert); }
+.callout.warn{ background:rgba(200,112,32,0.08); color:#8a4800; border-left-color:#c87020; }
+
+/* Resíduos / IBAMA no estilo flat (mesma linguagem do resto) */
+.res-row{ background:#fcfaf5; border:1px solid var(--border); border-radius:8px; padding:14px; }
+.res-num{ background:var(--accent); }
+.res-title{ color:var(--text); font-weight:600; }
+.ibama-btn{ background:#fff; border:1px solid var(--border); border-radius:6px; min-height:38px; }
+.ibama-btn:hover{ border-color:var(--accent-light); }
+.code-tag{ background:#f3ece0; border:1px solid var(--border); color:var(--text-muted); }
+.per-tag.safe{ background:rgba(47,125,84,0.07); color:var(--ok); border-color:rgba(47,125,84,0.30); }
+
+/* ---- Histórico: tabela corporativa (Data Table) ---- */
+:root{ --status-negotiation-bg:#EFF6FF; --status-negotiation-text:#1E40AF; --status-closed-bg:#DCFCE7; --status-closed-text:#166534; }
+.h-toolbar{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; flex-wrap:wrap; }
+.h-search{ position:relative; }
+.h-search input{ height:36px; width:300px; max-width:100%; border:1px solid var(--border); border-radius:6px; background:#fff; padding:0 12px 0 33px; font-size:13px; color:var(--text); outline:none; font-family:inherit; }
+.h-search input:focus{ border-color:var(--accent-light); box-shadow:0 0 0 3px rgba(247,153,89,0.18); }
+.h-search svg{ position:absolute; left:11px; top:50%; transform:translateY(-50%); width:15px; height:15px; color:var(--text-muted); }
+.h-tabs{ display:flex; gap:2px; background:#f3ece0; border:1px solid var(--border); border-radius:8px; padding:3px; flex-wrap:wrap; }
+.h-tab{ padding:6px 12px; border-radius:6px; font-size:12.5px; font-weight:500; color:var(--text-muted); cursor:pointer; border:none; background:none; font-family:inherit; }
+.h-tab:hover{ color:var(--text); }
+.h-tab.active{ background:#fff; color:var(--accent); font-weight:600; box-shadow:0 1px 2px rgba(69,40,24,0.08); }
+.h-tab .ct{ color:var(--text4); font-weight:400; margin-left:4px; }
+.dtable-wrap{ width:100%; box-sizing:border-box; display:block; background:var(--card); border:1px solid var(--border); border-radius:6px; overflow-x:auto; }
+.dtable{ width:100%; table-layout:auto; border-collapse:collapse; font-size:13px; }
+.dtable thead th{ text-align:left; font-size:12px; font-weight:600; color:var(--text-muted); background:#faf6ee; padding:10px 14px; border-bottom:1px solid var(--border); white-space:nowrap; }
+.dtable thead th.r{ text-align:right; }
+.dtable tbody tr{ cursor:pointer; transition:background .12s; }
+.dtable tbody tr:hover{ background:#FAF8F5; }
+.dtable td{ padding:11px 14px; border-bottom:1px solid var(--border); vertical-align:middle; }
+.dtable tbody tr:last-child td{ border-bottom:none; }
+.h-data{ color:var(--text-muted); white-space:nowrap; }
+.h-nome{ font-size:14px; font-weight:600; color:var(--text); }
+.h-meta{ font-size:12px; color:var(--text-muted); margin-top:2px; }
+.h-num{ text-align:right; font-family:'DM Mono',monospace; font-variant-numeric:tabular-nums; white-space:nowrap; color:var(--text); }
+.h-num .pos{ color:var(--ok); font-weight:600; } .h-num .neg{ color:var(--text-alert); font-weight:600; }
+.h-sub{ font-size:11px; color:var(--text-muted); margin-top:1px; }
+.h-acoes{ text-align:right; white-space:nowrap; }
+.ico-btn{ width:30px; height:30px; border:1px solid var(--border); background:#fff; border-radius:6px; color:var(--text-muted); cursor:pointer; display:inline-flex; align-items:center; justify-content:center; margin-left:6px; transition:.15s; }
+.ico-btn:hover{ border-color:var(--accent-light); color:var(--accent); }
+.ico-btn.danger:hover{ border-color:var(--text-alert); color:var(--text-alert); }
+.ico-btn svg{ width:15px; height:15px; }
+.status-sel{ border:1px solid transparent; border-radius:12px; padding:4px 22px 4px 10px; font-size:12px; font-weight:600; font-family:inherit; cursor:pointer; -webkit-appearance:none; appearance:none; outline:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath fill='%237A6558' d='M0 0l4 5 4-5z'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 8px center; }
+.st-enviado{ background-color:#F3EFE9; color:#7A6558; }
+.st-negociacao{ background-color:var(--status-negotiation-bg); color:var(--status-negotiation-text); }
+.st-fechado{ background-color:var(--status-closed-bg); color:var(--status-closed-text); }
+.st-perdido{ background-color:#FEE2E2; color:#991B1B; }
+/* Histórico — tabela em largura total e colunas proporcionais */
+.dtable td{ padding:12px 16px; }
+.dtable thead th{ padding:11px 16px; }
+.dtable th:nth-child(1),.dtable td:nth-child(1){ width:120px; }            /* Data */
+.dtable th:nth-child(3),.dtable td:nth-child(3){ width:160px; }            /* Status */
+.dtable th:nth-child(4),.dtable td:nth-child(4){ width:140px; }            /* NF */
+.dtable th:nth-child(5),.dtable td:nth-child(5){ width:160px; }            /* Lucro/margem */
+.dtable th:nth-child(6),.dtable td:nth-child(6){ width:96px; }             /* Ações */
+.dtable td:nth-child(2){ width:auto; }                                     /* Cliente: ocupa o resto */
+.h-nome{ white-space:nowrap; }                                            /* nome da empresa em 1 linha */
+
+/* marca + botões na sidebar (só desktop; ver media query) */
+.nav-brand{ display:none; align-items:center; gap:10px; padding:2px 8px 14px; }
+.nav-brand .bm{ width:34px;height:34px;border-radius:8px;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:18px;flex-shrink:0; }
+.nav-brand .bn{ font-weight:700;font-size:15px;color:var(--text);line-height:1; }
+.nav-brand .bs{ font-size:11px;color:var(--text-muted);margin-top:2px; }
+.nav-footer{ display:none; margin-top:auto; padding-top:14px; border-top:1px solid var(--border); gap:8px; }
+.side-btn{ flex:1;height:38px;border:1px solid var(--border);background:#fff;border-radius:6px;color:var(--text-muted);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.15s; }
+.side-btn:hover{ border-color:var(--accent-light);color:var(--accent); }
+.side-btn svg{ width:18px;height:18px; }
+
+@media (min-width:768px){
+  /* esconde a barra superior escura; marca e ações migram para a sidebar */
+  .hdr{ display:none; }
+  /* sidebar branca */
+  .nav{ background:#fff; border-right:1px solid var(--border); box-shadow:none; padding:16px 12px; }
+  .nav::before{ display:none; }
+  .nav-brand{ display:flex; }
+  .nav-footer{ display:flex; }
+  .nav-item{ color:var(--text-muted); border-radius:6px; }
+  .nav-item:hover{ background:#faf6ee; color:var(--text); }
+  .nav-item.active{ background:rgba(219,106,29,0.10); box-shadow:none; }
+  .nav-item.active .nav-label,.nav-item.active .nav-icon{ color:var(--accent); }
+  .nav-icon,.nav-label{ color:var(--text-muted); }
+  .nav-label{ font-weight:500; }
+  /* inputs compactos no desktop */
+  .inp{ min-height:38px; height:38px; padding:0 11px; }
+  textarea.inp{ height:auto; min-height:72px; padding:9px 11px; }
+  /* Orçamento: 60/40 com Cliente e Transporte na MESMA altura */
+  #screen-orcamento.active{ grid-template-columns:1fr 1fr; align-items:stretch; gap:24px; max-width:none; }
+  #card-residuos{ grid-column:1 / -1; }
+  #screen-orcamento>.card{ height:100%; }
+  /* conteúdo encostado à esquerda; a barra de rolagem fica na borda direita da tela (página normal) */
+  .screen{ max-width:none; margin:0; padding:24px 32px; }
+  #screen-orcamento.active{ margin:0; }
+  #screen-resultado>*{ max-width:none; }   /* Resultado ocupa a largura toda */
+  #screen-coletas>*{ max-width:none; }     /* Coletas (agenda/lista) ocupa a largura toda */
+  /* grid de formulário: 6/6 e 4/4/4 no desktop */
+  .c6{ grid-column:span 6; } .c4{ grid-column:span 4; }
+  /* modais como card centralizado (não mais "folha" de baixo) */
+  .overlay{ align-items:center; justify-content:center; padding:24px; }
+  .modal{ width:100%; max-width:560px; border-radius:12px; border:1px solid var(--border); max-height:88vh; transform:translateY(10px) scale(.985); }
+  .overlay.open .modal{ transform:none; }
+  #contrato-modal .modal{ max-width:800px; }
+  .modal-body{ padding:28px 32px; }
+  #screen-resultado>*,#screen-proposta>*,#screen-coletas>*{ margin-left:0; margin-right:0; }
+  /* a página inteira rola (barra de rolagem na borda direita da janela, como site normal) */
+  html,body{ overflow:visible; height:auto; }
+  .content{ overflow:visible; }
+  .screen{ overflow:visible; }
+}
+/* Relatórios: em telas médias (768–1300px), os 4 cards viram 2 por linha (span 6) */
+@media (min-width:768px) and (max-width:1300px){
+  #rel-content>*{ grid-column:span 6; }
 }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -334,10 +556,10 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
 </div>
 
 <div class="content">
-  <div id="screen-orcamento" class="screen active">
+  <div id="screen-orcamento" class="screen">
     <div class="shdr"><div class="shdr-icon">📋</div><div><div class="shdr-title">Novo Orçamento</div><div class="shdr-sub">Preencha os dados do cliente e serviço</div></div></div>
     <div class="card">
-      <div class="card-head"><div class="card-icon">👤</div><div class="card-lbl">Cliente</div></div>
+      <div class="card-head"><div class="card-icon"><i data-lucide="user"></i></div><div class="card-lbl">Cliente</div></div>
       <div class="field"><label class="flabel">Nome / Razão Social</label><input class="inp" type="text" id="cli-nome" placeholder="Empresa ABC Ltda" autocomplete="off" list="cli-sugestoes" onchange="selecionarCliente(this.value)"><datalist id="cli-sugestoes"></datalist></div>
       <div class="g2">
         <div class="field"><label class="flabel">CNPJ</label><input class="inp inp-mono" type="text" id="cli-cnpj" placeholder="00.000.000/0000-00" maxlength="18" inputmode="numeric" oninput="maskCNPJ(this);buscaCNPJ(this.value)"><div id="cnpj-status" style="font-size:11px;margin-top:4px;min-height:16px"></div></div>
@@ -346,7 +568,7 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
       <div class="field"><label class="flabel">Local de coleta</label><input class="inp" type="text" id="cli-local" placeholder="Cidade / endereço da coleta"></div>
     </div>
     <div class="card">
-      <div class="card-head"><div class="card-icon">🚛</div><div class="card-lbl">Transporte</div></div>
+      <div class="card-head"><div class="card-icon"><i data-lucide="truck"></i></div><div class="card-lbl">Transporte</div></div>
       <div class="g2">
         <div class="field" style="display:flex; gap:8px;">
           <div style="flex:1"><label class="flabel">Trajeto (km)</label><input class="inp inp-mono" type="number" id="trajeto" placeholder="0" inputmode="numeric" oninput="calcular()"></div>
@@ -364,16 +586,16 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
       <button class="btn btn-ghost btn-sm" onclick="abrirRota()" style="margin-top:4px">🔗 Rota compartilhada (rateio por km)</button>
     </div>
     <div class="card" id="card-residuos">
-      <div class="card-head"><div class="card-icon">♻️</div><div class="card-lbl">Resíduos</div></div>
+      <div class="card-head"><div class="card-icon"><i data-lucide="recycle"></i></div><div class="card-lbl">Resíduos</div></div>
       <div id="res-list"></div>
       <button class="btn btn-ghost" onclick="addRes()" style="margin-top:6px"><span style="font-size:18px">+</span> Adicionar Resíduo</button>
     </div>
     <div class="card">
-      <div class="card-head"><div class="card-icon">📝</div><div class="card-lbl">Observações</div></div>
+      <div class="card-head"><div class="card-icon"><i data-lucide="sticky-note"></i></div><div class="card-lbl">Observações</div></div>
       <div class="field"><textarea class="inp" id="obs" placeholder="Condições especiais..." rows="3"></textarea></div>
     </div>
     <div class="card" id="calc-imposto-card">
-      <div class="card-head"><div class="card-icon">🧮</div><div class="card-lbl">Preço sobre o fornecedor</div></div>
+      <div class="card-head"><div class="card-icon"><i data-lucide="calculator"></i></div><div class="card-lbl">Preço sobre o fornecedor</div></div>
       <div style="font-size:11.5px;color:var(--text3);margin-bottom:12px;line-height:1.55">Quando o fornecedor já dá o valor do serviço completo: informe o custo dele e veja <b>quanto cobrar</b> (e quanto acrescentar) para cada margem de lucro. Imposto de <b id="calc-imp-lbl">15,45</b>% incluído.</div>
       <div class="field">
         <label class="flabel">Fornecedor cobra (R$) — use + para somar</label>
@@ -411,12 +633,14 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
       <div style="flex:1"><div class="shdr-title">Histórico</div><div class="shdr-sub">Orçamentos salvos</div></div>
       <button class="btn btn-outline btn-sm" onclick="limparHist()">Limpar</button>
     </div>
-    <div class="field" style="margin-bottom:12px"><input class="inp" type="text" id="hist-busca" placeholder="🔎 Buscar por cliente, contato, local..." oninput="renderHist()"></div>
-    <div id="hist-funil" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px"></div>
+    <div class="h-toolbar">
+      <div class="h-search"><i data-lucide="search"></i><input type="text" id="hist-busca" placeholder="Buscar por cliente, contato, local..." oninput="renderHist()"></div>
+      <div class="h-tabs" id="hist-filtros"></div>
+    </div>
     <div id="hist-list"></div>
   </div>
 
-  <div id="screen-coletas" class="screen">
+  <div id="screen-coletas" class="screen active">
     <div class="shdr" style="margin-bottom:14px">
       <div class="shdr-icon">📅</div>
       <div style="flex:1"><div class="shdr-title">Coletas</div><div class="shdr-sub">Agenda + controle de MTR/CDF</div></div>
@@ -494,14 +718,20 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
 </div>
 
 <nav class="nav">
-  <div class="nav-item active" id="nav-orcamento" onclick="navTo('orcamento',this)"><div class="nav-icon">📋</div><div class="nav-label">Orçamento</div></div>
-  <div class="nav-item" id="nav-resultado" onclick="navTo('resultado',this)"><div class="nav-icon">📊</div><div class="nav-label">Resultado</div></div>
-  <div class="nav-item" id="nav-proposta" onclick="navTo('proposta',this)"><div class="nav-icon">📄</div><div class="nav-label">Proposta</div></div>
-  <div class="nav-item" id="nav-historico" onclick="navTo('historico',this)"><div class="nav-icon">🗂️</div><div class="nav-label">Histórico</div></div>
-  <div class="nav-item" id="nav-coletas" onclick="navTo('coletas',this)"><div class="nav-icon">📅</div><div class="nav-label">Coletas</div></div>
-  <div class="nav-item" id="nav-contratos" onclick="navTo('contratos',this)"><div class="nav-icon">🔁</div><div class="nav-label">Contratos</div></div>
-  <div class="nav-item" id="nav-parceiros" onclick="navTo('parceiros',this)"><div class="nav-icon">🚚</div><div class="nav-label">Parceiros</div></div>
-  <div class="nav-item" id="nav-relatorios" onclick="navTo('relatorios',this)"><div class="nav-icon">📊</div><div class="nav-label">Relatórios</div></div>
+  <div class="nav-brand"><div class="bm">C</div><div><div class="bn">CerradoPRO</div><div class="bs">Cerrado Ambiental</div></div></div>
+  <div class="nav-item" id="nav-orcamento" onclick="navTo('orcamento',this)"><div class="nav-icon"><i data-lucide="clipboard-list"></i></div><div class="nav-label">Orçamento</div></div>
+  <div class="nav-item" id="nav-resultado" onclick="navTo('resultado',this)"><div class="nav-icon"><i data-lucide="bar-chart-3"></i></div><div class="nav-label">Resultado</div></div>
+  <div class="nav-item" id="nav-proposta" onclick="navTo('proposta',this)"><div class="nav-icon"><i data-lucide="file-text"></i></div><div class="nav-label">Proposta</div></div>
+  <div class="nav-item" id="nav-historico" onclick="navTo('historico',this)"><div class="nav-icon"><i data-lucide="folder-open"></i></div><div class="nav-label">Histórico</div></div>
+  <div class="nav-item active" id="nav-coletas" onclick="navTo('coletas',this)"><div class="nav-icon"><i data-lucide="calendar-days"></i></div><div class="nav-label">Coletas</div></div>
+  <div class="nav-item" id="nav-contratos" onclick="navTo('contratos',this)"><div class="nav-icon"><i data-lucide="repeat"></i></div><div class="nav-label">Contratos</div></div>
+  <div class="nav-item" id="nav-parceiros" onclick="navTo('parceiros',this)"><div class="nav-icon"><i data-lucide="truck"></i></div><div class="nav-label">Parceiros</div></div>
+  <div class="nav-item" id="nav-relatorios" onclick="navTo('relatorios',this)"><div class="nav-icon"><i data-lucide="pie-chart"></i></div><div class="nav-label">Relatórios</div></div>
+  <div class="nav-footer">
+    <button class="side-btn" onclick="abrirTransbordo()" title="Capacidade/Transbordo"><i data-lucide="calculator"></i></button>
+    <button class="side-btn" onclick="window.location.href='furgao.html'" title="FurgãoPRO"><i data-lucide="truck"></i></button>
+    <button class="side-btn" onclick="abrirCfg()" title="Configurações"><i data-lucide="settings"></i></button>
+  </div>
 </nav>
 
 <!-- MODAL IBAMA -->
@@ -590,25 +820,21 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
     <div class="modal-head"><div class="modal-title" id="contrato-titulo">Novo contrato</div><button class="modal-close-btn" onclick="fecharContrato()">×</button></div>
     <div class="modal-body">
       <input type="hidden" id="ct-id">
-      <div class="field"><label class="flabel">Cliente</label><input class="inp" type="text" id="ct-cliente" placeholder="Nome do cliente"></div>
-      <div class="g2">
-        <div class="field"><label class="flabel">Valor (R$)</label><input class="inp inp-mono" type="number" id="ct-valor" placeholder="0,00" inputmode="decimal"></div>
-        <div class="field"><label class="flabel">Periodicidade</label><select class="inp sel" id="ct-period"><option value="mensal">Mensal</option><option value="trimestral">Trimestral</option><option value="semestral">Semestral</option><option value="anual">Anual</option></select></div>
+      <div class="form-grid">
+        <div class="field c12"><label class="flabel">Cliente</label><input class="inp" type="text" id="ct-cliente" placeholder="Nome do cliente"></div>
+        <div class="field c6"><label class="flabel">Valor (R$)</label><input class="inp inp-mono" type="number" id="ct-valor" placeholder="0,00" inputmode="decimal"></div>
+        <div class="field c6"><label class="flabel">Periodicidade</label><select class="inp sel" id="ct-period"><option value="mensal">Mensal</option><option value="trimestral">Trimestral</option><option value="semestral">Semestral</option><option value="anual">Anual</option></select></div>
+        <div class="field c6"><label class="flabel">Início</label><input class="inp inp-mono" type="date" id="ct-inicio"></div>
+        <div class="field c6"><label class="flabel">Duração (meses)</label><input class="inp inp-mono" type="number" id="ct-duracao" placeholder="36" inputmode="numeric"></div>
+        <div class="field c4"><label class="flabel">Índice de reajuste</label><select class="inp sel" id="ct-indice"><option value="sem">Sem reajuste</option><option value="IPCA">IPCA</option><option value="IGPM">IGP-M</option><option value="OUTRO">Outro</option></select></div>
+        <div class="field c4"><label class="flabel">Reajuste anual (%)</label><input class="inp inp-mono" type="number" id="ct-reajuste" placeholder="0" inputmode="decimal"></div>
+        <div class="field c4"><label class="flabel">KM/mês (ida+volta)</label><input class="inp inp-mono" type="number" id="ct-kmmes" placeholder="0" inputmode="decimal"></div>
+        <div class="field c12"><label class="flabel">Observações</label><input class="inp" type="text" id="ct-obs" placeholder="Opcional"></div>
       </div>
-      <div class="g2">
-        <div class="field"><label class="flabel">Início</label><input class="inp inp-mono" type="date" id="ct-inicio"></div>
-        <div class="field"><label class="flabel">Duração (meses)</label><input class="inp inp-mono" type="number" id="ct-duracao" placeholder="36" inputmode="numeric"></div>
+      <div class="form-actions">
+        <button class="btn btn-del" id="ct-excluir-btn" onclick="excluirContrato()" style="display:none">🗑 Excluir</button>
+        <button class="btn btn-primary btn-save" onclick="salvarContrato()">Salvar contrato</button>
       </div>
-      <div class="g2">
-        <div class="field"><label class="flabel">Índice de reajuste</label><select class="inp sel" id="ct-indice"><option value="sem">Sem reajuste</option><option value="IPCA">IPCA</option><option value="IGPM">IGP-M</option><option value="OUTRO">Outro</option></select></div>
-        <div class="field"><label class="flabel">Reajuste anual (%)</label><input class="inp inp-mono" type="number" id="ct-reajuste" placeholder="0" inputmode="decimal"></div>
-      </div>
-      <div class="field"><label class="flabel">KM/mês (opcional, ida+volta)</label><input class="inp inp-mono" type="number" id="ct-kmmes" placeholder="0" inputmode="decimal"></div>
-      <div class="field"><label class="flabel">Observações</label><input class="inp" type="text" id="ct-obs" placeholder="Opcional"></div>
-      <div style="height:8px"></div>
-      <button class="btn btn-primary" onclick="salvarContrato()">✓ Salvar contrato</button>
-      <div style="height:8px"></div>
-      <button class="btn btn-outline" id="ct-excluir-btn" onclick="excluirContrato()" style="display:none;color:var(--danger);border-color:var(--danger)">🗑 Excluir</button>
     </div>
   </div>
 </div>
@@ -618,16 +844,16 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
     <div class="modal-head"><div class="modal-title" id="parceiro-titulo">Novo parceiro</div><button class="modal-close-btn" onclick="fecharParceiro()">×</button></div>
     <div class="modal-body">
       <input type="hidden" id="pa-id">
-      <div class="field"><label class="flabel">Nome</label><input class="inp" type="text" id="pa-nome" placeholder="Ex.: Ecoliq"></div>
-      <div class="g2">
-        <div class="field"><label class="flabel">Tarifa (R$/km)</label><input class="inp inp-mono" type="number" id="pa-custokm" placeholder="0,00" inputmode="decimal"></div>
-        <div class="field"><label class="flabel">Capacidade (kg)</label><input class="inp inp-mono" type="number" id="pa-capkg" placeholder="0" inputmode="numeric"></div>
+      <div class="form-grid">
+        <div class="field c12"><label class="flabel">Nome</label><input class="inp" type="text" id="pa-nome" placeholder="Ex.: Ecoliq"></div>
+        <div class="field c6"><label class="flabel">Tarifa (R$/km)</label><input class="inp inp-mono" type="number" id="pa-custokm" placeholder="0,00" inputmode="decimal"></div>
+        <div class="field c6"><label class="flabel">Capacidade (kg)</label><input class="inp inp-mono" type="number" id="pa-capkg" placeholder="0" inputmode="numeric"></div>
+        <div class="field c4"><label class="flabel">UF (opcional)</label><input class="inp" type="text" id="pa-uf" placeholder="GO" maxlength="2" style="text-transform:uppercase"></div>
       </div>
-      <div class="field"><label class="flabel">UF (opcional)</label><input class="inp" type="text" id="pa-uf" placeholder="GO" maxlength="2" style="text-transform:uppercase"></div>
-      <div style="height:8px"></div>
-      <button class="btn btn-primary" onclick="salvarParceiro()">✓ Salvar parceiro</button>
-      <div style="height:8px"></div>
-      <button class="btn btn-outline" id="pa-excluir-btn" onclick="excluirParceiro()" style="display:none;color:var(--danger);border-color:var(--danger)">🗑 Excluir</button>
+      <div class="form-actions">
+        <button class="btn btn-del" id="pa-excluir-btn" onclick="excluirParceiro()" style="display:none">🗑 Excluir</button>
+        <button class="btn btn-primary btn-save" onclick="salvarParceiro()">Salvar parceiro</button>
+      </div>
     </div>
   </div>
 </div>
@@ -974,15 +1200,24 @@ function renderResultado(r){
   var ih='';
   r.itens.forEach(function(it,i){if((it.peso||0)>0){ih+='<div class="rrow"><div><div style="font-size:13px;font-weight:600;color:var(--text)">'+(it.desc||'Resíduo '+(i+1))+'</div><div style="font-size:11px;color:var(--text3);font-family:\'DM Mono\',monospace;margin-top:2px">'+it.dest+' · '+fmt(it.peso)+' kg</div></div><div style="text-align:right"><div class="rv acc" style="font-weight:600">'+brl(it.precCli)+'</div><div style="font-size:11px;color:var(--text4);margin-top:2px">custo '+brl(it.custForn)+'</div></div></div>';}});
   g('resultado-content').innerHTML=
-    '<div class="rbox-dark"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><div style="font-size:11px;color:rgba(248,240,221,0.45);font-weight:700;letter-spacing:1px;text-transform:uppercase">Margem de Lucro</div><div class="badge '+bc+'">'+pct.toFixed(1)+'%</div></div><div style="font-size:30px;font-weight:800;color:#fff;font-family:\'DM Mono\',monospace;margin-bottom:14px">'+brl(r.sob)+'</div><div class="mbar"><div class="mfill" style="width:'+bw+'%;background:'+fc+'"></div></div><div class="mlabels"><span class="ml">0%</span><span class="ml">mín '+mm+'%</span><span class="ml">100%</span></div></div>'+
-    '<div class="rbox-light"><div class="card-head" style="margin-bottom:12px"><div class="card-icon">🚛</div><div class="card-lbl">Transporte — '+r.veic+'</div></div><div class="rrow"><div class="rl">Custo fornecedor ('+fmt(r.km)+' km)</div><div class="rv">'+brl(r.ctf)+'</div></div><div class="rrow"><div class="rl">Cobrado do cliente</div><div class="rv acc">'+brl(r.ptc)+'</div></div>'+(r.ac>0?'<div class="rrow"><div class="rl">Acréscimo de cabeça</div><div class="rv acc">'+brl(r.ac)+'</div></div>':'')+'</div>'+
-    (ih?'<div class="rbox-light"><div class="card-head" style="margin-bottom:12px"><div class="card-icon">♻️</div><div class="card-lbl">Destinação</div></div>'+ih+'</div>':'')+
-    '<div class="rbox-light"><div class="card-head" style="margin-bottom:12px"><div class="card-icon">💰</div><div class="card-lbl">Resumo</div></div><div class="rrow"><div class="rl" style="font-weight:700;color:var(--text)">Total da Nota</div><div class="rv" style="font-size:20px;color:var(--accent);font-weight:700">'+brl(r.tot)+'</div></div><div class="rrow"><div class="rl">Imposto ('+cfg.imposto+'%)</div><div class="rv neg">− '+brl(r.imp)+'</div></div>'+(r.ped>0?'<div class="rrow"><div class="rl">Pedágio</div><div class="rv neg">− '+brl(r.ped)+'</div></div>':'')+(r.cmot&&r.cmot.custoTotal>0?'<div class="rrow"><div class="rl">Custo motorista (viagem)</div><div class="rv neg">− '+brl(r.cmot.custoTotal)+'</div></div>':'')+'<div class="rrow"><div class="rl">Custo total</div><div class="rv neg">− '+brl(r.ct)+'</div></div></div>'+
+    '<div class="rbox-light">'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'+
+        '<span style="font-size:13px;color:var(--text-muted);font-weight:500">Margem de lucro</span>'+
+        '<span class="badge '+bc+'">'+pct.toFixed(1).replace('.',',')+'%</span>'+
+      '</div>'+
+      '<div style="font-size:28px;font-weight:700;color:var(--text);font-family:\'DM Mono\',monospace;letter-spacing:-0.5px;line-height:1.1">'+brl(r.sob)+'</div>'+
+      '<div style="font-size:12px;color:var(--text-muted);margin-top:3px">lucro sobre a nota de '+brl(r.tot)+'</div>'+
+      '<div class="mtrack"><div class="mtrack-fill" style="width:'+bw+'%"></div><div class="mtrack-goal" style="left:'+Math.min(100,mm)+'%"></div></div>'+
+      '<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-muted);margin-top:6px"><span>0%</span><span>meta '+mm+'%</span><span>100%</span></div>'+
+    '</div>'+
+    '<div class="rbox-light"><div class="card-head" style="margin-bottom:12px"><div class="card-icon"><i data-lucide="truck"></i></div><div class="card-lbl">Transporte — '+r.veic+'</div></div><div class="rrow"><div class="rl">Custo fornecedor ('+fmt(r.km)+' km)</div><div class="rv">'+brl(r.ctf)+'</div></div><div class="rrow"><div class="rl">Cobrado do cliente</div><div class="rv acc">'+brl(r.ptc)+'</div></div>'+(r.ac>0?'<div class="rrow"><div class="rl">Acréscimo de cabeça</div><div class="rv acc">'+brl(r.ac)+'</div></div>':'')+'</div>'+
+    (ih?'<div class="rbox-light"><div class="card-head" style="margin-bottom:12px"><div class="card-icon"><i data-lucide="recycle"></i></div><div class="card-lbl">Destinação</div></div>'+ih+'</div>':'')+
+    '<div class="rbox-light"><div class="card-head" style="margin-bottom:12px"><div class="card-icon"><i data-lucide="wallet"></i></div><div class="card-lbl">Resumo</div></div><div class="rrow"><div class="rl" style="font-weight:700;color:var(--text)">Total da nota</div><div class="rv" style="font-size:18px;color:var(--accent);font-weight:700">'+brl(r.tot)+'</div></div><div class="rrow"><div class="rl">Imposto ('+cfg.imposto+'%)</div><div class="rv neg">− '+brl(r.imp)+'</div></div>'+(r.ped>0?'<div class="rrow"><div class="rl">Pedágio</div><div class="rv neg">− '+brl(r.ped)+'</div></div>':'')+(r.cmot&&r.cmot.custoTotal>0?'<div class="rrow"><div class="rl">Custo motorista (viagem)</div><div class="rv neg">− '+brl(r.cmot.custoTotal)+'</div></div>':'')+'<div class="rrow"><div class="rl">Custo total</div><div class="rv neg">− '+brl(r.ct)+'</div></div></div>'+
     analiseNegHTML(r)+
     pisoMarginalHTML(r)+
     desembolsoMotoristaHTML(r)+
     comparativoParceirosHTML(r)+
-    '<div class="btn-row"><button class="btn btn-primary" style="flex:2" onclick="gerarProposta()">📄 Gerar Proposta</button><button class="btn btn-outline" style="flex:1" onclick="salvarHist()">💾 Salvar</button></div>';
+    '<div class="res-actions"><button class="btn btn-primary" onclick="gerarProposta()"><i data-lucide="file-text"></i> Gerar proposta</button><button class="btn res-btn-sec" onclick="salvarHist()"><i data-lucide="save"></i> Salvar</button></div>';
 }
 
 function pisoMarginalHTML(r){
@@ -1024,14 +1259,16 @@ function analiseNegHTML(r){
   if(!a)return '';
   var sims=a.simulacoes.map(function(s){
     var neg=s.margem<a.margemMin;
-    return '<div class="rrow"><div class="rl">'+s.label+'</div><div style="text-align:right"><div class="rv '+(neg?'neg':'acc')+'" style="font-weight:600">'+brl(s.preco)+'</div><div style="font-size:11px;color:var(--text4);margin-top:2px">lucro '+brl(s.lucro)+' · '+(s.margem*100).toFixed(1)+'%</div></div></div>';
+    return '<tr><td>'+s.label+'</td><td>'+brl(s.preco)+'</td><td>'+brl(s.lucro)+'</td><td class="'+(neg?'neg':'pos')+'">'+(s.margem*100).toFixed(1).replace('.',',')+'%</td></tr>';
   }).join('');
-  return '<div class="rbox-light"><div class="card-head" style="margin-bottom:12px"><div class="card-icon">🤝</div><div class="card-lbl">Análise de Negociação</div></div>'+
+  var co=(a.margemAtual!=null&&a.margemAtual<a.margemMin)?'danger':(/pouca/i.test(a.recomendacao)?'warn':'');
+  return '<div class="rbox-light"><div class="card-head" style="margin-bottom:12px"><div class="card-icon"><i data-lucide="handshake"></i></div><div class="card-lbl">Análise de negociação</div></div>'+
     '<div class="rrow"><div class="rl">Preço mínimo ('+(a.margemMin*100).toFixed(0)+'%)</div><div class="rv" style="font-weight:700">'+(a.precoMinimo!=null?brl(a.precoMinimo):'—')+'</div></div>'+
     '<div class="rrow"><div class="rl">Preço calculado</div><div class="rv acc">'+brl(a.precoAtual)+'</div></div>'+
     '<div class="rrow"><div class="rl">Folga para negociação</div><div class="rv" style="font-weight:700">'+(a.folgaNegociacao!=null?brl(a.folgaNegociacao):'—')+'</div></div>'+
-    '<div style="height:6px"></div><div class="card-lbl" style="font-size:11px;margin-bottom:6px;color:var(--text3)">Simulação de cenários</div>'+sims+
-    '<div style="margin-top:12px;padding:11px 13px;border-radius:11px;background:var(--accent-dim);color:var(--accent);font-size:13px;font-weight:600;line-height:1.4">💡 '+a.recomendacao+'</div>'+
+    '<div style="font-size:12px;color:var(--text-muted);font-weight:600;margin:14px 0 6px">Simulação de cenários</div>'+
+    '<table class="sim-table"><thead><tr><th>Cenário</th><th>Preço</th><th>Lucro</th><th>Margem</th></tr></thead><tbody>'+sims+'</tbody></table>'+
+    '<div class="callout '+co+'">'+a.recomendacao+'</div>'+
   '</div>';
 }
 
@@ -1064,25 +1301,39 @@ function funilOpts(cur){return Object.keys(FUNIL).map(function(k){return '<optio
 function setStatusHist(id,val){try{var h=JSON.parse(localStorage.getItem('rpro_hist')||'[]');h=h.map(function(i){return i.id===id?Object.assign({},i,{status:val}):i;});lset('rpro_hist',JSON.stringify(h));renderHist();}catch(e){}}
 function salvarHist(){var r=ultimoCalculo;if(!r)return;try{var h=JSON.parse(localStorage.getItem('rpro_hist')||'[]');if(editandoId&&h.some(function(i){return i.id===editandoId;})){h=h.map(function(i){return i.id===editandoId?Object.assign({},r,{id:editandoId,status:i.status||'enviado'}):i;});lset('rpro_hist',JSON.stringify(h));toast('✏️ Orçamento atualizado');}else{h.unshift(Object.assign({},r,{id:Date.now(),status:'enviado'}));if(h.length>50)h=h.slice(0,50);lset('rpro_hist',JSON.stringify(h));toast('💾 Salvo!');}editandoId=null;renderHist();}catch(e){}}
 
+var _histFiltro='todas';
+function setHistFiltro(k){_histFiltro=k;renderHist();}
 function renderHist(){try{
   renderClienteSugestoes();
   var all=JSON.parse(localStorage.getItem('rpro_hist')||'[]');
   var counts={};all.forEach(function(x){var s=x.status||'enviado';counts[s]=(counts[s]||0)+1;});
-  var fz=g('hist-funil');if(fz){fz.innerHTML=all.length?Object.keys(FUNIL).map(function(k){return '<span class="badge" style="background:'+FUNIL[k].c+'22;color:'+FUNIL[k].c+';border:1px solid '+FUNIL[k].c+'55">'+FUNIL[k].l+': '+(counts[k]||0)+'</span>';}).join(''):'';}
+  // abas de filtro por status (com contagem)
+  var fz=g('hist-filtros');
+  if(fz){
+    var tabs=[{k:'todas',l:'Todas',n:all.length}];
+    Object.keys(FUNIL).forEach(function(k){tabs.push({k:k,l:FUNIL[k].l,n:counts[k]||0});});
+    fz.innerHTML=tabs.map(function(t){return '<button class="h-tab'+(_histFiltro===t.k?' active':'')+'" onclick="setHistFiltro(\''+t.k+'\')">'+t.l+'<span class="ct">'+t.n+'</span></button>';}).join('');
+  }
   var el=g('hist-list');var q=(g('hist-busca')&&g('hist-busca').value||'').trim().toLowerCase();
-  var h=all;if(q){h=all.filter(function(x){var c=x.cli||{};return [c.nome,c.contato,c.local,x.obs].join(' ').toLowerCase().indexOf(q)>=0;});}
-  if(!h.length){el.innerHTML='<div class="empty"><span class="empty-ico">🗂️</span><div class="empty-t">'+(q?'Nada encontrado':'Nenhum orçamento salvo')+'</div></div>';return;}
-  el.innerHTML=h.map(function(x){
-    var ok=(x.mar*100)>=(cfg.margemMin||30);var c=x.cli||{};var lucroPct=x.tot>0?(x.sob/x.tot*100):0;
-    var st=x.status||'enviado';var fc=FUNIL[st]||FUNIL.enviado;
-    return '<div class="hist-card" onclick="carregarHist('+x.id+')">'+
-      '<div class="hist-top"><div class="hist-name">'+(c.nome||'Sem nome')+'</div><div class="hist-date">'+(x.data||'')+'</div></div>'+
-      (c.contato?'<div class="hist-sub">👤 '+c.contato+'</div>':'')+(c.local?'<div class="hist-sub">📍 '+c.local+'</div>':'')+
-      '<div class="hist-bot"><div><div class="hist-sub">NF</div><div class="hist-val">'+brl(x.tot)+'</div></div><div style="text-align:right"><div class="hist-sub">Lucro</div><div class="hist-val">'+brl(x.sob)+' <span style="font-size:11px;color:var(--text3)">('+lucroPct.toFixed(1)+'%)</span></div></div></div>'+
-      '<div class="hist-bot" style="margin-top:8px"><div class="badge '+(ok?'b-ok':'b-warn')+'">'+(x.mar*100).toFixed(1)+'% margem</div><div style="display:flex;gap:6px"><button class="btn btn-outline btn-sm" onclick="event.stopPropagation();editarHist('+x.id+')">✏️ Editar</button><button class="btn btn-outline btn-sm" onclick="event.stopPropagation();excluirHist('+x.id+')">🗑️</button></div></div>'+
-      '<div class="hist-bot" style="margin-top:8px" onclick="event.stopPropagation()"><span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text2)"><span style="width:9px;height:9px;border-radius:50%;background:'+fc.c+';display:inline-block"></span>'+fc.l+'</span><select class="inp sel" style="width:auto;padding:4px 10px;font-size:12px" onchange="setStatusHist('+x.id+',this.value)">'+funilOpts(st)+'</select></div>'+
-    '</div>';
+  var h=all.filter(function(x){
+    if(_histFiltro!=='todas' && (x.status||'enviado')!==_histFiltro) return false;
+    if(q){var c=x.cli||{};return [c.nome,c.contato,c.local,x.obs].join(' ').toLowerCase().indexOf(q)>=0;}
+    return true;
+  });
+  if(!h.length){el.innerHTML='<div class="empty"><span class="empty-ico">🗂️</span><div class="empty-t">'+((q||_histFiltro!=='todas')?'Nada encontrado':'Nenhum orçamento salvo')+'</div></div>';return;}
+  var rows=h.map(function(x){
+    var c=x.cli||{},st=x.status||'enviado',ok=(x.mar*100)>=(cfg.margemMin||30);
+    var meta=[c.contato,c.local].filter(Boolean).join(' • ');
+    return '<tr onclick="carregarHist('+x.id+')">'+
+      '<td class="h-data">'+(x.data||'—')+'</td>'+
+      '<td><div class="h-nome">'+(c.nome||'Sem nome')+'</div>'+(meta?'<div class="h-meta">'+meta+'</div>':'')+'</td>'+
+      '<td onclick="event.stopPropagation()"><select class="status-sel st-'+st+'" onchange="setStatusHist('+x.id+',this.value)">'+funilOpts(st)+'</select></td>'+
+      '<td class="h-num">'+brl(x.tot)+'</td>'+
+      '<td class="h-num"><span class="'+(ok?'pos':'neg')+'">'+brl(x.sob)+'</span><div class="h-sub">'+(x.mar*100).toFixed(1).replace('.',',')+'% margem</div></td>'+
+      '<td class="h-acoes" onclick="event.stopPropagation()"><button class="ico-btn" title="Editar" onclick="editarHist('+x.id+')"><i data-lucide="pencil"></i></button><button class="ico-btn danger" title="Excluir" onclick="excluirHist('+x.id+')"><i data-lucide="trash-2"></i></button></td>'+
+    '</tr>';
   }).join('');
+  el.innerHTML='<div class="dtable-wrap"><table class="dtable"><thead><tr><th>Data</th><th>Cliente</th><th>Status</th><th class="r">NF</th><th class="r">Lucro / margem</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>';
 }catch(e){}}
 
 function _normNome(s){return (s||'').toString().trim().replace(/\s+/g,' ').toLowerCase();}
@@ -1894,7 +2145,22 @@ function excluirContrato(){
 }
 
 // ── TRANSPORTADORES PARCEIROS (TASK-015) ──
-function lParceiros(){try{return JSON.parse(localStorage.getItem('rpro_parceiros')||'[]');}catch(e){return [];}}
+// Leitura com MIGRAÇÃO automática (não destrutiva) para o novo modelo de parceiro
+function lParceiros(){
+  var arr=[];try{arr=JSON.parse(localStorage.getItem('rpro_parceiros')||'[]');}catch(e){}
+  return arr.map(function(p){
+    p=p||{};
+    return {
+      id:p.id,
+      nome:p.nome||'',
+      transportador: p.transportador!=null?!!p.transportador:true,  // antigos = transportadores
+      destinador: !!p.destinador,
+      base: p.base||'',
+      uf: p.uf||'',
+      veiculos: Array.isArray(p.veiculos)?p.veiculos:[]
+    };
+  });
+}
 function sParceiros(a){try{lset('rpro_parceiros',JSON.stringify(a));}catch(e){}}
 function renderTranspSugestoes(){
   var dl=g('dl-transp');if(!dl)return;
@@ -1902,25 +2168,61 @@ function renderTranspSugestoes(){
   lParceiros().slice().sort(function(a,b){return (a.nome||'').localeCompare(b.nome||'');}).forEach(function(p){if(p.nome)opts+='<option value="'+p.nome.replace(/"/g,'&quot;')+'">';});
   dl.innerHTML=opts;
 }
+function _paPapeis(p){var t=[];if(p.transportador)t.push('Transportador');if(p.destinador)t.push('Destinador');return t;}
 function renderParceiros(){
   var arr=lParceiros(),list=g('pa-list');if(!list)return;
   if(!arr.length){
-    list.innerHTML='<div class="empty"><div class="empty-ico">🚚</div><div class="empty-t">Nenhum parceiro</div><div class="empty-s">Cadastre transportadores terceiros com a tarifa R$/km para comparar com o furgão próprio no Resultado.</div></div>';
+    list.innerHTML='<div class="empty"><div class="empty-ico">🚚</div><div class="empty-t">Nenhum parceiro</div><div class="empty-s">Cadastre transportadores e destinadores, com a base operacional e os veículos.</div></div>';
   }else{
     list.innerHTML=arr.slice().sort(function(a,b){return (a.nome||'').localeCompare(b.nome||'');}).map(function(p){
+      var papeis=_paPapeis(p).map(function(t){return '<span class="role-badge">'+t+'</span>';}).join('');
+      var nv=(p.veiculos||[]).length;
       return '<div class="hist-card" onclick="abrirParceiro('+p.id+')">'+
-        '<div class="hist-top"><div class="hist-name">'+(p.nome||'(sem nome)')+(p.uf?' <span style="color:var(--text3);font-weight:400">· '+p.uf+'</span>':'')+'</div><div class="hist-val">'+brl(p.custoKm||0)+'<span style="font-size:11px;color:var(--text3)">/km</span></div></div>'+
-        '<div class="hist-sub">Capacidade: '+(p.capacidadeKg?fmt(p.capacidadeKg)+' kg':'—')+'</div>'+
+        '<div class="hist-top"><div class="hist-name">'+(p.nome||'(sem nome)')+'</div></div>'+
+        (papeis?'<div style="display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 2px">'+papeis+'</div>':'<div class="hist-sub">sem atuação definida</div>')+
+        ((p.base||p.uf)?'<div class="hist-sub">📍 '+(p.base||p.uf)+'</div>':'')+
+        '<div class="hist-sub">'+(nv?nv+' veículo'+(nv>1?'s':''):'sem veículos')+'</div>'+
       '</div>';
     }).join('');
   }
   renderTranspSugestoes();
 }
+// ---- Veículos do parceiro (estado de edição em memória) ----
+var _paVeiculos=[], _paVehEdit=null;
+function _fmtVeic(v){
+  var caps=[];if(v.capacidadeT)caps.push(fmt(v.capacidadeT)+' t');if(v.capacidadeM3)caps.push(fmt(v.capacidadeM3)+' m³');
+  var s=caps.join(' | ');if(v.precoMin)s+=(s?' · ':'')+'Preço mínimo: '+brl(v.precoMin);
+  return s||'—';
+}
+function renderPaVeiculos(){
+  var el=g('pa-vh-list');if(!el)return;
+  if(!_paVeiculos.length){el.innerHTML='<div style="font-size:12px;color:var(--text-muted);padding:4px 0">Nenhum veículo cadastrado.</div>';return;}
+  el.innerHTML=_paVeiculos.map(function(v){
+    return '<div class="pa-vh-item"><div class="pa-vh-info"><div class="pa-vh-nome">'+(v.nome||'Veículo')+'</div><div class="pa-vh-sub">'+_fmtVeic(v)+'</div></div>'+
+      '<div class="pa-vh-acts"><button type="button" class="ico-btn" title="Editar" onclick="paVeiculoEditar('+v.id+')"><i data-lucide="pencil"></i></button><button type="button" class="ico-btn danger" title="Excluir" onclick="paVeiculoExcluir('+v.id+')"><i data-lucide="trash-2"></i></button></div></div>';
+  }).join('');
+}
+function _paVehInputs(v){g('pav-nome').value=v?v.nome||'':'';g('pav-capt').value=(v&&v.capacidadeT)||'';g('pav-capm3').value=(v&&v.capacidadeM3)||'';g('pav-preco').value=(v&&v.precoMin)||'';}
+function paVeiculoNovo(){_paVehEdit=null;_paVehInputs(null);g('pa-vh-form').style.display='block';try{g('pav-nome').focus();}catch(e){}}
+function paVeiculoEditar(vid){var v=_paVeiculos.find(function(x){return x.id===vid;});if(!v)return;_paVehEdit=vid;_paVehInputs(v);g('pa-vh-form').style.display='block';}
+function paVeiculoCancelar(){g('pa-vh-form').style.display='none';_paVehEdit=null;}
+function paVeiculoSalvar(){
+  var nome=(g('pav-nome').value||'').trim();if(!nome){toast('⚠️ Informe o nome/tipo do veículo');return;}
+  var v={id:_paVehEdit||Date.now(),nome:nome,capacidadeT:Number(g('pav-capt').value)||0,capacidadeM3:Number(g('pav-capm3').value)||0,precoMin:Number(g('pav-preco').value)||0};
+  if(_paVehEdit){_paVeiculos=_paVeiculos.map(function(x){return x.id===_paVehEdit?v:x;});}else{_paVeiculos.push(v);}
+  _paVehEdit=null;g('pa-vh-form').style.display='none';renderPaVeiculos();
+}
+function paVeiculoExcluir(vid){_paVeiculos=_paVeiculos.filter(function(x){return x.id!==vid;});renderPaVeiculos();}
 function abrirParceiro(id){
   var arr=lParceiros(),p=(typeof id==='number')?arr.find(function(x){return x.id===id;}):null;
   g('pa-id').value=p?p.id:'';g('parceiro-titulo').textContent=p?'Editar parceiro':'Novo parceiro';
-  g('pa-nome').value=p?p.nome||'':'';g('pa-custokm').value=p?(p.custoKm||''):'';
-  g('pa-capkg').value=p?(p.capacidadeKg||''):'';g('pa-uf').value=p?p.uf||'':'';
+  g('pa-nome').value=p?p.nome||'':'';
+  g('pa-transp').checked=p?!!p.transportador:true;
+  g('pa-dest').checked=p?!!p.destinador:false;
+  g('pa-base').value=p?p.base||'':'';
+  g('pa-uf').value=p?p.uf||'':'';
+  _paVeiculos=(p&&Array.isArray(p.veiculos))?p.veiculos.map(function(v){return Object.assign({},v);}):[];
+  _paVehEdit=null;g('pa-vh-form').style.display='none';renderPaVeiculos();
   g('pa-excluir-btn').style.display=p?'block':'none';
   g('parceiro-modal').classList.add('open');
 }
@@ -1929,7 +2231,7 @@ function salvarParceiro(){
   var arr=lParceiros(),id=g('pa-id').value?Number(g('pa-id').value):null;
   var nome=(g('pa-nome').value||'').trim();
   if(!nome){toast('⚠️ Informe o nome');return;}
-  var obj={id:id||Date.now(),nome:nome,custoKm:Number(g('pa-custokm').value)||0,capacidadeKg:Number(g('pa-capkg').value)||0,uf:(g('pa-uf').value||'').trim().toUpperCase()};
+  var obj={id:id||Date.now(),nome:nome,transportador:g('pa-transp').checked,destinador:g('pa-dest').checked,base:(g('pa-base').value||'').trim(),uf:(g('pa-uf').value||'').trim().toUpperCase(),veiculos:_paVeiculos.slice()};
   if(id){arr=arr.map(function(x){return x.id===id?obj:x;});}else{arr.push(obj);}
   sParceiros(arr);fecharParceiro();renderParceiros();toast('✅ Parceiro salvo');
 }
@@ -1997,7 +2299,7 @@ function renderRelatorios(){
   var rankLoc=Object.keys(porLoc).map(function(l){return {local:l,fat:porLoc[l]};}).sort(function(a,b){return b.fat-a.fat;}).slice(0,8);
   var locBox='';
   if(rankLoc.length){
-    var locRows=rankLoc.map(function(r){return '<div class="rrow"><div class="rl">📍 '+r.local+'</div><div class="rv">'+brl(r.fat)+'</div></div>';}).join('');
+    var locRows=rankLoc.map(function(r){return '<div class="rrow"><div class="rl"><div>📍 '+r.local+'</div></div><div class="rv">'+brl(r.fat)+'</div></div>';}).join('');
     locBox='<div class="rbox-light"><div class="card-head" style="margin-bottom:10px"><div class="card-icon">🗺️</div><div class="card-lbl">Ranking de rotas/locais</div></div>'+locRows+'</div>';
   }
   el.innerHTML=kpis+mesBox+cliBox+locBox;
@@ -2155,9 +2457,11 @@ function renderMes(){
   var tStr=new Date().toISOString().slice(0,10), html='';
   for(var i=0;i<startDow;i++)html+='<div class="ag-cell empty"></div>';
   for(var d=1;d<=days;d++){
-    var ds=y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0'), items=byDay[d]||[], dots='';
-    items.slice(0,4).forEach(function(c){var t=statusColeta(c).tipo;dots+='<span class="ag-dot '+(t==='vencida'?'venc':t==='recebido'?'ok':'pend')+'"></span>';});
-    html+='<div class="ag-cell'+(ds===tStr?' hoje':'')+(ds===_diaSel?' sel':'')+'" onclick="selDia(\''+ds+'\')">'+d+'<div class="ag-dots">'+dots+'</div></div>';
+    var ds=y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0'), items=byDay[d]||[];
+    var maxShow=items.length>3?2:items.length, evs='';
+    items.slice(0,maxShow).forEach(function(c){var t=statusColeta(c).tipo;var nm=(c.gerador||'Coleta');evs+='<div class="ag-ev'+(t==='vencida'?' ev-vencida':t==='recebido'?' ev-recebido':'')+'" title="'+(''+nm).replace(/"/g,'&quot;')+'">'+nm+'</div>';});
+    if(items.length>maxShow)evs+='<div class="ag-more">+ '+(items.length-maxShow)+' coleta'+(items.length-maxShow>1?'s':'')+'</div>';
+    html+='<div class="ag-cell'+(ds===tStr?' hoje':'')+(ds===_diaSel?' sel':'')+'" onclick="selDia(\''+ds+'\')"><div class="ag-daynum">'+d+'</div><div class="ag-evs">'+evs+'</div></div>';
   }
   g('ag-grid').innerHTML=html;
   renderDiaList();
@@ -2225,6 +2529,10 @@ if(typeof firebase!=='undefined'&&firebase.auth){
   firebase.auth().onAuthStateChanged(function(user){ if(user)iniciarColetasEstruturadas(); else pararColetasEstruturadas(); });
 }
 try{checkBackupLembrete();}catch(e){}
+// Ícones Lucide: renderiza os existentes e observa o DOM para converter os injetados dinamicamente
+function _icons(){ if(window.lucide&&lucide.createIcons){ try{lucide.createIcons();}catch(e){} } }
+_icons();
+if(window.MutationObserver&&document.body){ var _icoT; new MutationObserver(function(){ clearTimeout(_icoT); _icoT=setTimeout(_icons,60); }).observe(document.body,{childList:true,subtree:true}); }
 </script>
 </body>
 </html>
