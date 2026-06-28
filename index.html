@@ -421,11 +421,23 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
 /* Formulários em grid de 12 colunas (modais) */
 .form-grid{ display:grid; grid-template-columns:repeat(12,1fr); gap:16px; }
 .form-grid .field{ margin-bottom:0; }
-.c12{ grid-column:span 12; } .c6{ grid-column:span 12; } .c4{ grid-column:span 12; }  /* mobile: empilha */
+.c12{ grid-column:span 12; } .c8{ grid-column:span 12; } .c6{ grid-column:span 12; } .c4{ grid-column:span 12; } .c3{ grid-column:span 12; }  /* mobile: empilha */
 .form-actions{ display:flex; align-items:center; gap:12px; justify-content:flex-end; margin-top:24px; }
 .btn-save{ width:auto; padding:12px 24px; }
 .btn-del{ width:auto; padding:12px 24px; background:transparent; border:1px solid var(--border); color:#b91c1c; font-weight:500; margin-right:auto; }
 .btn-del:hover{ border-color:#b91c1c; }
+
+/* Cadastro de parceiros: atuação (checkboxes), badges de papel e lista de veículos */
+.chk-row{ display:flex; gap:24px; flex-wrap:wrap; padding-top:4px; }
+.chk{ display:inline-flex; align-items:center; gap:8px; font-size:13.5px; color:var(--text); cursor:pointer; }
+.chk input{ width:17px; height:17px; flex-shrink:0; }
+.role-badge{ display:inline-block; font-size:11px; font-weight:600; padding:3px 9px; border-radius:12px; background:rgba(219,106,29,0.10); color:var(--accent); }
+.pa-vehicles{ margin-top:20px; border-top:1px solid var(--border); padding-top:16px; }
+.pa-vh-head{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:8px; }
+.pa-vh-item{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 12px; border:1px solid var(--border); border-radius:8px; background:#fcfaf5; margin-bottom:8px; }
+.pa-vh-nome{ font-size:13.5px; font-weight:600; color:var(--text); }
+.pa-vh-sub{ font-size:12px; color:var(--text-muted); margin-top:1px; }
+.pa-vh-acts{ display:flex; gap:6px; flex-shrink:0; }
 /* callout de recomendação */
 .callout{ margin-top:14px; padding:12px 14px; border-radius:8px; background:var(--accent-dim); color:var(--accent); border-left:4px solid var(--accent); font-size:13px; font-weight:500; line-height:1.45; }
 .callout.danger{ background:var(--bg-alert); color:var(--text-alert); border-left-color:var(--text-alert); }
@@ -525,7 +537,7 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
   #screen-resultado>*{ max-width:none; }   /* Resultado ocupa a largura toda */
   #screen-coletas>*{ max-width:none; }     /* Coletas (agenda/lista) ocupa a largura toda */
   /* grid de formulário: 6/6 e 4/4/4 no desktop */
-  .c6{ grid-column:span 6; } .c4{ grid-column:span 4; }
+  .c8{ grid-column:span 8; } .c6{ grid-column:span 6; } .c4{ grid-column:span 4; } .c3{ grid-column:span 3; }
   /* modais como card centralizado (não mais "folha" de baixo) */
   .overlay{ align-items:center; justify-content:center; padding:24px; }
   .modal{ width:100%; max-width:560px; border-radius:12px; border:1px solid var(--border); max-height:88vh; transform:translateY(10px) scale(.985); }
@@ -846,10 +858,34 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
       <input type="hidden" id="pa-id">
       <div class="form-grid">
         <div class="field c12"><label class="flabel">Nome</label><input class="inp" type="text" id="pa-nome" placeholder="Ex.: Ecoliq"></div>
-        <div class="field c6"><label class="flabel">Tarifa (R$/km)</label><input class="inp inp-mono" type="number" id="pa-custokm" placeholder="0,00" inputmode="decimal"></div>
-        <div class="field c6"><label class="flabel">Capacidade (kg)</label><input class="inp inp-mono" type="number" id="pa-capkg" placeholder="0" inputmode="numeric"></div>
-        <div class="field c4"><label class="flabel">UF (opcional)</label><input class="inp" type="text" id="pa-uf" placeholder="GO" maxlength="2" style="text-transform:uppercase"></div>
+        <div class="field c12">
+          <label class="flabel">Atuação</label>
+          <div class="chk-row">
+            <label class="chk"><input type="checkbox" id="pa-transp"> Atua como transportador</label>
+            <label class="chk"><input type="checkbox" id="pa-dest"> Atua como destinador</label>
+          </div>
+        </div>
+        <div class="field c8"><label class="flabel">Base operacional (endereço)</label><input class="inp" type="text" id="pa-base" placeholder="Rua, nº — Cidade/UF"></div>
+        <div class="field c4"><label class="flabel">UF</label><input class="inp" type="text" id="pa-uf" placeholder="GO" maxlength="2" style="text-transform:uppercase"></div>
       </div>
+
+      <div class="pa-vehicles">
+        <div class="pa-vh-head"><span class="card-lbl">Veículos</span><button type="button" class="btn res-btn-sec btn-sm" onclick="paVeiculoNovo()">＋ Adicionar veículo</button></div>
+        <div id="pa-vh-list"></div>
+        <div id="pa-vh-form" style="display:none">
+          <div class="form-grid" style="margin-top:10px">
+            <div class="field c6"><label class="flabel">Nome / tipo</label><input class="inp" type="text" id="pav-nome" placeholder="Truck, Toco, Roll-on..."></div>
+            <div class="field c3"><label class="flabel">Capacidade (t)</label><input class="inp inp-mono" type="number" id="pav-capt" placeholder="0" inputmode="decimal"></div>
+            <div class="field c3"><label class="flabel">Capacidade (m³)</label><input class="inp inp-mono" type="number" id="pav-capm3" placeholder="0" inputmode="decimal"></div>
+            <div class="field c6"><label class="flabel">Preço mínimo / diária (R$)</label><input class="inp inp-mono" type="number" id="pav-preco" placeholder="0,00" inputmode="decimal"></div>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:10px">
+            <button type="button" class="btn btn-primary btn-sm" onclick="paVeiculoSalvar()">Salvar veículo</button>
+            <button type="button" class="btn res-btn-sec btn-sm" onclick="paVeiculoCancelar()">Cancelar</button>
+          </div>
+        </div>
+      </div>
+
       <div class="form-actions">
         <button class="btn btn-del" id="pa-excluir-btn" onclick="excluirParceiro()" style="display:none">🗑 Excluir</button>
         <button class="btn btn-primary btn-save" onclick="salvarParceiro()">Salvar parceiro</button>
@@ -1216,7 +1252,6 @@ function renderResultado(r){
     analiseNegHTML(r)+
     pisoMarginalHTML(r)+
     desembolsoMotoristaHTML(r)+
-    comparativoParceirosHTML(r)+
     '<div class="res-actions"><button class="btn btn-primary" onclick="gerarProposta()"><i data-lucide="file-text"></i> Gerar proposta</button><button class="btn res-btn-sec" onclick="salvarHist()"><i data-lucide="save"></i> Salvar</button></div>';
 }
 
