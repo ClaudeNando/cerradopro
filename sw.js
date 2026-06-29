@@ -1,6 +1,7 @@
-const CACHE_NAME = 'rpro-v46';
+const CACHE_NAME = 'rpro-v48';
 const ASSETS = [
   './index.html',
+  './documentos.html',
   './manifest.json',
   './ibama.js',
   './logo.png',

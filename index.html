@@ -739,6 +739,20 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
     </div>
     <div id="rel-content"></div>
   </div>
+  <div id="screen-documentos" class="screen">
+    <div class="shdr" style="margin-bottom:14px">
+      <div class="shdr-icon">📄</div>
+      <div style="flex:1"><div class="shdr-title">Documentos</div><div class="shdr-sub">Licenças e documentos · link temporário para o cliente</div></div>
+    </div>
+    <div class="card" style="margin-bottom:14px">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <button class="btn btn-primary" style="width:auto" onclick="docNovo()">+ Novo documento</button>
+        <button class="btn res-btn-sec" style="width:auto" onclick="gerarLinkDocs()">🔗 Gerar link do cliente (24h)</button>
+      </div>
+      <div id="docs-link-result" style="display:none;margin-top:14px"></div>
+    </div>
+    <div id="docs-list"></div>
+  </div>
 </div>
 
 <nav class="nav">
@@ -751,6 +765,7 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
   <div class="nav-item" id="nav-contratos" onclick="navTo('contratos',this)"><div class="nav-icon"><i data-lucide="repeat"></i></div><div class="nav-label">Contratos</div></div>
   <div class="nav-item" id="nav-parceiros" onclick="navTo('parceiros',this)"><div class="nav-icon"><i data-lucide="truck"></i></div><div class="nav-label">Parceiros</div></div>
   <div class="nav-item" id="nav-relatorios" onclick="navTo('relatorios',this)"><div class="nav-icon"><i data-lucide="pie-chart"></i></div><div class="nav-label">Relatórios</div></div>
+  <div class="nav-item" id="nav-documentos" onclick="navTo('documentos',this)"><div class="nav-icon"><i data-lucide="folder-lock"></i></div><div class="nav-label">Documentos</div></div>
   <div class="nav-footer">
     <button class="side-btn" onclick="abrirTransbordo()" title="Capacidade/Transbordo"><i data-lucide="calculator"></i></button>
     <button class="side-btn" onclick="window.location.href='furgao.html'" title="FurgãoPRO"><i data-lucide="truck"></i></button>
@@ -833,6 +848,30 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
       <div class="card" style="margin-bottom:16px">
         <div style="font-size:12px;color:var(--text3);margin-bottom:10px">Conectado: <span id="cfg-user-email">—</span></div>
         <button class="btn btn-outline" onclick="sairConta()">Sair da conta</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL NOVO/EDITAR DOCUMENTO -->
+<div class="overlay" id="doc-modal" onclick="if(event.target===this)fecharDocModal()">
+  <div class="modal">
+    <div class="modal-head"><div class="modal-title" id="doc-modal-titulo">Novo documento</div><button class="modal-close-btn" onclick="fecharDocModal()">×</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="doc-id">
+      <div class="form-grid">
+        <div class="field c12"><label class="flabel">Nome do documento</label><input class="inp" type="text" id="doc-nome" placeholder="Licença de Operação, IBAMA, ANTT, Alvará..."></div>
+        <div class="field c7"><label class="flabel">Categoria</label><input class="inp" type="text" id="doc-categoria" list="doc-cats" placeholder="Licença, Certidão, Frota..."><datalist id="doc-cats"><option value="Licença Ambiental"><option value="IBAMA"><option value="ANTT"><option value="Alvará"><option value="Certidão"><option value="Frota"></datalist></div>
+        <div class="field c5"><label class="flabel">Validade</label><input class="inp inp-mono" type="date" id="doc-validade"></div>
+        <div class="field c12"><label class="flabel">Arquivo PDF</label>
+          <input type="file" id="doc-file" accept="application/pdf" style="font-size:13px">
+          <div class="cfg-s" id="doc-file-atual" style="margin-top:6px"></div>
+        </div>
+      </div>
+      <div id="doc-progress" style="display:none;font-size:12px;color:var(--accent);font-weight:600;margin-top:12px">Enviando…</div>
+      <div class="form-actions">
+        <button class="btn btn-del" id="doc-excluir-btn" onclick="docExcluir()" style="display:none">🗑 Excluir</button>
+        <button class="btn btn-primary btn-save" id="doc-salvar-btn" onclick="docSalvar()">Salvar documento</button>
       </div>
     </div>
   </div>
@@ -1035,6 +1074,7 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-storage-compat.js"></script>
 
 <!-- Camada compartilhada de login/sincronização/backup -->
 <script src="cloud-sync.js"></script>
@@ -1443,7 +1483,7 @@ function excluirHist(id){if(!confirm('Excluir este orçamento?'))return;try{var 
 function editarHist(id){try{var h=JSON.parse(localStorage.getItem('rpro_hist')||'[]'),x=h.find(function(i){return i.id===id;});if(!x)return;_preencherForm(x);editandoId=id;calcular();navTo('orcamento',g('nav-orcamento'));toast('✏️ Editando — ajuste e salve');}catch(e){}}
 function limparHist(){if(confirm('Apagar todo o histórico?')){localStorage.removeItem('rpro_hist');renderHist();toast('🗑️ Limpo');}}
 
-function navTo(id,el){document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active');});document.querySelectorAll('.nav-item').forEach(function(n){n.classList.remove('active');});g('screen-'+id).classList.add('active');el.classList.add('active');if(id==='historico')renderHist();if(id==='coletas')renderColetas();if(id==='contratos')renderContratos();if(id==='parceiros')renderParceiros();if(id==='relatorios')renderRelatorios();}
+function navTo(id,el){document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active');});document.querySelectorAll('.nav-item').forEach(function(n){n.classList.remove('active');});g('screen-'+id).classList.add('active');el.classList.add('active');if(id==='historico')renderHist();if(id==='coletas')renderColetas();if(id==='contratos')renderContratos();if(id==='parceiros')renderParceiros();if(id==='relatorios')renderRelatorios();if(id==='documentos')renderDocumentos();}
 
 function atualizarDestSelect(id){ renderRes(); }
 
@@ -2388,6 +2428,137 @@ function abrirParceiro(id){
   g('parceiro-modal').classList.add('open');
 }
 function fecharParceiro(){g('parceiro-modal').classList.remove('open');}
+
+// ════════ DOCUMENTOS (Firestore 'documentos' + Storage) + portal temporário ════════
+var DOC_COL='documentos', _docUnsub=null, _docsCache=[];
+function _fb(){return (typeof firebase!=='undefined')?firebase:null;}
+function _fbUser(){try{return firebase.auth().currentUser;}catch(e){return null;}}
+function lDocumentos(){var a=[];try{a=JSON.parse(localStorage.getItem('rpro_documentos')||'[]');}catch(e){}return Array.isArray(a)?a:[];}
+function iniciarDocumentos(){
+  var fb=_fb(); if(!fb||!fb.firestore||!_fbUser()) return;
+  pararDocumentos();
+  _docUnsub=fb.firestore().collection(DOC_COL).onSnapshot(function(snap){
+    var arr=[]; snap.forEach(function(d){var x=d.data()||{}; x.id=d.id; arr.push(x);});
+    arr.sort(function(a,b){return (a.nome||'').localeCompare(b.nome||'');});
+    _docsCache=arr;
+    try{localStorage.setItem('rpro_documentos',JSON.stringify(arr));}catch(e){}
+    renderDocumentos();
+  },function(){});
+}
+function pararDocumentos(){ if(_docUnsub){try{_docUnsub();}catch(e){} _docUnsub=null;} }
+// Status pela validade: 🟢 válido (>30d) · 🟡 vence em ≤30d · 🔴 vencido · cinza sem data
+function _docStatus(validade){
+  if(!validade) return {cor:'#9b8a76',bg:'#efe7d6',txt:'sem validade',ic:'⚪'};
+  var hoje=new Date(); hoje.setHours(0,0,0,0);
+  var dv=new Date(validade+'T00:00:00'); if(isNaN(dv)) return {cor:'#9b8a76',bg:'#efe7d6',txt:'sem validade',ic:'⚪'};
+  var dias=Math.floor((dv-hoje)/86400000);
+  if(dias<0) return {cor:'#b03020',bg:'#fbe7e3',txt:'vencido',ic:'🔴'};
+  if(dias<=30) return {cor:'#c87020',bg:'#fbeedd',txt:'vence em '+dias+'d',ic:'🟡'};
+  return {cor:'#2a7a40',bg:'#e7f3ea',txt:'válido',ic:'🟢'};
+}
+function _brDataDoc(d){if(!d)return '—';var p=(''+d).split('-');return p.length===3?p[2]+'/'+p[1]+'/'+p[0]:d;}
+function renderDocumentos(){
+  var el=g('docs-list'); if(!el) return;
+  var arr=_docsCache.length?_docsCache:lDocumentos();
+  if(!arr.length){
+    el.innerHTML='<div class="empty"><div class="empty-ico">📄</div><div class="empty-t">Nenhum documento</div><div class="empty-s">Cadastre suas licenças/documentos em PDF e gere um link de 24h para o cliente.</div></div>';
+    return;
+  }
+  el.innerHTML=arr.map(function(d){
+    var s=_docStatus(d.validade);
+    return '<div class="hist-card">'+
+      '<div class="hist-top"><div class="hist-name">'+esca(d.nome||'Documento')+'</div>'+
+        '<span class="badge" style="color:'+s.cor+';background:'+s.bg+'">'+s.ic+' '+s.txt+'</span></div>'+
+      (d.categoria?'<div class="hist-sub">'+esca(d.categoria)+'</div>':'')+
+      '<div class="hist-sub">Validade: '+_brDataDoc(d.validade)+(d.atualizadoPor?' · por '+esca(d.atualizadoPor):'')+'</div>'+
+      '<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">'+
+        (d.downloadURL?'<a class="btn res-btn-sec btn-sm" style="width:auto;text-decoration:none" href="'+esca(d.downloadURL)+'" target="_blank" rel="noopener">👁 Visualizar</a>':'<span style="font-size:12px;color:var(--text3)">sem PDF</span>')+
+        '<button class="btn res-btn-sec btn-sm" style="width:auto" onclick="docEditar(\''+esca(d.id)+'\')">✏️ Editar / Substituir PDF</button>'+
+      '</div></div>';
+  }).join('');
+}
+function docNovo(){
+  if(!_fbUser()){toast('⚠️ Faça login para gerenciar documentos');return;}
+  g('doc-modal-titulo').textContent='Novo documento';
+  g('doc-id').value='';g('doc-nome').value='';g('doc-categoria').value='';g('doc-validade').value='';
+  g('doc-file').value='';g('doc-file-atual').textContent='';g('doc-progress').style.display='none';
+  g('doc-excluir-btn').style.display='none';
+  g('doc-modal').classList.add('open');
+}
+function docEditar(id){
+  var d=(_docsCache.length?_docsCache:lDocumentos()).find(function(x){return String(x.id)===String(id);}); if(!d)return;
+  g('doc-modal-titulo').textContent='Editar documento';
+  g('doc-id').value=d.id;g('doc-nome').value=d.nome||'';g('doc-categoria').value=d.categoria||'';g('doc-validade').value=d.validade||'';
+  g('doc-file').value='';g('doc-progress').style.display='none';
+  g('doc-file-atual').textContent=d.downloadURL?('PDF atual no servidor — escolha um arquivo só se quiser substituir.'):'Nenhum PDF enviado ainda.';
+  g('doc-excluir-btn').style.display='block';
+  g('doc-modal').classList.add('open');
+}
+function fecharDocModal(){g('doc-modal').classList.remove('open');}
+function docSalvar(){
+  var fb=_fb(),u=_fbUser();
+  if(!fb||!fb.firestore){toast('⚠️ Sem conexão com a nuvem');return;}
+  if(!u){toast('⚠️ Faça login');return;}
+  var nome=(g('doc-nome').value||'').trim();
+  if(!nome){toast('⚠️ Informe o nome do documento');return;}
+  var id=g('doc-id').value||('doc-'+Date.now().toString(36)+Math.random().toString(36).slice(2,6));
+  var atual=(_docsCache.length?_docsCache:lDocumentos()).find(function(x){return String(x.id)===String(id);})||{};
+  var meta={nome:nome,categoria:(g('doc-categoria').value||'').trim(),validade:(g('doc-validade').value||''),
+    storagePath:atual.storagePath||'',downloadURL:atual.downloadURL||'',
+    atualizadoPor:u.email||'',atualizadoEm:Date.now()};
+  var file=g('doc-file').files&&g('doc-file').files[0];
+  var btn=g('doc-salvar-btn');btn.disabled=true;
+  function gravar(){
+    fb.firestore().collection(DOC_COL).doc(id).set(meta).then(function(){
+      btn.disabled=false;fecharDocModal();toast('✅ Documento salvo');
+    }).catch(function(err){console.error(err);btn.disabled=false;toast('❌ Erro ao salvar (verifique permissões)');});
+  }
+  if(file){
+    if(file.type!=='application/pdf'){toast('⚠️ Selecione um arquivo PDF');btn.disabled=false;return;}
+    var path='documentos/'+id+'.pdf';
+    g('doc-progress').style.display='block';g('doc-progress').textContent='Enviando PDF…';
+    var ref=fb.storage().ref().child(path);
+    var task=ref.put(file,{contentType:'application/pdf'});
+    task.on('state_changed',function(s){var p=s.totalBytes?Math.round(s.bytesTransferred/s.totalBytes*100):0;g('doc-progress').textContent='Enviando PDF… '+p+'%';},
+      function(err){console.error(err);g('doc-progress').style.display='none';btn.disabled=false;toast('❌ Falha no upload (verifique o Storage)');},
+      function(){ ref.getDownloadURL().then(function(url){ meta.storagePath=path;meta.downloadURL=url;g('doc-progress').style.display='none';gravar(); }); });
+  }else{
+    gravar();
+  }
+}
+function docExcluir(){
+  var fb=_fb(),id=g('doc-id').value; if(!fb||!id)return;
+  if(!confirm('Excluir este documento? O PDF também será removido.'))return;
+  var d=(_docsCache.length?_docsCache:lDocumentos()).find(function(x){return String(x.id)===String(id);})||{};
+  fb.firestore().collection(DOC_COL).doc(id).delete().then(function(){
+    if(d.storagePath){try{fb.storage().ref().child(d.storagePath).delete().catch(function(){});}catch(e){}}
+    fecharDocModal();toast('🗑️ Documento excluído');
+  }).catch(function(err){console.error(err);toast('❌ Erro ao excluir');});
+}
+function gerarLinkDocs(){
+  var fb=_fb(),u=_fbUser();
+  if(!fb||!fb.firestore){toast('⚠️ Sem conexão com a nuvem');return;}
+  if(!u){toast('⚠️ Faça login para gerar o link');return;}
+  var arr=_docsCache.length?_docsCache:lDocumentos();
+  var docs=arr.filter(function(d){return d.downloadURL;}).map(function(d){return {nome:d.nome,categoria:d.categoria||'',validade:d.validade||'',downloadURL:d.downloadURL};});
+  if(!docs.length){toast('⚠️ Cadastre ao menos um documento com PDF');return;}
+  var token=(Date.now().toString(36)+Math.random().toString(36).slice(2,9));
+  var expira=Date.now()+86400000;
+  var payload={empresa:(cfg.empresa||'Cerrado Soluções Ambientais'),criadoMs:Date.now(),expiraMs:expira,docs:docs};
+  try{payload.expiraEm=firebase.firestore.Timestamp.fromMillis(expira);}catch(e){}
+  var area=g('docs-link-result');area.style.display='block';area.innerHTML='<div style="font-size:12px;color:var(--text3)">Gerando…</div>';
+  fb.firestore().collection('links_publicos').doc(token).set(payload).then(function(){
+    var base=location.origin+location.pathname.replace(/[^/]*$/,'');
+    var url=base+'documentos.html?id='+token;
+    var ate=new Date(expira).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+    area.innerHTML=
+      '<div style="font-size:12.5px;font-weight:700;color:#2a7a40;margin-bottom:8px">✅ Link gerado — válido até '+ate+' ('+docs.length+' doc.)</div>'+
+      '<input class="inp inp-mono" id="docs-link-input" readonly value="'+esca(url)+'" style="margin-bottom:10px;font-size:12px" onclick="this.select()">'+
+      '<div class="btn-row"><button class="btn btn-primary btn-sm" onclick="copiarLinkDocs()">📋 Copiar</button><button class="btn btn-dark btn-sm" onclick="whatsLinkDocs()">💬 WhatsApp</button></div>';
+  }).catch(function(err){console.error(err);area.innerHTML='<div style="font-size:12px;color:var(--danger);line-height:1.5">Não foi possível gerar o link. Verifique sua conexão e as regras do Firestore (coleção <b>links_publicos</b>).</div>';});
+}
+function copiarLinkDocs(){var i=g('docs-link-input');if(!i)return;i.select();var ok=false;try{ok=document.execCommand('copy');}catch(e){}try{navigator.clipboard.writeText(i.value);ok=true;}catch(e){}toast(ok?'✅ Link copiado':'Selecione e copie o link');}
+function whatsLinkDocs(){var i=g('docs-link-input');if(!i)return;window.open('https://wa.me/?text='+encodeURIComponent('Documentos e licenças da Cerrado (link válido por 1 dia):\n'+i.value),'_blank');}
 function salvarParceiro(){
   var arr=lParceiros(),id=g('pa-id').value?Number(g('pa-id').value):null;
   var nome=(g('pa-nome').value||'').trim();
@@ -2687,7 +2858,7 @@ if(window.CloudSync){
 }
 // TASK-024: sincronização estruturada das coletas (coleção própria, fora do blob)
 if(typeof firebase!=='undefined'&&firebase.auth){
-  firebase.auth().onAuthStateChanged(function(user){ if(user)iniciarColetasEstruturadas(); else pararColetasEstruturadas(); });
+  firebase.auth().onAuthStateChanged(function(user){ if(user){iniciarColetasEstruturadas();iniciarDocumentos();} else {pararColetasEstruturadas();pararDocumentos();} });
 }
 try{checkBackupLembrete();}catch(e){}
 // Ícones Lucide: renderiza os existentes e observa o DOM para converter os injetados dinamicamente

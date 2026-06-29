@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>Documentos · Cerrado Soluções Ambientais</title>
+<style>
+:root{--bg:#f8f0dd;--card:#fffdf6;--text:#2a1a0f;--text2:#6b5a48;--text3:#9b8a76;--accent:#db6a1d;--border:#e7dcc4}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:28px 18px 60px}
+.wrap{width:100%;max-width:580px}
+.top{text-align:center;margin-bottom:24px}
+.top img{width:104px;height:104px;object-fit:contain;margin-bottom:10px}
+.top h1{font-size:20px;font-weight:800}
+.top .sub{font-size:13px;color:var(--text3);margin-top:3px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:8px 18px;margin-bottom:14px;box-shadow:0 1px 2px rgba(0,0,0,.03)}
+.doc{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:15px 0;border-bottom:1px solid var(--border)}
+.doc:last-child{border-bottom:none}
+.doc .ic{font-size:26px;flex-shrink:0;width:34px;text-align:center}
+.doc .mid{flex:1;min-width:0}
+.doc .nm{font-size:15px;font-weight:700;line-height:1.25}
+.doc .ds{font-size:12px;color:var(--text3);margin-top:3px}
+.badge{display:inline-block;font-size:11px;font-weight:700;border-radius:20px;padding:2px 9px;margin-top:4px}
+.open-btn{flex-shrink:0;background:var(--accent);color:#fff;border:none;border-radius:8px;padding:10px 16px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;text-decoration:none;white-space:nowrap}
+.msg{text-align:center;padding:30px 18px}
+.msg .ic{font-size:40px;margin-bottom:12px}
+.msg .t{font-size:17px;font-weight:800;margin-bottom:8px}
+.msg .s{font-size:13.5px;color:var(--text2);line-height:1.55}
+.foot{text-align:center;font-size:11.5px;color:var(--text3);margin-top:18px;line-height:1.5}
+.skel{height:14px;background:var(--border);border-radius:6px;opacity:.5;margin:14px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <img src="logo.png" onerror="this.onerror=null;this.src='icon-192.png'" alt="Cerrado Soluções Ambientais">
+    <h1 id="emp">Cerrado Soluções Ambientais</h1>
+    <div class="sub">Documentos e licenças</div>
+  </div>
+  <div id="content"><div class="card"><div class="skel" style="width:50%"></div><div class="skel" style="width:90%"></div><div class="skel" style="width:70%"></div></div></div>
+  <div class="foot">Documentos compartilhados pela Cerrado Transportes e Soluções Ambientais.<br>Em caso de dúvida, fale com seu contato comercial.</div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+<script>
+var FB_CONFIG={apiKey:"AIzaSyDzPZMZ0tP0dYDzfaFR1fm6Thx6ir4K76Q",authDomain:"residuospro---cerrado.firebaseapp.com",projectId:"residuospro---cerrado",storageBucket:"residuospro---cerrado.firebasestorage.app",messagingSenderId:"849223957541",appId:"1:849223957541:web:002d832603cb7ab75cd3cc"};
+function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function msg(ic,t,s){document.getElementById('content').innerHTML='<div class="card" style="padding:8px"><div class="msg"><div class="ic">'+ic+'</div><div class="t">'+t+'</div><div class="s">'+s+'</div></div></div>';}
+function getParam(n){return new URLSearchParams(location.search).get(n);}
+function brData(d){if(!d)return '';var p=(''+d).split('-');return p.length===3?p[2]+'/'+p[1]+'/'+p[0]:d;}
+function status(validade){
+  if(!validade) return {cor:'#9b8a76',bg:'#efe7d6',txt:'sem validade',ic:'⚪'};
+  var h=new Date();h.setHours(0,0,0,0);var dv=new Date(validade+'T00:00:00');if(isNaN(dv))return {cor:'#9b8a76',bg:'#efe7d6',txt:'sem validade',ic:'⚪'};
+  var dias=Math.floor((dv-h)/86400000);
+  if(dias<0)return {cor:'#b03020',bg:'#fbe7e3',txt:'vencido',ic:'🔴'};
+  if(dias<=30)return {cor:'#c87020',bg:'#fbeedd',txt:'vence em '+dias+'d',ic:'🟡'};
+  return {cor:'#2a7a40',bg:'#e7f3ea',txt:'válido até '+brData(validade),ic:'🟢'};
+}
+(function(){
+  var id=getParam('id');
+  if(!id){ msg('🔒','Link inválido','Este endereço não tem um código de acesso. Solicite o link à Cerrado.'); return; }
+  try{ if(!firebase.apps||!firebase.apps.length) firebase.initializeApp(FB_CONFIG); }catch(e){}
+  var db; try{ db=firebase.firestore(); }catch(e){ msg('⚠️','Não foi possível abrir','Tente novamente em instantes.'); return; }
+  db.collection('links_publicos').doc(id).get().then(function(doc){
+    if(!doc.exists){ msg('🔒','Link inválido','Este link não existe ou foi removido. Solicite um novo à Cerrado.'); return; }
+    var d=doc.data()||{};
+    if(Number(d.expiraMs) && Date.now()>Number(d.expiraMs)){
+      msg('⏳','Link expirado','Este link tinha validade de 1 dia e já expirou.<br>Solicite um novo link à Cerrado.'); return;
+    }
+    if(d.empresa) document.getElementById('emp').textContent=d.empresa;
+    var docs=Array.isArray(d.docs)?d.docs.filter(function(x){return x&&x.downloadURL;}):[];
+    if(!docs.length){ msg('📄','Sem documentos','Ainda não há documentos disponíveis neste link.'); return; }
+    var html='<div class="card">';
+    docs.forEach(function(x){
+      var s=status(x.validade);
+      html+='<div class="doc"><div class="ic">📄</div><div class="mid">'+
+        '<div class="nm">'+esc(x.nome||'Documento')+'</div>'+
+        (x.categoria?'<div class="ds">'+esc(x.categoria)+'</div>':'')+
+        '<span class="badge" style="color:'+s.cor+';background:'+s.bg+'">'+s.ic+' '+s.txt+'</span>'+
+        '</div><a class="open-btn" href="'+esc(x.downloadURL)+'" target="_blank" rel="noopener">Abrir</a></div>';
+    });
+    html+='</div>';
+    if(Number(d.expiraMs)){ html+='<div class="foot">🔒 Acesso válido até '+new Date(Number(d.expiraMs)).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})+'.</div>'; }
+    document.getElementById('content').innerHTML=html;
+  }).catch(function(err){ console.error(err); msg('⚠️','Não foi possível abrir','Verifique o link ou tente novamente mais tarde.'); });
+})();
+</script>
+</body>
+</html>
