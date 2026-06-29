@@ -561,7 +561,7 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
 
 <div class="hdr">
   <div class="hdr-left">
-    <div class="hdr-mark">C</div>
+    <div class="hdr-mark" style="background:#fff;padding:3px;box-shadow:0 1px 3px rgba(0,0,0,.12)"><img src="icon-192.png" alt="Cerrado" style="width:100%;height:100%;object-fit:contain"></div>
     <div><div class="hdr-title">CerradoPRO</div><div class="hdr-sub">Cerrado Ambiental</div></div>
   </div>
   <div style="display:flex;gap:8px"><button class="hdr-btn" onclick="abrirTransbordo()" title="Capacidade/Transbordo">🧮</button><button class="hdr-btn" onclick="window.location.href='furgao.html'" title="FurgãoPRO" style="font-size:14px">🚛</button><button class="hdr-btn" onclick="abrirCfg()">⚙️</button></div>
@@ -742,7 +742,7 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
 </div>
 
 <nav class="nav">
-  <div class="nav-brand"><div class="bm">C</div><div><div class="bn">CerradoPRO</div><div class="bs">Cerrado Ambiental</div></div></div>
+  <div class="nav-brand"><div class="bm" style="background:#fff;padding:3px;border:1px solid var(--border)"><img src="icon-192.png" alt="Cerrado" style="width:100%;height:100%;object-fit:contain"></div><div><div class="bn">CerradoPRO</div><div class="bs">Cerrado Ambiental</div></div></div>
   <div class="nav-item" id="nav-orcamento" onclick="navTo('orcamento',this)"><div class="nav-icon"><i data-lucide="clipboard-list"></i></div><div class="nav-label">Orçamento</div></div>
   <div class="nav-item" id="nav-resultado" onclick="navTo('resultado',this)"><div class="nav-icon"><i data-lucide="bar-chart-3"></i></div><div class="nav-label">Resultado</div></div>
   <div class="nav-item" id="nav-proposta" onclick="navTo('proposta',this)"><div class="nav-icon"><i data-lucide="file-text"></i></div><div class="nav-label">Proposta</div></div>
@@ -783,43 +783,57 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
     <div class="modal-body">
       <span class="slabel">Empresa</span>
       <div class="card" style="margin-bottom:16px">
-        <div class="cfg-r"><div><div class="cfg-l">Nome</div></div><input class="cfg-i cfg-i-wide" id="cfg-empresa" placeholder="Cerrado Ambiental"></div>
-        <div class="cfg-r"><div><div class="cfg-l">CNPJ</div></div><input class="cfg-i cfg-i-wide" id="cfg-cnpj"></div>
-        <div class="cfg-r"><div><div class="cfg-l">Telefone</div></div><input class="cfg-i cfg-i-wide" id="cfg-tel"></div>
-        <div class="cfg-r"><div><div class="cfg-l">Minha base</div><div class="cfg-s">origem da rota</div></div><input class="cfg-i cfg-i-wide" id="cfg-minhabase" placeholder="Endereço da sua base"></div>
-        <div class="cfg-r"><div><div class="cfg-l">Validade</div><div class="cfg-s">dias</div></div><input class="cfg-i" id="cfg-validade" type="number" value="15"></div>
+        <div class="form-grid">
+          <div class="field c12"><label class="flabel">Nome</label><input class="inp" type="text" id="cfg-empresa" placeholder="Cerrado Ambiental"></div>
+          <div class="field c6"><label class="flabel">CNPJ</label><input class="inp inp-mono" type="text" id="cfg-cnpj" placeholder="00.000.000/0000-00"></div>
+          <div class="field c6"><label class="flabel">Telefone</label><input class="inp" type="text" id="cfg-tel" placeholder="(62) 0000-0000"></div>
+          <div class="field c8"><label class="flabel">Minha base</label><input class="inp" type="text" id="cfg-minhabase" placeholder="Endereço da sua base"><div class="cfg-s" style="margin-top:4px">Origem da rota no cálculo de distância.</div></div>
+          <div class="field c4"><label class="flabel">Validade (dias)</label><input class="inp inp-mono" type="number" id="cfg-validade" value="15" inputmode="numeric"></div>
+        </div>
       </div>
       <div class="card" style="margin-bottom:16px;background:var(--accent-dim);border-color:var(--accent)">
         <div style="font-size:12px;color:var(--text2);line-height:1.5">💡 Os preços de <b>transporte</b> e <b>destinação</b> agora vêm do <b>cadastro de fornecedores</b> (aba Parceiros) e são escolhidos no orçamento. Aqui ficam só os dados da Cerrado e os parâmetros financeiros.</div>
       </div>
       <span class="slabel">Financeiro</span>
       <div class="card" style="margin-bottom:16px">
-        <div class="cfg-r"><div><div class="cfg-l">Imposto (%)</div><div class="cfg-s">sobre total da nota</div></div><input class="cfg-i" id="cfg-imposto" type="number" step="0.01" value="15.45"></div>
-        <div class="cfg-r"><div><div class="cfg-l">Margem mínima (%)</div></div><input class="cfg-i" id="cfg-margem-min" type="number" step="1" value="30"></div>
+        <div class="form-grid">
+          <div class="field c6"><label class="flabel">Imposto (%)</label><input class="inp inp-mono" type="number" step="0.01" id="cfg-imposto" value="15.45" inputmode="decimal"><div class="cfg-s" style="margin-top:4px">Sobre o total da nota.</div></div>
+          <div class="field c6"><label class="flabel">Margem mínima (%)</label><input class="inp inp-mono" type="number" step="1" id="cfg-margem-min" value="30" inputmode="numeric"></div>
+        </div>
       </div>
-      <span class="slabel">Custos de motorista — viagem (Furgão)</span>
+      <span class="slabel">Custos de motorista — viagem (frota própria)</span>
       <div class="card" style="margin-bottom:16px">
-        <div class="cfg-r"><div><div class="cfg-l">Ajuda — limiar (km)</div><div class="cfg-s">ida+volta acima disto paga ajuda</div></div><input class="cfg-i" id="cfg-mot-limiar" type="number" step="1" value="100"></div>
-        <div class="cfg-r"><div><div class="cfg-l">Ajuda (R$)</div><div class="cfg-s">paga na folha</div></div><input class="cfg-i" id="cfg-mot-ajuda" type="number" step="0.01" value="100"></div>
-        <div class="cfg-r"><div><div class="cfg-l">Bloco da diária (km)</div><div class="cfg-s">a cada bloco = 1 diária</div></div><input class="cfg-i" id="cfg-mot-bloco" type="number" step="1" value="800"></div>
-        <div class="cfg-r"><div class="cfg-l">Café da manhã (R$)</div><input class="cfg-i" id="cfg-mot-cafe" type="number" step="0.01" value="40"></div>
-        <div class="cfg-r"><div class="cfg-l">Almoço (R$)</div><input class="cfg-i" id="cfg-mot-almoco" type="number" step="0.01" value="40"></div>
-        <div class="cfg-r"><div class="cfg-l">Jantar (R$)</div><input class="cfg-i" id="cfg-mot-jantar" type="number" step="0.01" value="40"></div>
-        <div class="cfg-r"><div class="cfg-l">Hospedagem (R$)</div><input class="cfg-i" id="cfg-mot-hosp" type="number" step="0.01" value="200"></div>
+        <div class="form-grid">
+          <div class="field c6"><label class="flabel">Ajuda — limiar (km)</label><input class="inp inp-mono" type="number" step="1" id="cfg-mot-limiar" value="100" inputmode="numeric"><div class="cfg-s" style="margin-top:4px">Ida+volta acima disto paga ajuda.</div></div>
+          <div class="field c6"><label class="flabel">Ajuda (R$)</label><input class="inp inp-mono" type="number" step="0.01" id="cfg-mot-ajuda" value="100" inputmode="decimal"><div class="cfg-s" style="margin-top:4px">Paga na folha.</div></div>
+          <div class="field c6"><label class="flabel">Bloco da diária (km)</label><input class="inp inp-mono" type="number" step="1" id="cfg-mot-bloco" value="800" inputmode="numeric"><div class="cfg-s" style="margin-top:4px">A cada bloco = 1 diária.</div></div>
+          <div class="field c6"><label class="flabel">Café da manhã (R$)</label><input class="inp inp-mono" type="number" step="0.01" id="cfg-mot-cafe" value="40" inputmode="decimal"></div>
+          <div class="field c4"><label class="flabel">Almoço (R$)</label><input class="inp inp-mono" type="number" step="0.01" id="cfg-mot-almoco" value="40" inputmode="decimal"></div>
+          <div class="field c4"><label class="flabel">Jantar (R$)</label><input class="inp inp-mono" type="number" step="0.01" id="cfg-mot-jantar" value="40" inputmode="decimal"></div>
+          <div class="field c4"><label class="flabel">Hospedagem (R$)</label><input class="inp inp-mono" type="number" step="0.01" id="cfg-mot-hosp" value="200" inputmode="decimal"></div>
+        </div>
       </div>
-      <button class="btn btn-primary" onclick="salvarCfg()">✓ Salvar</button>
-      <div style="height:10px"></div>
-      <button class="btn btn-outline" onclick="fecharCfg()">Fechar</button>
-      <div class="slabel" style="margin:18px 0 10px">Backup dos dados</div>
-      <div style="font-size:12px;color:var(--text3);margin-bottom:10px;line-height:1.45">Salva clientes, coletas, histórico e configurações num arquivo. Guarde-o de tempos em tempos — é sua cópia de segurança.</div>
-      <div class="cfg-r" style="margin-bottom:10px"><div><div class="cfg-l">Lembrete de backup (dias)</div><div class="cfg-s" id="cfg-backup-status">—</div></div><input class="cfg-i" id="cfg-backup-dias" type="number" step="1" value="7"></div>
-      <button class="btn btn-ghost" onclick="exportarBackup()">⬇️ Exportar backup (.json)</button>
-      <div style="height:8px"></div>
-      <button class="btn btn-outline" onclick="document.getElementById('rpro-import-file').click()">⬆️ Importar backup</button>
-      <input type="file" id="rpro-import-file" accept="application/json,.json" style="display:none" onchange="importarBackup(this)">
-      <div class="slabel" style="margin:18px 0 10px">Conta</div>
-      <div style="font-size:12px;color:var(--text3);margin-bottom:8px">Conectado: <span id="cfg-user-email">—</span></div>
-      <button class="btn btn-outline" onclick="sairConta()">Sair da conta</button>
+      <div class="form-actions">
+        <button class="btn btn-outline" onclick="fecharCfg()">Fechar</button>
+        <button class="btn btn-primary btn-save" onclick="salvarCfg()">Salvar configurações</button>
+      </div>
+      <span class="slabel" style="display:block;margin-top:20px">Backup dos dados</span>
+      <div class="card" style="margin-bottom:16px">
+        <div style="font-size:12px;color:var(--text3);margin-bottom:12px;line-height:1.45">Salva clientes, coletas, histórico e configurações num arquivo. Guarde-o de tempos em tempos — é sua cópia de segurança.</div>
+        <div class="form-grid" style="margin-bottom:14px">
+          <div class="field c6"><label class="flabel">Lembrete de backup (dias)</label><input class="inp inp-mono" type="number" step="1" id="cfg-backup-dias" value="7" inputmode="numeric"><div class="cfg-s" id="cfg-backup-status" style="margin-top:4px">—</div></div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-ghost" onclick="exportarBackup()">⬇️ Exportar backup (.json)</button>
+          <button class="btn btn-outline" onclick="document.getElementById('rpro-import-file').click()">⬆️ Importar backup</button>
+        </div>
+        <input type="file" id="rpro-import-file" accept="application/json,.json" style="display:none" onchange="importarBackup(this)">
+      </div>
+      <span class="slabel" style="display:block">Conta</span>
+      <div class="card" style="margin-bottom:16px">
+        <div style="font-size:12px;color:var(--text3);margin-bottom:10px">Conectado: <span id="cfg-user-email">—</span></div>
+        <button class="btn btn-outline" onclick="sairConta()">Sair da conta</button>
+      </div>
     </div>
   </div>
 </div>
@@ -1006,11 +1020,11 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
 </div>
 
 <!-- LOGIN (Firebase) -->
-<div id="login-gate" style="position:fixed;inset:0;z-index:300;background:var(--bg);display:none;flex-direction:column;align-items:center;justify-content:center;padding:30px;text-align:center">
-  <div class="hdr-mark" style="width:56px;height:56px;font-size:30px;border-radius:16px;margin-bottom:18px">C</div>
+<div id="login-gate" style="position:fixed;inset:0;z-index:300;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:30px;text-align:center">
+  <img src="icon-192.png" alt="Cerrado Soluções Ambientais" style="width:128px;height:128px;object-fit:contain;margin-bottom:14px">
   <div style="font-size:22px;font-weight:800">CerradoPRO</div>
   <div style="font-size:13px;color:var(--text3);margin-bottom:26px">Cerrado Ambiental — acesso restrito</div>
-  <div style="width:100%;max-width:340px">
+  <div id="lg-form" style="width:100%;max-width:340px;display:none">
     <div class="field"><input class="inp" type="email" id="lg-email" placeholder="E-mail" autocomplete="username"></div>
     <div class="field"><input class="inp" type="password" id="lg-senha" placeholder="Senha" autocomplete="current-password"></div>
     <div id="lg-erro" style="color:var(--danger);font-size:13px;min-height:18px;margin:6px 0;font-weight:600"></div>

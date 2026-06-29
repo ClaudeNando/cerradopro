@@ -188,6 +188,7 @@
         _pararSync();
         var em2 = _g('cfg-user-email'); if (em2) em2.textContent = '—';
         var gate2 = _g('login-gate'); if (gate2) gate2.style.display = 'flex';
+        var form = _g('lg-form'); if (form) form.style.display = 'block';  // revela o login só quando não autenticado (evita flash do app)
       }
     });
 
