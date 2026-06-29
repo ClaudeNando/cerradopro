@@ -1,8 +1,9 @@
-const CACHE_NAME = 'rpro-v44';
+const CACHE_NAME = 'rpro-v45';
 const ASSETS = [
   './index.html',
   './manifest.json',
   './ibama.js',
+  './logo.png',
   './icon-192.png',
   './icon-512.png',
   './apple-touch-icon.png',
