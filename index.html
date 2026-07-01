@@ -1776,11 +1776,11 @@ function calcImposto(){
     if(preco==null){
       return '<div class="rrow"><div class="rl">Lucro <b>'+mTxt+'%</b></div><div class="rv neg">inviável</div></div>';
     }
-    var acr=preco-forn, dest=(m===ref);
+    var acr=preco-forn, lucro=preco*(m/100), dest=(m===ref);
     return '<div class="rrow"'+(dest?' style="background:var(--accent-dim);margin:0 -10px;padding:11px 10px;border-radius:9px;border-bottom:none"':'')+'>'+
       '<div class="rl">Lucro <b>'+mTxt+'%</b>'+(dest?' <span style="font-size:10px;color:var(--accent);font-weight:700">· ref.</span>':'')+'</div>'+
       '<div style="text-align:right"><div class="rv acc" style="font-weight:700;font-size:16px">'+brl(preco)+'</div>'+
-      '<div style="font-size:11px;color:var(--text3);margin-top:2px">acrescentar '+brl(acr)+'</div></div></div>';
+      '<div style="font-size:11px;color:var(--text3);margin-top:2px">acrescentar '+brl(acr)+' · <span style="color:var(--success);font-weight:600">lucro líq. '+brl(lucro)+'</span></div></div></div>';
   }).join('');
   // Caminho inverso: valor já negociado → qual lucro ele dá (mesma regra, margem sobre o preço)
   var valneg=safeEval(g('calc-valor').value), negHTML='';
