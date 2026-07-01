@@ -154,6 +154,10 @@ textarea.inp{resize:none;min-height:80px;line-height:1.6}
 .col-card{background:var(--card);border:1px solid var(--border2);border-radius:16px;padding:14px;margin-bottom:11px;cursor:pointer;box-shadow:var(--shadow-sm);transition:transform .15s,box-shadow .15s,border-color .15s}
 .col-card:active{border-color:var(--accent)}
 .col-card.venc{border-color:rgba(176,48,32,0.4)}
+.col-card.exec{border-color:rgba(42,122,64,0.45);background:#f3faf4}
+.col-sum-exec .col-sum-n{color:#1a6030}
+.col-confirm-btn{margin-top:11px;width:100%;padding:9px;border-radius:9px;background:#e7f3ea;color:#1a6030;border:1px solid #bbe3c6;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer}
+.col-confirm-btn:active{background:#d6ecdb}
 .col-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px}
 .col-ger{font-size:16px;font-weight:700}
 .col-mtr{font-size:12px;color:var(--text3);font-family:'DM Mono',monospace;margin-top:2px}
@@ -667,12 +671,12 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
   <div id="screen-coletas" class="screen active">
     <div class="shdr" style="margin-bottom:14px">
       <div class="shdr-icon">📅</div>
-      <div style="flex:1"><div class="shdr-title">Coletas</div><div class="shdr-sub">Agenda + controle de MTR/CDF</div></div>
+      <div style="flex:1"><div class="shdr-title">Coletas</div><div class="shdr-sub">Agenda + execução das coletas</div></div>
     </div>
     <div class="col-sum">
-      <div class="col-sum-i"><div class="col-sum-n" id="col-n-pend">0</div><div class="col-sum-l">Pendentes</div></div>
+      <div class="col-sum-i col-sum-exec"><div class="col-sum-n" id="col-n-exec">0</div><div class="col-sum-l">Executadas</div></div>
       <div class="col-sum-i col-sum-venc"><div class="col-sum-n" id="col-n-venc">0</div><div class="col-sum-l">Vencidas</div></div>
-      <div class="col-sum-i"><div class="col-sum-n" id="col-n-ok">0</div><div class="col-sum-l">Recebidas</div></div>
+      <div class="col-sum-i"><div class="col-sum-n" id="col-n-afazer">0</div><div class="col-sum-l">A Fazer</div></div>
     </div>
     <div class="col-tabs" style="margin-bottom:12px">
       <div class="col-tab active" id="vtab-lista" onclick="setVista('lista',this)">📋 Lista</div>
@@ -682,9 +686,9 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
     <div id="ag-lista">
       <div class="col-tabs">
         <div class="col-tab active" id="ftab-todas" onclick="setFiltroColeta('todas',this)">Todas</div>
-        <div class="col-tab" id="ftab-pendente" onclick="setFiltroColeta('pendente',this)">Pendentes</div>
+        <div class="col-tab" id="ftab-executada" onclick="setFiltroColeta('executada',this)">Executadas</div>
         <div class="col-tab" id="ftab-vencida" onclick="setFiltroColeta('vencida',this)">Vencidas</div>
-        <div class="col-tab" id="ftab-recebido" onclick="setFiltroColeta('recebido',this)">Recebidas</div>
+        <div class="col-tab" id="ftab-afazer" onclick="setFiltroColeta('afazer',this)">A Fazer</div>
       </div>
       <div class="field" style="margin-bottom:12px"><input class="inp" type="text" id="col-busca" placeholder="🔎 Buscar por MTR, gerador, destinador..." oninput="renderColetas()"></div>
       <div id="col-list"></div>
@@ -860,9 +864,8 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
     <div class="modal-body">
       <input type="hidden" id="doc-id">
       <div class="form-grid">
-        <div class="field c12"><label class="flabel">Nome do documento</label><input class="inp" type="text" id="doc-nome" placeholder="Licença de Operação, IBAMA, ANTT, Alvará..."></div>
-        <div class="field c7"><label class="flabel">Categoria</label><input class="inp" type="text" id="doc-categoria" list="doc-cats" placeholder="Licença, Certidão, Frota..."><datalist id="doc-cats"><option value="Licença Ambiental"><option value="IBAMA"><option value="ANTT"><option value="Alvará"><option value="Certidão"><option value="Frota"></datalist></div>
-        <div class="field c5"><label class="flabel">Validade</label><input class="inp inp-mono" type="date" id="doc-validade"></div>
+        <div class="field c8"><label class="flabel">Nome do documento</label><input class="inp" type="text" id="doc-nome" placeholder="Licença de Operação, IBAMA, ANTT, Alvará..."></div>
+        <div class="field c4"><label class="flabel">Validade</label><input class="inp inp-mono" type="date" id="doc-validade"></div>
         <div class="field c12"><label class="flabel">Arquivo PDF</label>
           <input type="file" id="doc-file" accept="application/pdf" style="font-size:13px">
           <div class="cfg-s" id="doc-file-atual" style="margin-top:6px"></div>
@@ -1009,11 +1012,8 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
       </div>
       <div class="field"><label class="flabel">Destinador</label><input class="inp" type="text" id="col-destinador" placeholder="Para onde foi destinado"></div>
       <div class="field"><label class="flabel">Resíduo (opcional)</label><input class="inp" type="text" id="col-residuo" placeholder="Descrição curta"></div>
-      <div class="g2">
-        <div class="field"><label class="flabel">Prazo do CDF (dias)</label><input class="inp inp-mono" type="number" id="col-prazo" value="30" inputmode="numeric"></div>
-        <div class="field"><label class="flabel">Status do CDF</label><select class="inp sel" id="col-status" onchange="colToggleCDF()"><option value="pendente">Pendente</option><option value="recebido">Recebido</option></select></div>
-      </div>
-      <div class="field" id="col-data-cdf-wrap" style="display:none"><label class="flabel">Data de recebimento do CDF</label><input class="inp inp-mono" type="date" id="col-data-cdf"></div>
+      <div class="field" style="margin-top:2px"><label class="chk"><input type="checkbox" id="col-executada" onchange="colToggleExec()"> Coleta executada</label></div>
+      <div class="field" id="col-data-exec-wrap" style="display:none"><label class="flabel">Data da execução</label><input class="inp inp-mono" type="date" id="col-data-exec"></div>
       <div style="height:8px"></div>
       <button class="btn btn-primary" onclick="salvarColeta()">✓ Salvar coleta</button>
       <div style="height:8px"></div>
@@ -2469,7 +2469,6 @@ function renderDocumentos(){
     return '<div class="hist-card">'+
       '<div class="hist-top"><div class="hist-name">'+esca(d.nome||'Documento')+'</div>'+
         '<span class="badge" style="color:'+s.cor+';background:'+s.bg+'">'+s.ic+' '+s.txt+'</span></div>'+
-      (d.categoria?'<div class="hist-sub">'+esca(d.categoria)+'</div>':'')+
       '<div class="hist-sub">Validade: '+_brDataDoc(d.validade)+(d.atualizadoPor?' · por '+esca(d.atualizadoPor):'')+'</div>'+
       '<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">'+
         (d.downloadURL?'<a class="btn res-btn-sec btn-sm" style="width:auto;text-decoration:none" href="'+esca(d.downloadURL)+'" target="_blank" rel="noopener">👁 Visualizar</a>':'<span style="font-size:12px;color:var(--text3)">sem PDF</span>')+
@@ -2480,7 +2479,7 @@ function renderDocumentos(){
 function docNovo(){
   if(!_fbUser()){toast('⚠️ Faça login para gerenciar documentos');return;}
   g('doc-modal-titulo').textContent='Novo documento';
-  g('doc-id').value='';g('doc-nome').value='';g('doc-categoria').value='';g('doc-validade').value='';
+  g('doc-id').value='';g('doc-nome').value='';g('doc-validade').value='';
   g('doc-file').value='';g('doc-file-atual').textContent='';g('doc-progress').style.display='none';
   g('doc-excluir-btn').style.display='none';
   g('doc-modal').classList.add('open');
@@ -2488,7 +2487,7 @@ function docNovo(){
 function docEditar(id){
   var d=(_docsCache.length?_docsCache:lDocumentos()).find(function(x){return String(x.id)===String(id);}); if(!d)return;
   g('doc-modal-titulo').textContent='Editar documento';
-  g('doc-id').value=d.id;g('doc-nome').value=d.nome||'';g('doc-categoria').value=d.categoria||'';g('doc-validade').value=d.validade||'';
+  g('doc-id').value=d.id;g('doc-nome').value=d.nome||'';g('doc-validade').value=d.validade||'';
   g('doc-file').value='';g('doc-progress').style.display='none';
   g('doc-file-atual').textContent=d.downloadURL?('PDF atual no servidor — escolha um arquivo só se quiser substituir.'):'Nenhum PDF enviado ainda.';
   g('doc-excluir-btn').style.display='block';
@@ -2503,7 +2502,7 @@ function docSalvar(){
   if(!nome){toast('⚠️ Informe o nome do documento');return;}
   var id=g('doc-id').value||('doc-'+Date.now().toString(36)+Math.random().toString(36).slice(2,6));
   var atual=(_docsCache.length?_docsCache:lDocumentos()).find(function(x){return String(x.id)===String(id);})||{};
-  var meta={nome:nome,categoria:(g('doc-categoria').value||'').trim(),validade:(g('doc-validade').value||''),
+  var meta={nome:nome,validade:(g('doc-validade').value||''),
     storagePath:atual.storagePath||'',downloadURL:atual.downloadURL||'',
     atualizadoPor:u.email||'',atualizadoEm:Date.now()};
   var file=g('doc-file').files&&g('doc-file').files[0];
@@ -2540,7 +2539,7 @@ function gerarLinkDocs(){
   if(!fb||!fb.firestore){toast('⚠️ Sem conexão com a nuvem');return;}
   if(!u){toast('⚠️ Faça login para gerar o link');return;}
   var arr=_docsCache.length?_docsCache:lDocumentos();
-  var docs=arr.filter(function(d){return d.downloadURL;}).map(function(d){return {nome:d.nome,categoria:d.categoria||'',validade:d.validade||'',downloadURL:d.downloadURL};});
+  var docs=arr.filter(function(d){return d.downloadURL;}).map(function(d){return {nome:d.nome,validade:d.validade||'',downloadURL:d.downloadURL};});
   if(!docs.length){toast('⚠️ Cadastre ao menos um documento com PDF');return;}
   var token=(Date.now().toString(36)+Math.random().toString(36).slice(2,9));
   var expira=Date.now()+86400000;
@@ -2735,30 +2734,41 @@ function brData(d){if(!d)return '';var p=(''+d).split('-');return p.length===3?p
 function hdrData(ds){var dt=new Date(ds+'T00:00:00');return DIAS_SEM[dt.getDay()]+', '+brData(ds);}
 function diasDesde(d){if(!d)return 0;return Math.floor((Date.now()-new Date(d+'T00:00:00').getTime())/86400000);}
 function statusColeta(c){
-  if(c.statusCDF==='recebido')return {tipo:'recebido'};
-  var dias=diasDesde(c.dataColeta), prazo=+c.prazoDias||30;
-  if(dias>prazo)return {tipo:'vencida',dias:dias-prazo};
-  return {tipo:'pendente',dias:dias,prazo:prazo};
+  // Execução: registros antigos (sem o campo) são tratados como já executados
+  var exec=(c.executada!==undefined)?!!c.executada:true;
+  if(exec)return {tipo:'executada'};
+  var dias=diasDesde(c.dataColeta);
+  if(c.dataColeta&&dias>0)return {tipo:'vencida',dias:dias};   // data passou sem executar
+  return {tipo:'afazer',dias:dias};
 }
 function cardColeta(c){
-  var s=statusColeta(c), badge;
-  if(s.tipo==='recebido')badge='<div class="badge b-ok">✓ CDF recebido'+(c.dataCDF?' '+brData(c.dataCDF):'')+'</div>';
-  else if(s.tipo==='vencida')badge='<div class="badge b-danger">⚠ Vencido há '+s.dias+'d</div>';
-  else badge='<div class="badge b-warn">CDF pendente · '+s.dias+'/'+s.prazo+'d</div>';
+  var s=statusColeta(c), badge, cls='';
+  if(s.tipo==='executada'){badge='<div class="badge b-ok">✓ Executada'+(c.dataExecucao?' '+brData(c.dataExecucao):'')+'</div>';cls=' exec';}
+  else if(s.tipo==='vencida'){badge='<div class="badge b-danger">⚠ Atrasada há '+s.dias+'d</div>';cls=' venc';}
+  else badge='<div class="badge b-warn">A fazer'+(c.dataColeta?' · '+brData(c.dataColeta):'')+'</div>';
   var tv=[c.transportador,c.veiculo].filter(Boolean).join(' · ');
-  return '<div class="col-card'+(s.tipo==='vencida'?' venc':'')+'" onclick="abrirColeta('+c.id+')">'+
+  var acao=(s.tipo!=='executada')?'<button class="col-confirm-btn" onclick="confirmarExecucao('+c.id+',event)">✓ Confirmar execução</button>':'';
+  return '<div class="col-card'+cls+'" onclick="abrirColeta('+c.id+')">'+
     '<div class="col-top"><div><div class="col-ger">'+(c.gerador||'Sem nome')+'</div><div class="col-mtr">MTR '+(c.mtr||'—')+'</div></div>'+badge+'</div>'+
     (tv?'<div class="col-row">🚛 '+tv+'</div>':'')+
     (c.destinador?'<div class="col-row">🏭 '+c.destinador+'</div>':'')+
     (c.residuo?'<div class="col-row">♻️ '+c.residuo+'</div>':'')+
+    acao+
   '</div>';
+}
+function confirmarExecucao(id,ev){
+  if(ev&&ev.stopPropagation)ev.stopPropagation();
+  var arr=lColetas(),i=arr.findIndex(function(c){return c.id==id;});
+  if(i<0)return;
+  arr[i].executada=true; arr[i].dataExecucao=new Date().toISOString().slice(0,10);
+  sColetas(arr); renderColetas(); toast('✅ Coleta confirmada como executada');
 }
 function setVista(v,el){_vista=v;document.querySelectorAll('#vtab-lista,#vtab-mes').forEach(function(t){t.classList.remove('active');});el.classList.add('active');g('ag-lista').style.display=v==='lista'?'block':'none';g('ag-mes').style.display=v==='mes'?'block':'none';renderColetas();}
 function setFiltroColeta(f,el){_filtroColeta=f;el.parentNode.querySelectorAll('.col-tab').forEach(function(t){t.classList.remove('active');});el.classList.add('active');renderColetas();}
 function renderColetas(){
-  var arr=lColetas(),nP=0,nV=0,nO=0;
-  arr.forEach(function(c){var t=statusColeta(c).tipo;if(t==='recebido')nO++;else if(t==='vencida')nV++;else nP++;});
-  g('col-n-pend').textContent=nP;g('col-n-venc').textContent=nV;g('col-n-ok').textContent=nO;
+  var arr=lColetas(),nE=0,nV=0,nF=0;
+  arr.forEach(function(c){var t=statusColeta(c).tipo;if(t==='executada')nE++;else if(t==='vencida')nV++;else nF++;});
+  g('col-n-exec').textContent=nE;g('col-n-venc').textContent=nV;g('col-n-afazer').textContent=nF;
   if(_vista==='mes')renderMes();else renderLista();
 }
 function renderLista(){
@@ -2766,9 +2776,9 @@ function renderLista(){
   var q=(g('col-busca').value||'').trim().toLowerCase();
   var list=arr.filter(function(c){
     var t=statusColeta(c).tipo;
-    if(_filtroColeta==='pendente'&&t!=='pendente')return false;
+    if(_filtroColeta==='executada'&&t!=='executada')return false;
     if(_filtroColeta==='vencida'&&t!=='vencida')return false;
-    if(_filtroColeta==='recebido'&&t!=='recebido')return false;
+    if(_filtroColeta==='afazer'&&t!=='afazer')return false;
     if(q)return [c.gerador,c.mtr,c.destinador,c.residuo,c.transportador,c.veiculo].join(' ').toLowerCase().indexOf(q)>=0;
     return true;
   });
@@ -2791,7 +2801,7 @@ function renderMes(){
   for(var d=1;d<=days;d++){
     var ds=y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0'), items=byDay[d]||[];
     var maxShow=items.length>3?2:items.length, evs='';
-    items.slice(0,maxShow).forEach(function(c){var t=statusColeta(c).tipo;var nm=(c.gerador||'Coleta');evs+='<div class="ag-ev'+(t==='vencida'?' ev-vencida':t==='recebido'?' ev-recebido':'')+'" title="'+(''+nm).replace(/"/g,'&quot;')+'">'+nm+'</div>';});
+    items.slice(0,maxShow).forEach(function(c){var t=statusColeta(c).tipo;var nm=(c.gerador||'Coleta');evs+='<div class="ag-ev'+(t==='vencida'?' ev-vencida':t==='executada'?' ev-recebido':'')+'" title="'+(''+nm).replace(/"/g,'&quot;')+'">'+nm+'</div>';});
     if(items.length>maxShow)evs+='<div class="ag-more">+ '+(items.length-maxShow)+' coleta'+(items.length-maxShow>1?'s':'')+'</div>';
     html+='<div class="ag-cell'+(ds===tStr?' hoje':'')+(ds===_diaSel?' sel':'')+'" onclick="selDia(\''+ds+'\')"><div class="ag-daynum">'+d+'</div><div class="ag-evs">'+evs+'</div></div>';
   }
@@ -2804,7 +2814,7 @@ function renderDiaList(){
   h+=items.length?items.map(cardColeta).join(''):'<div style="font-size:13px;color:var(--text3);padding:4px 2px">Sem coletas neste dia. Toque em + Nova coleta.</div>';
   g('ag-dia-list').innerHTML=h;
 }
-function colToggleCDF(){g('col-data-cdf-wrap').style.display=(g('col-status').value==='recebido')?'block':'none';}
+function colToggleExec(){var ck=g('col-executada').checked;g('col-data-exec-wrap').style.display=ck?'block':'none';if(ck&&!g('col-data-exec').value)g('col-data-exec').value=new Date().toISOString().slice(0,10);}
 function abrirColeta(id){
   var ed=(typeof id==='number')?lColetas().find(function(c){return c.id===id;}):null;
   g('coleta-titulo').textContent=ed?'Editar coleta':'Nova coleta';
@@ -2816,10 +2826,9 @@ function abrirColeta(id){
   g('col-data').value=ed?(ed.dataColeta||''):(_vista==='mes'?_diaSel:new Date().toISOString().slice(0,10));
   g('col-destinador').value=ed?(ed.destinador||''):'';
   g('col-residuo').value=ed?(ed.residuo||''):'';
-  g('col-prazo').value=ed?(ed.prazoDias||30):30;
-  g('col-status').value=ed?(ed.statusCDF||'pendente'):'pendente';
-  g('col-data-cdf').value=ed?(ed.dataCDF||''):'';
-  colToggleCDF();
+  g('col-executada').checked=ed?((ed.executada!==undefined)?!!ed.executada:true):false;
+  g('col-data-exec').value=ed?(ed.dataExecucao||''):'';
+  colToggleExec();
   g('col-excluir-btn').style.display=ed?'flex':'none';
   g('coleta-modal').classList.add('open');
 }
@@ -2828,7 +2837,8 @@ function salvarColeta(){
   var ger=g('col-gerador').value.trim(), mtr=g('col-mtr').value.trim();
   if(!ger&&!mtr){toast('⚠️ Informe ao menos o gerador ou o nº do MTR');return;}
   var arr=lColetas(), id=g('col-id').value;
-  var obj={gerador:ger,transportador:g('col-transp').value.trim(),veiculo:g('col-veiculo').value.trim(),mtr:mtr,dataColeta:g('col-data').value,destinador:g('col-destinador').value.trim(),residuo:g('col-residuo').value.trim(),prazoDias:+g('col-prazo').value||30,statusCDF:g('col-status').value,dataCDF:g('col-status').value==='recebido'?g('col-data-cdf').value:''};
+  var exec=g('col-executada').checked;
+  var obj={gerador:ger,transportador:g('col-transp').value.trim(),veiculo:g('col-veiculo').value.trim(),mtr:mtr,dataColeta:g('col-data').value,destinador:g('col-destinador').value.trim(),residuo:g('col-residuo').value.trim(),executada:exec,dataExecucao:exec?(g('col-data-exec').value||new Date().toISOString().slice(0,10)):''};
   if(id){var i=arr.findIndex(function(c){return c.id==id;});if(i>=0)arr[i]=Object.assign({id:+id},obj);}
   else{obj.id=Date.now();arr.push(obj);if(obj.dataColeta)_diaSel=obj.dataColeta;}
   sColetas(arr);fecharColeta();renderColetas();toast('✅ Coleta salva');

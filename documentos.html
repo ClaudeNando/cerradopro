@@ -77,7 +77,6 @@ function status(validade){
       var s=status(x.validade);
       html+='<div class="doc"><div class="ic">📄</div><div class="mid">'+
         '<div class="nm">'+esc(x.nome||'Documento')+'</div>'+
-        (x.categoria?'<div class="ds">'+esc(x.categoria)+'</div>':'')+
         '<span class="badge" style="color:'+s.cor+';background:'+s.bg+'">'+s.ic+' '+s.txt+'</span>'+
         '</div><a class="open-btn" href="'+esc(x.downloadURL)+'" target="_blank" rel="noopener">Abrir</a></div>';
     });
