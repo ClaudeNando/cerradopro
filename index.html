@@ -156,13 +156,13 @@ textarea.inp{resize:none;min-height:80px;line-height:1.6}
 .col-card.venc{border-color:rgba(176,48,32,0.4)}
 .col-card.exec{border-color:rgba(42,122,64,0.45);background:#f3faf4}
 .col-sum-exec .col-sum-n{color:#1a6030}
-.col-state{display:flex;margin-top:12px;border:1px solid var(--border);border-radius:9px;overflow:hidden}
-.col-state-btn{flex:1;padding:9px 8px;background:#fff;border:none;border-right:1px solid var(--border);font-family:inherit;font-size:12.5px;font-weight:600;color:var(--text3);cursor:pointer}
-.col-state-btn:last-child{border-right:none}
-.col-state-btn:active{opacity:.7}
-.col-state-afazer.on{background:var(--accent-dim);color:var(--accent)}
-.col-state-venc.on{background:#fbe7e3;color:#9a2414}
-.col-state-exec.on{background:#e7f3ea;color:#1a6030}
+.col-state{display:flex;justify-content:flex-end;margin-top:12px;width:100%}
+.col-state-group{display:inline-flex;gap:2px;background:#f1ede4;padding:4px;border-radius:20px}
+.col-state-btn{padding:6px 14px;font-size:12.5px;font-weight:600;font-family:inherit;border:none;border-radius:16px;text-align:center;cursor:pointer;background:transparent;color:#706b64;transition:all .2s ease;white-space:nowrap}
+.col-state-btn:active{transform:scale(.97)}
+.col-state-afazer.on{background:#fff;color:#855329;box-shadow:0 2px 4px rgba(0,0,0,0.08)}
+.col-state-venc.on{background:#f7d9d2;color:#9a2414;box-shadow:0 2px 4px rgba(0,0,0,0.08)}
+.col-state-exec.on{background:#e2f0d9;color:#2e7d32;box-shadow:0 2px 4px rgba(0,0,0,0.08)}
 .col-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px}
 .col-ger{font-size:16px;font-weight:700}
 .col-mtr{font-size:12px;color:var(--text3);font-family:'DM Mono',monospace;margin-top:2px}
@@ -2758,11 +2758,11 @@ function cardColeta(c){
   else if(t==='vencida'){badge='<div class="badge b-danger">⚠ Vencida</div>';cls=' venc';}
   else badge='<div class="badge b-warn">A fazer'+(c.dataColeta?' · '+brData(c.dataColeta):'')+'</div>';
   var tv=[c.transportador,c.veiculo].filter(Boolean).join(' · ');
-  var acao='<div class="col-state" onclick="event.stopPropagation()">'+
+  var acao='<div class="col-state" onclick="event.stopPropagation()"><div class="col-state-group">'+
     '<button type="button" class="col-state-btn col-state-afazer'+(t==='afazer'?' on':'')+'" onclick="setColetaEstado('+c.id+',\'afazer\',event)">A fazer</button>'+
     '<button type="button" class="col-state-btn col-state-venc'+(t==='vencida'?' on':'')+'" onclick="setColetaEstado('+c.id+',\'vencida\',event)">Vencida</button>'+
     '<button type="button" class="col-state-btn col-state-exec'+(t==='executada'?' on':'')+'" onclick="setColetaEstado('+c.id+',\'executada\',event)">✓ Executada</button>'+
-  '</div>';
+  '</div></div>';
   return '<div class="col-card'+cls+'" onclick="abrirColeta('+c.id+')">'+
     '<div class="col-top"><div><div class="col-ger">'+(c.gerador||'Sem nome')+'</div><div class="col-mtr">MTR '+(c.mtr||'—')+'</div></div>'+badge+'</div>'+
     (tv?'<div class="col-row">🚛 '+tv+'</div>':'')+
