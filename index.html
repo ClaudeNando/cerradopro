@@ -2871,7 +2871,13 @@ if(window.CloudSync){
   CloudSync.initSync({
     collection:'residuospro',
     syncKeys:['rpro_cfg','rpro_hist','rpro_contratos','rpro_parceiros'],
-    onRemote:function(k){ if(k==='rpro_cfg')cfg=lCfg(); renderHist(); renderColetas(); renderContratos(); renderParceiros(); },
+    onRemote:function(k){
+      // Re-renderiza só o que a chave alterada afeta (evita trocar um card sob o clique)
+      if(k==='rpro_cfg'){ cfg=lCfg(); renderHist(); renderContratos(); renderParceiros(); return; }
+      if(k==='rpro_hist'){ renderHist(); return; }
+      if(k==='rpro_contratos'){ renderContratos(); return; }
+      if(k==='rpro_parceiros'){ renderParceiros(); return; }
+    },
     onLogout:function(){ try{fecharCfg();}catch(e){} }
   });
 }
