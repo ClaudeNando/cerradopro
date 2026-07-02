@@ -690,10 +690,10 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
 
     <div id="ag-lista">
       <div class="col-tabs">
-        <div class="col-tab active" id="ftab-todas" onclick="setFiltroColeta('todas',this)">Todas</div>
+        <div class="col-tab" id="ftab-todas" onclick="setFiltroColeta('todas',this)">Todas</div>
         <div class="col-tab" id="ftab-executada" onclick="setFiltroColeta('executada',this)">Executadas</div>
         <div class="col-tab" id="ftab-vencida" onclick="setFiltroColeta('vencida',this)">Vencidas</div>
-        <div class="col-tab" id="ftab-afazer" onclick="setFiltroColeta('afazer',this)">A Fazer</div>
+        <div class="col-tab active" id="ftab-afazer" onclick="setFiltroColeta('afazer',this)">A Fazer</div>
       </div>
       <div class="field" style="margin-bottom:12px"><input class="inp" type="text" id="col-busca" placeholder="🔎 Buscar por MTR, gerador, destinador..." oninput="renderColetas()"></div>
       <div id="col-list"></div>
@@ -2202,7 +2202,7 @@ function usarRotaKm(km,nome){
 }
 
 // ── COLETAS: agenda + controle de MTR/CDF ──
-var _filtroColeta='todas', _vista='lista', _mesRef=new Date(), _diaSel=new Date().toISOString().slice(0,10);
+var _filtroColeta='afazer', _vista='lista', _mesRef=new Date(), _diaSel=new Date().toISOString().slice(0,10);
 var MESES=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
 var DIAS_SEM=['dom','seg','ter','qua','qui','sex','sáb'];
 /* ── Contratos recorrentes (consome DecisionEngine.avaliarContrato / aplicarReajuste) ── */
