@@ -90,14 +90,20 @@
     // - Se já conhecemos um remoto CHEIO: re-semeia este aparelho a partir dele e bloqueia o overwrite.
     // - Se o remoto ainda é desconhecido (snapshot não chegou) ou também vazio: não há o que enviar — ignora o push vazio.
     if (_isVazio(localVal)) {
-      var rem = _remote[k];
-      if (rem && !_isVazio(rem.value)) {
-        _logConflito(k, 'overwrite-vazio-bloqueado', _getLocalTs(k), rem.ts);
-        _applyingRemote = true; _setItem.call(localStorage, k, rem.value); _applyingRemote = false;
-        _setLocalTs(k, rem.ts);
-        if (_onRemote) { try { _onRemote(k, rem.value); } catch (e) {} }
+      var rem = _remote[k], lts = _getLocalTs(k);
+      // Exclusão DELIBERADA: conhecemos o remoto e o vazio local é mais novo que ele → envia o vazio
+      // (permite apagar o último registro). Caso contrário, mantém a proteção contra aparelho vazio.
+      var exclusaoDeliberada = rem && lts > (Number(rem.ts) || 0);
+      if (!exclusaoDeliberada) {
+        if (rem && !_isVazio(rem.value)) {
+          _logConflito(k, 'overwrite-vazio-bloqueado', lts, rem.ts);
+          _applyingRemote = true; _setItem.call(localStorage, k, rem.value); _applyingRemote = false;
+          _setLocalTs(k, rem.ts);
+          if (_onRemote) { try { _onRemote(k, rem.value); } catch (e) {} }
+        }
+        return;
       }
-      return;
+      // exclusão deliberada → segue para o push abaixo (envia o vazio para a nuvem)
     }
     var ts = _getLocalTs(k); if (!ts) { ts = _now(); _setLocalTs(k, ts); }
     _db.collection(_col).doc(k).set({
@@ -115,15 +121,10 @@
       _setLocalTs(k, remoteTs);
       if (_onRemote) { try { _onRemote(k, val); } catch (e) {} }
       if (localTs > 0) _logConflito(k, 'remoto-aplicado', localTs, remoteTs);
-    } else if (_isVazio(localStorage.getItem(k)) && !_isVazio(val)) {
-      // Local é mais novo MAS está vazio e o remoto tem dados: NÃO sobrescreve a nuvem
-      // (proteção TASK-016 contra semeadura por aparelho vazio). Re-semeia o local a partir do remoto.
-      _applyingRemote = true; _setItem.call(localStorage, k, val); _applyingRemote = false;
-      _setLocalTs(k, remoteTs);
-      if (_onRemote) { try { _onRemote(k, val); } catch (e) {} }
-      _logConflito(k, 'overwrite-vazio-bloqueado', localTs, remoteTs);
     } else {
-      // Local é mais novo e tem conteúdo: NÃO sobrescreve; reenvia o local para a nuvem (sem perda silenciosa).
+      // Local é mais novo (tem conteúdo OU é uma exclusão deliberada que esvaziou): NÃO sobrescreve.
+      // Mantém o local e reenvia para a nuvem — sem perda silenciosa. O _pushCloud distingue exclusão
+      // deliberada (vazio mais novo que o remoto) de aparelho vazio, então apagar o último registro persiste.
       _logConflito(k, 'local-mantido', localTs, remoteTs);
       _pushCloud(k);
     }
