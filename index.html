@@ -156,8 +156,12 @@ textarea.inp{resize:none;min-height:80px;line-height:1.6}
 .col-card.venc{border-color:rgba(176,48,32,0.4)}
 .col-card.exec{border-color:rgba(42,122,64,0.45);background:#f3faf4}
 .col-sum-exec .col-sum-n{color:#1a6030}
-.col-confirm-btn{margin-top:11px;width:100%;padding:9px;border-radius:9px;background:#e7f3ea;color:#1a6030;border:1px solid #bbe3c6;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer}
-.col-confirm-btn:active{background:#d6ecdb}
+.col-state{display:flex;margin-top:12px;border:1px solid var(--border);border-radius:9px;overflow:hidden}
+.col-state-btn{flex:1;padding:9px 8px;background:#fff;border:none;border-right:1px solid var(--border);font-family:inherit;font-size:12.5px;font-weight:600;color:var(--text3);cursor:pointer}
+.col-state-btn:last-child{border-right:none}
+.col-state-btn:active{opacity:.7}
+.col-state-afazer.on{background:var(--accent-dim);color:var(--accent)}
+.col-state-exec.on{background:#e7f3ea;color:#1a6030}
 .col-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px}
 .col-ger{font-size:16px;font-weight:700}
 .col-mtr{font-size:12px;color:var(--text3);font-family:'DM Mono',monospace;margin-top:2px}
@@ -2747,7 +2751,11 @@ function cardColeta(c){
   else if(s.tipo==='vencida'){badge='<div class="badge b-danger">⚠ Atrasada há '+s.dias+'d</div>';cls=' venc';}
   else badge='<div class="badge b-warn">A fazer'+(c.dataColeta?' · '+brData(c.dataColeta):'')+'</div>';
   var tv=[c.transportador,c.veiculo].filter(Boolean).join(' · ');
-  var acao=(s.tipo!=='executada')?'<button class="col-confirm-btn" onclick="confirmarExecucao('+c.id+',event)">✓ Confirmar execução</button>':'';
+  var exec=(s.tipo==='executada');
+  var acao='<div class="col-state" onclick="event.stopPropagation()">'+
+    '<button type="button" class="col-state-btn col-state-afazer'+(exec?'':' on')+'" onclick="setColetaEstado('+c.id+',false,event)">A fazer</button>'+
+    '<button type="button" class="col-state-btn col-state-exec'+(exec?' on':'')+'" onclick="setColetaEstado('+c.id+',true,event)">✓ Executada</button>'+
+  '</div>';
   return '<div class="col-card'+cls+'" onclick="abrirColeta('+c.id+')">'+
     '<div class="col-top"><div><div class="col-ger">'+(c.gerador||'Sem nome')+'</div><div class="col-mtr">MTR '+(c.mtr||'—')+'</div></div>'+badge+'</div>'+
     (tv?'<div class="col-row">🚛 '+tv+'</div>':'')+
@@ -2756,12 +2764,13 @@ function cardColeta(c){
     acao+
   '</div>';
 }
-function confirmarExecucao(id,ev){
+function setColetaEstado(id,exec,ev){
   if(ev&&ev.stopPropagation)ev.stopPropagation();
   var arr=lColetas(),i=arr.findIndex(function(c){return c.id==id;});
   if(i<0)return;
-  arr[i].executada=true; arr[i].dataExecucao=new Date().toISOString().slice(0,10);
-  sColetas(arr); renderColetas(); toast('✅ Coleta confirmada como executada');
+  arr[i].executada=!!exec;
+  arr[i].dataExecucao=exec?(arr[i].dataExecucao||new Date().toISOString().slice(0,10)):'';
+  sColetas(arr); renderColetas(); toast(exec?'✅ Marcada como Executada':'↩️ Marcada como A fazer');
 }
 function setVista(v,el){_vista=v;document.querySelectorAll('#vtab-lista,#vtab-mes').forEach(function(t){t.classList.remove('active');});el.classList.add('active');g('ag-lista').style.display=v==='lista'?'block':'none';g('ag-mes').style.display=v==='mes'?'block':'none';renderColetas();}
 function setFiltroColeta(f,el){_filtroColeta=f;el.parentNode.querySelectorAll('.col-tab').forEach(function(t){t.classList.remove('active');});el.classList.add('active');renderColetas();}
@@ -2871,10 +2880,26 @@ if(typeof firebase!=='undefined'&&firebase.auth){
   firebase.auth().onAuthStateChanged(function(user){ if(user){iniciarColetasEstruturadas();iniciarDocumentos();} else {pararColetasEstruturadas();pararDocumentos();} });
 }
 try{checkBackupLembrete();}catch(e){}
-// Ícones Lucide: renderiza os existentes e observa o DOM para converter os injetados dinamicamente
-function _icons(){ if(window.lucide&&lucide.createIcons){ try{lucide.createIcons();}catch(e){} } }
+// Ícones Lucide: renderiza os existentes e observa o DOM para converter os injetados dinamicamente.
+// O observador DESCONECTA enquanto o Lucide troca <i>→<svg> (senão ele reage à própria mutação) e
+// só re-renderiza quando surge um <i data-lucide> novo de fato — evita trocar o elemento sob o clique.
+var _icoObs=null, _icoT=null;
+function _icons(){
+  if(!(window.lucide&&lucide.createIcons))return;
+  if(_icoObs)_icoObs.disconnect();
+  try{lucide.createIcons();}catch(e){}
+  if(_icoObs&&document.body)_icoObs.observe(document.body,{childList:true,subtree:true});
+}
+function _temIconePendente(muts){
+  for(var i=0;i<muts.length;i++){var a=muts[i].addedNodes;for(var j=0;j<a.length;j++){var n=a[j];
+    if(n.nodeType===1&&((n.matches&&n.matches('[data-lucide]'))||(n.querySelector&&n.querySelector('[data-lucide]'))))return true;}}
+  return false;
+}
+if(window.MutationObserver&&document.body){
+  _icoObs=new MutationObserver(function(muts){ if(!_temIconePendente(muts))return; clearTimeout(_icoT); _icoT=setTimeout(_icons,80); });
+  _icoObs.observe(document.body,{childList:true,subtree:true});
+}
 _icons();
-if(window.MutationObserver&&document.body){ var _icoT; new MutationObserver(function(){ clearTimeout(_icoT); _icoT=setTimeout(_icons,60); }).observe(document.body,{childList:true,subtree:true}); }
 </script>
 </body>
 </html>
