@@ -161,6 +161,7 @@ textarea.inp{resize:none;min-height:80px;line-height:1.6}
 .col-state-btn:last-child{border-right:none}
 .col-state-btn:active{opacity:.7}
 .col-state-afazer.on{background:var(--accent-dim);color:var(--accent)}
+.col-state-venc.on{background:#fbe7e3;color:#9a2414}
 .col-state-exec.on{background:#e7f3ea;color:#1a6030}
 .col-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px}
 .col-ger{font-size:16px;font-weight:700}
@@ -1016,8 +1017,10 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
       </div>
       <div class="field"><label class="flabel">Destinador</label><input class="inp" type="text" id="col-destinador" placeholder="Para onde foi destinado"></div>
       <div class="field"><label class="flabel">Resíduo (opcional)</label><input class="inp" type="text" id="col-residuo" placeholder="Descrição curta"></div>
-      <div class="field" style="margin-top:2px"><label class="chk"><input type="checkbox" id="col-executada" onchange="colToggleExec()"> Coleta executada</label></div>
-      <div class="field" id="col-data-exec-wrap" style="display:none"><label class="flabel">Data da execução</label><input class="inp inp-mono" type="date" id="col-data-exec"></div>
+      <div class="g2">
+        <div class="field"><label class="flabel">Estado</label><select class="inp sel" id="col-estado" onchange="colToggleExec()"><option value="afazer">A fazer</option><option value="vencida">Vencida</option><option value="executada">Executada</option></select></div>
+        <div class="field" id="col-data-exec-wrap" style="display:none"><label class="flabel">Data da execução</label><input class="inp inp-mono" type="date" id="col-data-exec"></div>
+      </div>
       <div style="height:8px"></div>
       <button class="btn btn-primary" onclick="salvarColeta()">✓ Salvar coleta</button>
       <div style="height:8px"></div>
@@ -2738,23 +2741,27 @@ function brData(d){if(!d)return '';var p=(''+d).split('-');return p.length===3?p
 function hdrData(ds){var dt=new Date(ds+'T00:00:00');return DIAS_SEM[dt.getDay()]+', '+brData(ds);}
 function diasDesde(d){if(!d)return 0;return Math.floor((Date.now()-new Date(d+'T00:00:00').getTime())/86400000);}
 function statusColeta(c){
-  // Execução: registros antigos (sem o campo) são tratados como já executados
-  var exec=(c.executada!==undefined)?!!c.executada:true;
-  if(exec)return {tipo:'executada'};
-  var dias=diasDesde(c.dataColeta);
-  if(c.dataColeta&&dias>0)return {tipo:'vencida',dias:dias};   // data passou sem executar
-  return {tipo:'afazer',dias:dias};
+  // Estado MANUAL escolhido pelo operador: 'afazer' | 'vencida' | 'executada'. Novo começa em 'afazer'.
+  if(c.estado==='executada'||c.estado==='vencida'||c.estado==='afazer')return {tipo:c.estado};
+  // Legado: registros com o campo 'executada' (versões anteriores)
+  if(c.executada!==undefined){
+    if(c.executada)return {tipo:'executada'};
+    var d=diasDesde(c.dataColeta);
+    return (c.dataColeta&&d>0)?{tipo:'vencida'}:{tipo:'afazer'};
+  }
+  // Registros bem antigos (sem estado nem executada) = já executados
+  return {tipo:'executada'};
 }
 function cardColeta(c){
-  var s=statusColeta(c), badge, cls='';
-  if(s.tipo==='executada'){badge='<div class="badge b-ok">✓ Executada'+(c.dataExecucao?' '+brData(c.dataExecucao):'')+'</div>';cls=' exec';}
-  else if(s.tipo==='vencida'){badge='<div class="badge b-danger">⚠ Atrasada há '+s.dias+'d</div>';cls=' venc';}
+  var s=statusColeta(c), t=s.tipo, badge, cls='';
+  if(t==='executada'){badge='<div class="badge b-ok">✓ Executada'+(c.dataExecucao?' '+brData(c.dataExecucao):'')+'</div>';cls=' exec';}
+  else if(t==='vencida'){badge='<div class="badge b-danger">⚠ Vencida</div>';cls=' venc';}
   else badge='<div class="badge b-warn">A fazer'+(c.dataColeta?' · '+brData(c.dataColeta):'')+'</div>';
   var tv=[c.transportador,c.veiculo].filter(Boolean).join(' · ');
-  var exec=(s.tipo==='executada');
   var acao='<div class="col-state" onclick="event.stopPropagation()">'+
-    '<button type="button" class="col-state-btn col-state-afazer'+(exec?'':' on')+'" onclick="setColetaEstado('+c.id+',false,event)">A fazer</button>'+
-    '<button type="button" class="col-state-btn col-state-exec'+(exec?' on':'')+'" onclick="setColetaEstado('+c.id+',true,event)">✓ Executada</button>'+
+    '<button type="button" class="col-state-btn col-state-afazer'+(t==='afazer'?' on':'')+'" onclick="setColetaEstado('+c.id+',\'afazer\',event)">A fazer</button>'+
+    '<button type="button" class="col-state-btn col-state-venc'+(t==='vencida'?' on':'')+'" onclick="setColetaEstado('+c.id+',\'vencida\',event)">Vencida</button>'+
+    '<button type="button" class="col-state-btn col-state-exec'+(t==='executada'?' on':'')+'" onclick="setColetaEstado('+c.id+',\'executada\',event)">✓ Executada</button>'+
   '</div>';
   return '<div class="col-card'+cls+'" onclick="abrirColeta('+c.id+')">'+
     '<div class="col-top"><div><div class="col-ger">'+(c.gerador||'Sem nome')+'</div><div class="col-mtr">MTR '+(c.mtr||'—')+'</div></div>'+badge+'</div>'+
@@ -2764,13 +2771,15 @@ function cardColeta(c){
     acao+
   '</div>';
 }
-function setColetaEstado(id,exec,ev){
+function setColetaEstado(id,estado,ev){
   if(ev&&ev.stopPropagation)ev.stopPropagation();
   var arr=lColetas(),i=arr.findIndex(function(c){return c.id==id;});
   if(i<0)return;
-  arr[i].executada=!!exec;
-  arr[i].dataExecucao=exec?(arr[i].dataExecucao||new Date().toISOString().slice(0,10)):'';
-  sColetas(arr); renderColetas(); toast(exec?'✅ Marcada como Executada':'↩️ Marcada como A fazer');
+  arr[i].estado=estado;
+  arr[i].executada=(estado==='executada');
+  arr[i].dataExecucao=(estado==='executada')?(arr[i].dataExecucao||new Date().toISOString().slice(0,10)):'';
+  sColetas(arr); renderColetas();
+  toast(estado==='executada'?'✅ Executada':estado==='vencida'?'⚠️ Vencida':'↩️ A fazer');
 }
 function setVista(v,el){_vista=v;document.querySelectorAll('#vtab-lista,#vtab-mes').forEach(function(t){t.classList.remove('active');});el.classList.add('active');g('ag-lista').style.display=v==='lista'?'block':'none';g('ag-mes').style.display=v==='mes'?'block':'none';renderColetas();}
 function setFiltroColeta(f,el){_filtroColeta=f;el.parentNode.querySelectorAll('.col-tab').forEach(function(t){t.classList.remove('active');});el.classList.add('active');renderColetas();}
@@ -2823,7 +2832,7 @@ function renderDiaList(){
   h+=items.length?items.map(cardColeta).join(''):'<div style="font-size:13px;color:var(--text3);padding:4px 2px">Sem coletas neste dia. Toque em + Nova coleta.</div>';
   g('ag-dia-list').innerHTML=h;
 }
-function colToggleExec(){var ck=g('col-executada').checked;g('col-data-exec-wrap').style.display=ck?'block':'none';if(ck&&!g('col-data-exec').value)g('col-data-exec').value=new Date().toISOString().slice(0,10);}
+function colToggleExec(){var ex=g('col-estado').value==='executada';g('col-data-exec-wrap').style.display=ex?'block':'none';if(ex&&!g('col-data-exec').value)g('col-data-exec').value=new Date().toISOString().slice(0,10);}
 function abrirColeta(id){
   var ed=(typeof id==='number')?lColetas().find(function(c){return c.id===id;}):null;
   g('coleta-titulo').textContent=ed?'Editar coleta':'Nova coleta';
@@ -2835,7 +2844,7 @@ function abrirColeta(id){
   g('col-data').value=ed?(ed.dataColeta||''):(_vista==='mes'?_diaSel:new Date().toISOString().slice(0,10));
   g('col-destinador').value=ed?(ed.destinador||''):'';
   g('col-residuo').value=ed?(ed.residuo||''):'';
-  g('col-executada').checked=ed?((ed.executada!==undefined)?!!ed.executada:true):false;
+  g('col-estado').value=ed?statusColeta(ed).tipo:'afazer';
   g('col-data-exec').value=ed?(ed.dataExecucao||''):'';
   colToggleExec();
   g('col-excluir-btn').style.display=ed?'flex':'none';
@@ -2846,8 +2855,8 @@ function salvarColeta(){
   var ger=g('col-gerador').value.trim(), mtr=g('col-mtr').value.trim();
   if(!ger&&!mtr){toast('⚠️ Informe ao menos o gerador ou o nº do MTR');return;}
   var arr=lColetas(), id=g('col-id').value;
-  var exec=g('col-executada').checked;
-  var obj={gerador:ger,transportador:g('col-transp').value.trim(),veiculo:g('col-veiculo').value.trim(),mtr:mtr,dataColeta:g('col-data').value,destinador:g('col-destinador').value.trim(),residuo:g('col-residuo').value.trim(),executada:exec,dataExecucao:exec?(g('col-data-exec').value||new Date().toISOString().slice(0,10)):''};
+  var estado=g('col-estado').value||'afazer';
+  var obj={gerador:ger,transportador:g('col-transp').value.trim(),veiculo:g('col-veiculo').value.trim(),mtr:mtr,dataColeta:g('col-data').value,destinador:g('col-destinador').value.trim(),residuo:g('col-residuo').value.trim(),estado:estado,executada:(estado==='executada'),dataExecucao:(estado==='executada')?(g('col-data-exec').value||new Date().toISOString().slice(0,10)):''};
   if(id){var i=arr.findIndex(function(c){return c.id==id;});if(i>=0)arr[i]=Object.assign({id:+id},obj);}
   else{obj.id=Date.now();arr.push(obj);if(obj.dataColeta)_diaSel=obj.dataColeta;}
   sColetas(arr);fecharColeta();renderColetas();toast('✅ Coleta salva');
