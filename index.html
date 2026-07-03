@@ -586,7 +586,9 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
         <div class="field"><label class="flabel">CNPJ</label><input class="inp inp-mono" type="text" id="cli-cnpj" placeholder="00.000.000/0000-00" maxlength="18" inputmode="numeric" oninput="maskCNPJ(this);buscaCNPJ(this.value)"><div id="cnpj-status" style="font-size:11px;margin-top:4px;min-height:16px"></div></div>
         <div class="field"><label class="flabel">Contato</label><input class="inp" type="text" id="cli-contato" placeholder="Nome"></div>
       </div>
+      <div class="field"><label class="flabel">Telefone</label><input class="inp" type="text" id="cli-telefone" placeholder="(62) 90000-0000" inputmode="tel"></div>
       <div class="field"><label class="flabel">Local de coleta</label><input class="inp" type="text" id="cli-local" placeholder="Cidade / endereço da coleta"></div>
+      <label class="chk" style="margin-top:2px"><input type="checkbox" id="orc-savecli" checked> Salvar cliente no cadastro comercial</label>
     </div>
     <div class="card">
       <div class="card-head"><div class="card-icon"><i data-lucide="truck"></i></div><div class="card-lbl">Transporte</div></div>
@@ -1008,16 +1010,28 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
     <div class="modal-head"><div class="modal-title" id="coleta-titulo">Nova coleta</div><button class="modal-close-btn" onclick="fecharColeta()">×</button></div>
     <div class="modal-body">
       <input type="hidden" id="col-id">
-      <div class="field"><label class="flabel">Gerador (cliente)</label><input class="inp" type="text" id="col-gerador" placeholder="Quem gerou o resíduo"></div>
+      <div class="field"><label class="flabel">Gerador (cliente)</label>
+        <select class="inp sel" id="col-gerador-sel" onchange="colGeradorChange()"></select>
+        <input class="inp" type="text" id="col-gerador" placeholder="Nome do gerador" style="display:none;margin-top:8px">
+      </div>
       <div class="g2">
-        <div class="field"><label class="flabel">Transportador</label><input class="inp" type="text" id="col-transp" list="dl-transp" placeholder="Cerrado, Ecoliq..."><datalist id="dl-transp"><option value="Cerrado (Furgão)"><option value="Alugares"><option value="Ecoliq"><option value="Terceiro"><option value="Goyazes"><option value="H2S"><option value="Risco Zero"></datalist></div>
-        <div class="field"><label class="flabel">Veículo</label><input class="inp" type="text" id="col-veiculo" list="dl-veic" placeholder="Furgão, Baú..."><datalist id="dl-veic"><option value="Furgão"><option value="Baú"><option value="Vácuo"><option value="Roll-on"><option value="Munk"><option value="Poli"></datalist></div>
+        <div class="field"><label class="flabel">Transportador</label>
+          <select class="inp sel" id="col-transp-sel" onchange="colTranspColChange()"></select>
+          <input class="inp" type="text" id="col-transp" placeholder="Nome do transportador" style="display:none;margin-top:8px">
+        </div>
+        <div class="field"><label class="flabel">Veículo</label>
+          <select class="inp sel" id="col-veiculo-sel" onchange="colVeicColChange()" style="display:none"></select>
+          <input class="inp" type="text" id="col-veiculo" placeholder="Furgão, Baú..." style="display:none">
+        </div>
       </div>
       <div class="g2">
         <div class="field"><label class="flabel">Nº do MTR</label><input class="inp inp-mono" type="text" id="col-mtr" placeholder="emitido pelo gerador"></div>
         <div class="field"><label class="flabel">Data da coleta</label><input class="inp inp-mono" type="date" id="col-data"></div>
       </div>
-      <div class="field"><label class="flabel">Destinador</label><input class="inp" type="text" id="col-destinador" placeholder="Para onde foi destinado"></div>
+      <div class="field"><label class="flabel">Destinador</label>
+        <select class="inp sel" id="col-destinador-sel" onchange="colDestinadorColChange()"></select>
+        <input class="inp" type="text" id="col-destinador" placeholder="Para onde foi destinado" style="display:none;margin-top:8px">
+      </div>
       <div class="field"><label class="flabel">Resíduo (opcional)</label><input class="inp" type="text" id="col-residuo" placeholder="Descrição curta"></div>
       <div class="g2">
         <div class="field"><label class="flabel">Estado</label><select class="inp sel" id="col-estado" onchange="colToggleExec()"><option value="afazer">A fazer</option><option value="vencida">Vencida</option><option value="executada">Executada</option></select></div>
@@ -1156,7 +1170,7 @@ function abrirCfg(){
 }
 function exportarBackup(){
   var dados={app:'ResiduosPRO',versao:1,exportadoEm:new Date().toISOString(),
-    cfg:localStorage.getItem('rpro_cfg'),hist:localStorage.getItem('rpro_hist'),coletas:localStorage.getItem('rpro_coletas'),contratos:localStorage.getItem('rpro_contratos'),parceiros:localStorage.getItem('rpro_parceiros')};
+    cfg:localStorage.getItem('rpro_cfg'),hist:localStorage.getItem('rpro_hist'),coletas:localStorage.getItem('rpro_coletas'),contratos:localStorage.getItem('rpro_contratos'),parceiros:localStorage.getItem('rpro_parceiros'),clientes:localStorage.getItem('rpro_clientes')};
   var nC=0; try{nC=JSON.parse(localStorage.getItem('rpro_coletas')||'[]').length;}catch(e){}
   CloudSync.exportBackup('residuospro-backup', dados, '⬇️ Backup exportado ('+nC+' coletas)');
   try{localStorage.setItem('rpro_lastbackup',new Date().toISOString());_backupSnooze=false;checkBackupLembrete();}catch(e){}
@@ -1188,8 +1202,9 @@ function importarBackup(input){
     if(d.coletas!=null)lset('rpro_coletas',d.coletas);
     if(d.contratos!=null)lset('rpro_contratos',d.contratos);
     if(d.parceiros!=null)lset('rpro_parceiros',d.parceiros);
+    if(d.clientes!=null)lset('rpro_clientes',d.clientes);
     try{pushColetasEstruturado();}catch(e){}   // TASK-024: propaga coletas importadas para a coleção estruturada
-    cfg=lCfg(); renderHist(); renderColetas(); renderContratos(); renderParceiros(); fecharCfg();
+    cfg=lCfg(); renderHist(); renderColetas(); renderContratos(); renderParceiros(); try{renderClienteSugestoes();}catch(e){} fecharCfg();
     toast('⬆️ Backup importado!');
   });
 }
@@ -1321,7 +1336,7 @@ function calcular(){
   var tot=ptc+pdc+ac,imp=tot*(cfg.imposto/100),ct=ctf+cdf+ped+cmotCusto+imp,sob=tot-ct,mar=tot>0?sob/tot:0;
   ultimoCalculo={km:km,veic:veicNome||'Transporte',proprio:proprio,custoftKm:custoftKm,clikm:clikm,ac:ac,ped:ped,ctf:ctf,ptc:ptc,cdf:cdf,pdc:pdc,cmot:cmot,itens:itens,tot:tot,imp:imp,ct:ct,sob:sob,mar:mar,
     transportadorId:_tpId||null,transportadorNome:_tp?_tp.nome:'',veiculoId:_vId||null,veicSnapshot:_vSnap,destinadorId:_dId||null,destinadorNome:_dp?_dp.nome:'',
-    cli:{nome:g('cli-nome').value,cnpj:g('cli-cnpj').value,contato:g('cli-contato').value,local:g('cli-local').value},
+    cli:{nome:g('cli-nome').value,cnpj:g('cli-cnpj').value,contato:g('cli-contato').value,telefone:(g('cli-telefone')?g('cli-telefone').value:''),local:g('cli-local').value},
     obs:g('obs').value,data:new Date().toLocaleDateString('pt-BR')};
   return ultimoCalculo;
 }
@@ -1344,7 +1359,7 @@ function calcularOrcamentoForn(){
   ultimoCalculo={km:0,veic:'Serviço completo (fornecedor)',servicoForn:true,proprio:false,custoftKm:0,clikm:0,ac:0,ped:0,
     ctf:forn,ptc:tot,cdf:0,pdc:0,cmot:null,itens:[],tot:tot,imp:imp,ct:ct,sob:sob,mar:mar,
     transportadorId:null,transportadorNome:'',veiculoId:null,veicSnapshot:null,destinadorId:null,destinadorNome:'',
-    cli:{nome:g('cli-nome').value,cnpj:g('cli-cnpj').value,contato:g('cli-contato').value,local:g('cli-local').value},
+    cli:{nome:g('cli-nome').value,cnpj:g('cli-cnpj').value,contato:g('cli-contato').value,telefone:(g('cli-telefone')?g('cli-telefone').value:''),local:g('cli-local').value},
     obs:g('obs').value,data:new Date().toLocaleDateString('pt-BR')};
   renderResultado(ultimoCalculo);
   navTo('resultado',g('nav-resultado'));
@@ -1430,6 +1445,7 @@ function analiseNegHTML(r){
 
 function gerarProposta(){
   var r=ultimoCalculo;if(!r||!r.tot){toast('⚠️ Calcule o orçamento primeiro');return;}
+  try{salvarClienteDoOrcamento(r.cli);}catch(e){}
   var hj=new Date(),val=new Date(hj);val.setDate(val.getDate()+(cfg.validade||15));
   var fd=function(d){return d.toLocaleDateString('pt-BR');};
   var np=hj.getFullYear()+String(hj.getMonth()+1).padStart(2,'0')+String(hj.getDate()).padStart(2,'0')+'-'+String(Math.floor(Math.random()*900)+100);
@@ -1449,7 +1465,7 @@ function whatsappProposta(){window.open('https://wa.me/?text='+encodeURIComponen
 var editandoId=null;
 function _preencherForm(x){
   var c=x.cli||{};
-  g('cli-nome').value=c.nome||'';g('cli-cnpj').value=c.cnpj||'';g('cli-contato').value=c.contato||'';g('cli-local').value=c.local||'';
+  g('cli-nome').value=c.nome||'';g('cli-cnpj').value=c.cnpj||'';g('cli-contato').value=c.contato||'';g('cli-local').value=c.local||'';if(g('cli-telefone'))g('cli-telefone').value=c.telefone||'';
   g('trajeto').value=x.km||'';g('acresc').value=x.ac||'';g('pedagio').value=x.ped||'';g('obs').value=x.obs||'';
   if(g('orc-transp')){g('orc-transp').value=x.transportadorId||'';orcTranspChange(true);if(g('orc-veic'))g('orc-veic').value=x.veiculoId||'';}
   if(g('orc-destinador'))g('orc-destinador').value=x.destinadorId||'';
@@ -1471,7 +1487,7 @@ function _preencherForm(x){
 var FUNIL={enviado:{l:'Enviado',c:'#c87020'},negociacao:{l:'Em negociação',c:'#2563eb'},fechado:{l:'Fechado',c:'#2a7a40'},perdido:{l:'Perdido',c:'#b03020'}};
 function funilOpts(cur){return Object.keys(FUNIL).map(function(k){return '<option value="'+k+'"'+(k===cur?' selected':'')+'>'+FUNIL[k].l+'</option>';}).join('');}
 function setStatusHist(id,val){try{var h=JSON.parse(localStorage.getItem('rpro_hist')||'[]');h=h.map(function(i){return i.id===id?Object.assign({},i,{status:val}):i;});lset('rpro_hist',JSON.stringify(h));renderHist();}catch(e){}}
-function salvarHist(){var r=ultimoCalculo;if(!r)return;try{var h=JSON.parse(localStorage.getItem('rpro_hist')||'[]');if(editandoId&&h.some(function(i){return i.id===editandoId;})){h=h.map(function(i){return i.id===editandoId?Object.assign({},r,{id:editandoId,status:i.status||'enviado'}):i;});lset('rpro_hist',JSON.stringify(h));toast('✏️ Orçamento atualizado');}else{h.unshift(Object.assign({},r,{id:Date.now(),status:'enviado'}));if(h.length>50)h=h.slice(0,50);lset('rpro_hist',JSON.stringify(h));toast('💾 Salvo!');}editandoId=null;renderHist();}catch(e){}}
+function salvarHist(){var r=ultimoCalculo;if(!r)return;try{salvarClienteDoOrcamento(r.cli);}catch(e){}try{var h=JSON.parse(localStorage.getItem('rpro_hist')||'[]');if(editandoId&&h.some(function(i){return i.id===editandoId;})){h=h.map(function(i){return i.id===editandoId?Object.assign({},r,{id:editandoId,status:i.status||'enviado'}):i;});lset('rpro_hist',JSON.stringify(h));toast('✏️ Orçamento atualizado');}else{h.unshift(Object.assign({},r,{id:Date.now(),status:'enviado'}));if(h.length>50)h=h.slice(0,50);lset('rpro_hist',JSON.stringify(h));toast('💾 Salvo!');}editandoId=null;renderHist();}catch(e){}}
 
 var _histFiltro='todas';
 function setHistFiltro(k){_histFiltro=k;renderHist();}
@@ -1510,8 +1526,47 @@ function renderHist(){try{
 
 function _normNome(s){return (s||'').toString().trim().replace(/\s+/g,' ').toLowerCase();}
 function _mapClientes(){var map={};try{var h=JSON.parse(localStorage.getItem('rpro_hist')||'[]');h.forEach(function(x){var c=x.cli||{};var nome=(c.nome||'').trim();if(!nome)return;var key=_normNome(nome);if(!map[key])map[key]={nome:nome,cnpj:c.cnpj||'',contato:c.contato||'',local:c.local||''};});}catch(e){}return map;}
-function renderClienteSugestoes(){var dl=g('cli-sugestoes');if(!dl)return;var map=_mapClientes();dl.innerHTML=Object.keys(map).sort().map(function(k){return '<option value="'+map[k].nome.replace(/"/g,'&quot;')+'"></option>';}).join('');}
-function selecionarCliente(val){var c=_mapClientes()[_normNome(val)];if(!c)return;g('cli-nome').value=c.nome;if(c.cnpj)g('cli-cnpj').value=c.cnpj;if(c.contato)g('cli-contato').value=c.contato;if(c.local)g('cli-local').value=c.local;}
+// ── CADASTRO COMERCIAL DE CLIENTES (rpro_clientes) — TASK-032 ──
+function lClientes(){var a=[];try{a=JSON.parse(localStorage.getItem('rpro_clientes')||'[]');}catch(e){}return Array.isArray(a)?a:[];}
+function sClientes(a){try{lset('rpro_clientes',JSON.stringify(a));}catch(e){}}
+function _cnpjDigits(s){return String(s||'').replace(/\D/g,'');}
+// Upsert por CNPJ (dedup). Sem CNPJ: casa por nome normalizado com registro existente sem CNPJ; senão cria com id interno.
+function upsertCliente(c){
+  if(!c)return null;
+  var nome=(c.nome||'').trim(), cnpjD=_cnpjDigits(c.cnpj);
+  if(!nome&&!cnpjD)return null;
+  var arr=lClientes(), now=Date.now(), idx=-1;
+  if(cnpjD)idx=arr.findIndex(function(x){return _cnpjDigits(x.cnpj)===cnpjD;});
+  if(idx<0&&nome)idx=arr.findIndex(function(x){return !_cnpjDigits(x.cnpj)&&_normNome(x.nome)===_normNome(nome);});
+  var base=idx>=0?arr[idx]:{id:'cli-'+now.toString(36)+Math.random().toString(36).slice(2,6),criadoEm:now};
+  var obj=Object.assign({},base,{
+    nome:nome||base.nome||'',
+    cnpj:(c.cnpj!=null&&(''+c.cnpj).trim()!=='')?(''+c.cnpj).trim():(base.cnpj||''),
+    local:(c.local!=null&&c.local!=='')?c.local:(base.local||''),
+    contato:(c.contato!=null&&c.contato!=='')?c.contato:(base.contato||''),
+    telefone:(c.telefone!=null&&c.telefone!=='')?c.telefone:(base.telefone||''),
+    semCnpj:!(cnpjD||_cnpjDigits(base.cnpj)),
+    atualizadoEm:now
+  });
+  if(idx>=0)arr[idx]=obj;else arr.push(obj);
+  sClientes(arr);
+  try{renderClienteSugestoes();}catch(e){}
+  return obj;
+}
+// Salva o cliente do orçamento atual, se o operador deixou marcado (independe de ganhar/converter)
+function salvarClienteDoOrcamento(cli){
+  var ck=g('orc-savecli'); if(ck&&!ck.checked)return;
+  var c=cli||(ultimoCalculo&&ultimoCalculo.cli); if(!c)return;
+  upsertCliente(c);
+}
+// Mapa unificado (cadastro tem prioridade; histórico complementa) para sugestões/preenchimento no orçamento
+function _mapClientesAll(){
+  var map=_mapClientes();  // histórico (base)
+  lClientes().forEach(function(c){var nm=(c.nome||'').trim();if(!nm)return;map[_normNome(nm)]={nome:nm,cnpj:c.cnpj||'',contato:c.contato||'',local:c.local||'',telefone:c.telefone||''};});
+  return map;
+}
+function renderClienteSugestoes(){var dl=g('cli-sugestoes');if(!dl)return;var map=_mapClientesAll();dl.innerHTML=Object.keys(map).sort().map(function(k){return '<option value="'+(map[k].nome||'').replace(/"/g,'&quot;')+'"></option>';}).join('');}
+function selecionarCliente(val){var c=_mapClientesAll()[_normNome(val)];if(!c)return;g('cli-nome').value=c.nome;if(c.cnpj)g('cli-cnpj').value=c.cnpj;if(c.contato)g('cli-contato').value=c.contato;if(c.local)g('cli-local').value=c.local;if(c.telefone&&g('cli-telefone'))g('cli-telefone').value=c.telefone;}
 function carregarHist(id){try{var h=JSON.parse(localStorage.getItem('rpro_hist')||'[]'),x=h.find(function(i){return i.id===id;});if(!x)return;_preencherForm(x);editandoId=null;renderResultado(calcular());navTo('resultado',g('nav-resultado'));toast('📋 Carregado — campos preenchidos');}catch(e){}}
 function excluirHist(id){if(!confirm('Excluir este orçamento?'))return;try{var h=JSON.parse(localStorage.getItem('rpro_hist')||'[]').filter(function(i){return i.id!==id;});lset('rpro_hist',JSON.stringify(h));renderHist();toast('🗑️ Excluído');}catch(e){}}
 function editarHist(id){try{var h=JSON.parse(localStorage.getItem('rpro_hist')||'[]'),x=h.find(function(i){return i.id===id;});if(!x)return;_preencherForm(x);editandoId=id;calcular();navTo('orcamento',g('nav-orcamento'));toast('✏️ Editando — ajuste e salve');}catch(e){}}
@@ -2860,16 +2915,61 @@ function renderDiaList(){
   g('ag-dia-list').innerHTML=h;
 }
 function colToggleExec(){var ex=g('col-estado').value==='executada';g('col-data-exec-wrap').style.display=ex?'block':'none';if(ex&&!g('col-data-exec').value)g('col-data-exec').value=new Date().toISOString().slice(0,10);}
+// ── COLETAS: entidades cadastradas (TASK-031). Selects populados por cadastro + opção manual. ──
+var COL_MANUAL='__manual__';
+function _findByNome(nome,arr){var k=_normNome(nome);if(!k)return null;return arr.find(function(x){return _normNome(x.nome)===k;})||null;}
+function _colFillSel(id,arr,ph,manualLbl){
+  var s=g(id);if(!s)return;
+  s.innerHTML='<option value="">'+ph+'</option>'+arr.slice().sort(function(a,b){return (a.nome||'').localeCompare(b.nome||'');}).map(function(x){return '<option value="'+x.id+'">'+esca(x.nome||'(sem nome)')+'</option>';}).join('')+'<option value="'+COL_MANUAL+'">'+manualLbl+'</option>';
+}
+function renderColetaSelects(){
+  _colFillSel('col-gerador-sel',lClientes(),'— selecionar cliente —','✏️ Cliente não cadastrado');
+  _colFillSel('col-transp-sel',lParceiros().filter(function(p){return p.transportador;}),'— selecionar —','✏️ Não cadastrado');
+  _colFillSel('col-destinador-sel',lParceiros().filter(function(p){return p.destinador;}),'— selecionar —','✏️ Não cadastrado');
+}
+function colGeradorChange(){g('col-gerador').style.display=(g('col-gerador-sel').value===COL_MANUAL)?'block':'none';}
+function colDestinadorColChange(){g('col-destinador').style.display=(g('col-destinador-sel').value===COL_MANUAL)?'block':'none';}
+function colVeicColChange(){g('col-veiculo').style.display=(g('col-veiculo-sel').value===COL_MANUAL)?'block':'none';}
+function colTranspColChange(){
+  var v=g('col-transp-sel').value;
+  g('col-transp').style.display=(v===COL_MANUAL)?'block':'none';
+  var sel=g('col-veiculo-sel'), txt=g('col-veiculo');
+  var p=(v&&v!==COL_MANUAL)?lParceiros().find(function(x){return String(x.id)===String(v);}):null;
+  if(p&&(p.veiculos||[]).length){   // transportador cadastrado com veículos → select dos veículos dele
+    sel.innerHTML='<option value="">— selecionar veículo —</option>'+(p.veiculos||[]).map(function(vv){return '<option value="'+esca(vv.nome||'Veículo')+'">'+esca(vv.nome||'Veículo')+'</option>';}).join('')+'<option value="'+COL_MANUAL+'">✏️ Outro</option>';
+    sel.style.display='block'; txt.style.display='none';
+  }else{   // manual ou sem veículos cadastrados → texto livre
+    sel.style.display='none'; txt.style.display='block';
+  }
+}
 function abrirColeta(id){
   var ed=(typeof id==='number')?lColetas().find(function(c){return c.id===id;}):null;
   g('coleta-titulo').textContent=ed?'Editar coleta':'Nova coleta';
   g('col-id').value=ed?ed.id:'';
-  g('col-gerador').value=ed?(ed.gerador||''):'';
-  g('col-transp').value=ed?(ed.transportador||''):'';
-  g('col-veiculo').value=ed?(ed.veiculo||''):'';
+  renderColetaSelects();
+  // Gerador (cliente cadastrado ou manual)
+  var gerN=ed?(ed.gerador||''):'', gm=gerN?_findByNome(gerN,lClientes()):null;
+  g('col-gerador-sel').value=gm?String(gm.id):(gerN?COL_MANUAL:'');
+  g('col-gerador').value=(gm||!gerN)?'':gerN; colGeradorChange();
+  // Transportador
+  var trN=ed?(ed.transportador||''):'', tm=trN?_findByNome(trN,lParceiros().filter(function(p){return p.transportador;})):null;
+  g('col-transp-sel').value=tm?String(tm.id):(trN?COL_MANUAL:'');
+  g('col-transp').value=(tm||!trN)?'':trN; colTranspColChange();
+  // Veículo (depende do transportador)
+  var veic=ed?(ed.veiculo||''):'';
+  if(tm&&(tm.veiculos||[]).length){
+    var achou=(tm.veiculos||[]).some(function(vv){return _normNome(vv.nome)===_normNome(veic);});
+    if(veic&&achou){g('col-veiculo-sel').value=veic;g('col-veiculo').value='';}
+    else if(veic){g('col-veiculo-sel').value=COL_MANUAL;g('col-veiculo').value=veic;}
+    else{g('col-veiculo-sel').value='';g('col-veiculo').value='';}
+    colVeicColChange();
+  }else{ g('col-veiculo').value=veic; }
+  // Destinador
+  var deN=ed?(ed.destinador||''):'', dm=deN?_findByNome(deN,lParceiros().filter(function(p){return p.destinador;})):null;
+  g('col-destinador-sel').value=dm?String(dm.id):(deN?COL_MANUAL:'');
+  g('col-destinador').value=(dm||!deN)?'':deN; colDestinadorColChange();
   g('col-mtr').value=ed?(ed.mtr||''):'';
   g('col-data').value=ed?(ed.dataColeta||''):(_vista==='mes'?_diaSel:new Date().toISOString().slice(0,10));
-  g('col-destinador').value=ed?(ed.destinador||''):'';
   g('col-residuo').value=ed?(ed.residuo||''):'';
   g('col-estado').value=ed?statusColeta(ed).tipo:'afazer';
   g('col-data-exec').value=ed?(ed.dataExecucao||''):'';
@@ -2878,12 +2978,25 @@ function abrirColeta(id){
   g('coleta-modal').classList.add('open');
 }
 function fecharColeta(){g('coleta-modal').classList.remove('open');}
+// Resolve o valor final (string) de um select cadastro+manual
+function _colVal(selId,txtId,arr){
+  var v=g(selId).value;
+  if(v===COL_MANUAL)return (g(txtId).value||'').trim();
+  if(!v)return '';
+  var it=arr.find(function(x){return String(x.id)===String(v);});
+  return it?(it.nome||''):'';
+}
 function salvarColeta(){
-  var ger=g('col-gerador').value.trim(), mtr=g('col-mtr').value.trim();
+  var ger=_colVal('col-gerador-sel','col-gerador',lClientes()), mtr=g('col-mtr').value.trim();
   if(!ger&&!mtr){toast('⚠️ Informe ao menos o gerador ou o nº do MTR');return;}
+  var transp=_colVal('col-transp-sel','col-transp',lParceiros());
+  var destinador=_colVal('col-destinador-sel','col-destinador',lParceiros());
+  var veic;
+  if(g('col-veiculo-sel').style.display!=='none'){var vs=g('col-veiculo-sel').value;veic=(vs===COL_MANUAL)?(g('col-veiculo').value||'').trim():vs;}
+  else{veic=(g('col-veiculo').value||'').trim();}
   var arr=lColetas(), id=g('col-id').value;
   var estado=g('col-estado').value||'afazer';
-  var obj={gerador:ger,transportador:g('col-transp').value.trim(),veiculo:g('col-veiculo').value.trim(),mtr:mtr,dataColeta:g('col-data').value,destinador:g('col-destinador').value.trim(),residuo:g('col-residuo').value.trim(),estado:estado,executada:(estado==='executada'),dataExecucao:(estado==='executada')?(g('col-data-exec').value||new Date().toISOString().slice(0,10)):''};
+  var obj={gerador:ger,transportador:transp,veiculo:veic,mtr:mtr,dataColeta:g('col-data').value,destinador:destinador,residuo:g('col-residuo').value.trim(),estado:estado,executada:(estado==='executada'),dataExecucao:(estado==='executada')?(g('col-data-exec').value||new Date().toISOString().slice(0,10)):''};
   if(id){var i=arr.findIndex(function(c){return c.id==id;});if(i>=0)arr[i]=Object.assign({id:+id},obj);}
   else{obj.id=Date.now();arr.push(obj);if(obj.dataColeta)_diaSel=obj.dataColeta;}
   sColetas(arr);fecharColeta();renderColetas();toast('✅ Coleta salva');
@@ -2906,13 +3019,14 @@ if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch
 if(window.CloudSync){
   CloudSync.initSync({
     collection:'residuospro',
-    syncKeys:['rpro_cfg','rpro_hist','rpro_contratos','rpro_parceiros'],
+    syncKeys:['rpro_cfg','rpro_hist','rpro_contratos','rpro_parceiros','rpro_clientes'],
     onRemote:function(k){
       // Re-renderiza só o que a chave alterada afeta (evita trocar um card sob o clique)
       if(k==='rpro_cfg'){ cfg=lCfg(); renderHist(); renderContratos(); renderParceiros(); return; }
       if(k==='rpro_hist'){ renderHist(); return; }
       if(k==='rpro_contratos'){ renderContratos(); return; }
       if(k==='rpro_parceiros'){ renderParceiros(); return; }
+      if(k==='rpro_clientes'){ try{renderClienteSugestoes();}catch(e){} return; }
     },
     onLogout:function(){ try{fecharCfg();}catch(e){} }
   });
