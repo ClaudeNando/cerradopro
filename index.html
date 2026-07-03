@@ -645,6 +645,8 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
         </div>
       </div>
       <div id="calc-resultado" style="margin-top:12px"></div>
+      <button class="btn btn-primary" style="margin-top:12px" onclick="calcularOrcamentoForn()"><span>Gerar orçamento deste cálculo</span><span style="font-size:18px">→</span></button>
+      <div style="font-size:11px;color:var(--text3);margin-top:6px;line-height:1.45">Usa o <b>valor negociado</b> (se preenchido) ou o preço na <b>margem de referência</b> como total da nota, e leva ao Resultado.</div>
     </div>
 
 <button class="btn btn-primary" onclick="goResultado()"><span>Calcular Orçamento</span><span style="font-size:18px">→</span></button>
@@ -1325,6 +1327,28 @@ function calcular(){
 }
 
 function goResultado(){var r=calcular();if(!r.tot){toast('⚠️ Preencha o trajeto ou adicione um resíduo');return;}renderResultado(r);navTo('resultado',g('nav-resultado'));}
+// Gera um orçamento (Resultado) a partir do card "Preço sobre o fornecedor" — serviço completo já cotado
+function calcularOrcamentoForn(){
+  var forn=safeEval(g('calc-forn').value);
+  if(!forn||forn<=0){toast('⚠️ Informe quanto o fornecedor cobra');return;}
+  var imposto=cfg.imposto!=null?cfg.imposto:15.45;
+  var valneg=safeEval(g('calc-valor').value), preco;
+  if(valneg&&valneg>0){ preco=valneg; }
+  else{
+    var m=(cfg.margemMin||30);
+    if(window.DecisionEngine&&DecisionEngine.calcularPrecoMinimo){ preco=DecisionEngine.calcularPrecoMinimo({custoTotal:forn,imposto:imposto,margemAlvo:m/100}).precoMinimo; }
+    else{ var den=1-(imposto/100)-(m/100); preco=den>0?forn/den:forn; }
+  }
+  if(!preco||preco<=0){toast('⚠️ Não foi possível calcular o preço (margem inviável)');return;}
+  var tot=preco, imp=tot*(imposto/100), ct=forn+imp, sob=tot-ct, mar=tot>0?sob/tot:0;
+  ultimoCalculo={km:0,veic:'Serviço completo (fornecedor)',servicoForn:true,proprio:false,custoftKm:0,clikm:0,ac:0,ped:0,
+    ctf:forn,ptc:tot,cdf:0,pdc:0,cmot:null,itens:[],tot:tot,imp:imp,ct:ct,sob:sob,mar:mar,
+    transportadorId:null,transportadorNome:'',veiculoId:null,veicSnapshot:null,destinadorId:null,destinadorNome:'',
+    cli:{nome:g('cli-nome').value,cnpj:g('cli-cnpj').value,contato:g('cli-contato').value,local:g('cli-local').value},
+    obs:g('obs').value,data:new Date().toLocaleDateString('pt-BR')};
+  renderResultado(ultimoCalculo);
+  navTo('resultado',g('nav-resultado'));
+}
 
 function renderResultado(r){
   var mm=cfg.margemMin||30,pct=r.mar*100,ok=pct>=mm,warn=pct>=(mm*0.75)&&pct<mm;
@@ -1343,7 +1367,7 @@ function renderResultado(r){
       '<div class="mtrack"><div class="mtrack-fill" style="width:'+bw+'%"></div><div class="mtrack-goal" style="left:'+Math.min(100,mm)+'%"></div></div>'+
       '<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-muted);margin-top:6px"><span>0%</span><span>meta '+mm+'%</span><span>100%</span></div>'+
     '</div>'+
-    '<div class="rbox-light"><div class="card-head" style="margin-bottom:12px"><div class="card-icon"><i data-lucide="truck"></i></div><div class="card-lbl">Transporte — '+r.veic+'</div></div><div class="rrow"><div class="rl">Custo fornecedor ('+fmt(r.km)+' km)</div><div class="rv">'+brl(r.ctf)+'</div></div><div class="rrow"><div class="rl">Cobrado do cliente</div><div class="rv acc">'+brl(r.ptc)+'</div></div>'+(r.ac>0?'<div class="rrow"><div class="rl">Acréscimo de cabeça</div><div class="rv acc">'+brl(r.ac)+'</div></div>':'')+'</div>'+
+    '<div class="rbox-light"><div class="card-head" style="margin-bottom:12px"><div class="card-icon"><i data-lucide="truck"></i></div><div class="card-lbl">'+(r.servicoForn?'Serviço completo (fornecedor)':'Transporte — '+r.veic)+'</div></div><div class="rrow"><div class="rl">'+(r.servicoForn?'Custo do fornecedor':'Custo fornecedor ('+fmt(r.km)+' km)')+'</div><div class="rv">'+brl(r.ctf)+'</div></div><div class="rrow"><div class="rl">Cobrado do cliente</div><div class="rv acc">'+brl(r.ptc)+'</div></div>'+(r.ac>0?'<div class="rrow"><div class="rl">Acréscimo de cabeça</div><div class="rv acc">'+brl(r.ac)+'</div></div>':'')+'</div>'+
     (ih?'<div class="rbox-light"><div class="card-head" style="margin-bottom:12px"><div class="card-icon"><i data-lucide="recycle"></i></div><div class="card-lbl">Destinação</div></div>'+ih+'</div>':'')+
     '<div class="rbox-light"><div class="card-head" style="margin-bottom:12px"><div class="card-icon"><i data-lucide="wallet"></i></div><div class="card-lbl">Resumo</div></div><div class="rrow"><div class="rl" style="font-weight:700;color:var(--text)">Total da nota</div><div class="rv" style="font-size:18px;color:var(--accent);font-weight:700">'+brl(r.tot)+'</div></div><div class="rrow"><div class="rl">Imposto ('+cfg.imposto+'%)</div><div class="rv neg">− '+brl(r.imp)+'</div></div>'+(r.ped>0?'<div class="rrow"><div class="rl">Pedágio</div><div class="rv neg">− '+brl(r.ped)+'</div></div>':'')+(r.cmot&&r.cmot.custoTotal>0?'<div class="rrow"><div class="rl">Custo motorista (viagem)</div><div class="rv neg">− '+brl(r.cmot.custoTotal)+'</div></div>':'')+'<div class="rrow"><div class="rl">Custo total</div><div class="rv neg">− '+brl(r.ct)+'</div></div></div>'+
     analiseNegHTML(r)+
@@ -1411,7 +1435,10 @@ function gerarProposta(){
   var np=hj.getFullYear()+String(hj.getMonth()+1).padStart(2,'0')+String(hj.getDate()).padStart(2,'0')+'-'+String(Math.floor(Math.random()*900)+100);
   var lr='';
   r.itens.forEach(function(it,i){if((it.peso||0)>0){lr+='  • '+(it.desc||'Resíduo '+(i+1))+'\n    Peso: '+fmt(it.peso)+' kg | Dest.: '+it.dest+(it.perigoso?' ⚠️ PERIGOSO':'')+'\n    R$ '+((it.cobraTon||0)/1000).toFixed(2)+'/kg | Subtotal: '+brl(it.precCli)+'\n\n';}});
-  var txt='━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nPROPOSTA COMERCIAL Nº '+np+'\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nPRESTADOR\n'+(cfg.empresa||'Cerrado Ambiental')+(cfg.cnpj?'\nCNPJ: '+cfg.cnpj:'')+(cfg.tel?'\nTel: '+cfg.tel:'')+'\n\nCLIENTE\n'+(r.cli.nome||'—')+(r.cli.cnpj?'\nCNPJ: '+r.cli.cnpj:'')+(r.cli.contato?'\nContato: '+r.cli.contato:'')+'\n\nData: '+fd(hj)+' | Validade: '+fd(val)+'\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSERVIÇOS\n\n▸ COLETA E TRANSPORTE\n  Veículo: '+r.veic+' | Trajeto: '+fmt(r.km)+' km\n  Valor: '+brl(r.ptc)+(r.ac>0?'\n  Acréscimos: '+brl(r.ac):'')+'\n\n▸ TRATAMENTO E DESTINAÇÃO\n'+lr+'━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nVALOR TOTAL: '+brl(r.tot)+'\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n'+(r.obs?'\nOBSERVAÇÕES\n'+r.obs+'\n\n':'')+'\nServiços em conformidade com a legislação ambiental vigente.\nDocumentação de destinação fornecida após execução.\n\n'+(cfg.empresa||'Cerrado Ambiental');
+  var servicos=r.servicoForn
+    ? '▸ SERVIÇO\n  Coleta, transporte e destinação final (serviço completo)\n  Valor: '+brl(r.tot)+'\n'
+    : '▸ COLETA E TRANSPORTE\n  Veículo: '+r.veic+' | Trajeto: '+fmt(r.km)+' km\n  Valor: '+brl(r.ptc)+(r.ac>0?'\n  Acréscimos: '+brl(r.ac):'')+'\n\n▸ TRATAMENTO E DESTINAÇÃO\n'+lr;
+  var txt='━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nPROPOSTA COMERCIAL Nº '+np+'\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nPRESTADOR\n'+(cfg.empresa||'Cerrado Ambiental')+(cfg.cnpj?'\nCNPJ: '+cfg.cnpj:'')+(cfg.tel?'\nTel: '+cfg.tel:'')+'\n\nCLIENTE\n'+(r.cli.nome||'—')+(r.cli.cnpj?'\nCNPJ: '+r.cli.cnpj:'')+(r.cli.contato?'\nContato: '+r.cli.contato:'')+'\n\nData: '+fd(hj)+' | Validade: '+fd(val)+'\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSERVIÇOS\n\n'+servicos+'━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nVALOR TOTAL: '+brl(r.tot)+'\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n'+(r.obs?'\nOBSERVAÇÕES\n'+r.obs+'\n\n':'')+'\nServiços em conformidade com a legislação ambiental vigente.\nDocumentação de destinação fornecida após execução.\n\n'+(cfg.empresa||'Cerrado Ambiental');
   g('proposta-content').innerHTML='<div class="card"><div class="card-head"><div class="card-icon">📄</div><div class="card-lbl">Proposta Gerada</div></div><div class="proposta-txt" id="txt-proposta">'+txt+'</div></div><div class="btn-row"><button class="btn btn-primary" onclick="gerarPDF()">📥 Baixar PDF</button><button class="btn btn-dark" onclick="whatsappProposta()">💬 WhatsApp</button></div><div style="height:6px"></div><div class="btn-row"><button class="btn btn-outline" onclick="copiarProposta()">📋 Copiar texto</button></div>';
   navTo('proposta',g('nav-proposta'));
 }
@@ -1645,10 +1672,10 @@ function gerarPDF(){
     y+=Math.max(9,dL.length*4.5+2);
   }
 
-  // Linha transporte
+  // Linha transporte / serviço
   tRow(
-    'Coleta e transporte em veículo '+r.veic+' ('+fmt(r.km)+' km)',
-    'Frete',1,
+    r.servicoForn ? 'Coleta, transporte e destinação final (serviço completo)' : ('Coleta e transporte em veículo '+r.veic+' ('+fmt(r.km)+' km)'),
+    r.servicoForn ? 'Serviço' : 'Frete',1,
     brl(r.ptc+(r.ac||0)),
     brl(r.ptc+(r.ac||0))
   );
