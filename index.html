@@ -2923,7 +2923,10 @@ function _colFillSel(id,arr,ph,manualLbl){
   s.innerHTML='<option value="">'+ph+'</option>'+arr.slice().sort(function(a,b){return (a.nome||'').localeCompare(b.nome||'');}).map(function(x){return '<option value="'+x.id+'">'+esca(x.nome||'(sem nome)')+'</option>';}).join('')+'<option value="'+COL_MANUAL+'">'+manualLbl+'</option>';
 }
 function renderColetaSelects(){
-  _colFillSel('col-gerador-sel',lClientes(),'— selecionar cliente —','✏️ Cliente não cadastrado');
+  // Gerador: cadastro (rpro_clientes) + histórico, por NOME (value = nome)
+  var cmap=_mapClientesAll(), cnomes=Object.keys(cmap).map(function(k){return cmap[k].nome;}).filter(Boolean).sort(function(a,b){return a.localeCompare(b);});
+  var gs=g('col-gerador-sel');
+  if(gs){var cur=gs.value;gs.innerHTML='<option value="">— selecionar cliente —</option>'+cnomes.map(function(n){return '<option value="'+esca(n)+'">'+esca(n)+'</option>';}).join('')+'<option value="'+COL_MANUAL+'">✏️ Cliente não cadastrado</option>';gs.value=cur;}
   _colFillSel('col-transp-sel',lParceiros().filter(function(p){return p.transportador;}),'— selecionar —','✏️ Não cadastrado');
   _colFillSel('col-destinador-sel',lParceiros().filter(function(p){return p.destinador;}),'— selecionar —','✏️ Não cadastrado');
 }
@@ -2947,10 +2950,11 @@ function abrirColeta(id){
   g('coleta-titulo').textContent=ed?'Editar coleta':'Nova coleta';
   g('col-id').value=ed?ed.id:'';
   renderColetaSelects();
-  // Gerador (cliente cadastrado ou manual)
-  var gerN=ed?(ed.gerador||''):'', gm=gerN?_findByNome(gerN,lClientes()):null;
-  g('col-gerador-sel').value=gm?String(gm.id):(gerN?COL_MANUAL:'');
-  g('col-gerador').value=(gm||!gerN)?'':gerN; colGeradorChange();
+  // Gerador (cliente por nome, ou manual)
+  var gerN=ed?(ed.gerador||''):''; var gs=g('col-gerador-sel');
+  gs.value=gerN||'';
+  if(gerN&&gs.value!==gerN){gs.value=COL_MANUAL;g('col-gerador').value=gerN;}else{g('col-gerador').value='';}
+  colGeradorChange();
   // Transportador
   var trN=ed?(ed.transportador||''):'', tm=trN?_findByNome(trN,lParceiros().filter(function(p){return p.transportador;})):null;
   g('col-transp-sel').value=tm?String(tm.id):(trN?COL_MANUAL:'');
@@ -2987,7 +2991,7 @@ function _colVal(selId,txtId,arr){
   return it?(it.nome||''):'';
 }
 function salvarColeta(){
-  var ger=_colVal('col-gerador-sel','col-gerador',lClientes()), mtr=g('col-mtr').value.trim();
+  var _gv=g('col-gerador-sel').value, ger=(_gv===COL_MANUAL)?(g('col-gerador').value||'').trim():_gv, mtr=g('col-mtr').value.trim();
   if(!ger&&!mtr){toast('⚠️ Informe ao menos o gerador ou o nº do MTR');return;}
   var transp=_colVal('col-transp-sel','col-transp',lParceiros());
   var destinador=_colVal('col-destinador-sel','col-destinador',lParceiros());
