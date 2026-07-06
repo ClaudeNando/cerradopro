@@ -777,6 +777,15 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
   .code-cell{font-family:'DM Mono','Courier New',monospace;font-weight:700;color:#2d2926;white-space:nowrap}
   .badge-danger{display:inline-flex;align-items:center;background:#fde8e8;color:#9b1c1c;padding:4px 10px;border-radius:12px;font-size:12px;font-weight:600;white-space:nowrap}
   .badge-safe{display:inline-flex;align-items:center;background:#edf7ed;color:#1e4620;padding:4px 10px;border-radius:12px;font-size:12px;font-weight:500;white-space:nowrap}
+  #screen-ibamacod .ibc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+  #screen-ibamacod .ibc-gcard{display:flex;align-items:center;gap:12px;background:#fff;border:1px solid var(--border);border-radius:12px;padding:14px;cursor:pointer;transition:transform .12s,box-shadow .12s,border-color .12s;box-shadow:0 1px 2px rgba(0,0,0,.03)}
+  #screen-ibamacod .ibc-gcard:hover{transform:translateY(-2px);box-shadow:0 4px 14px rgba(0,0,0,.07);border-color:var(--accent)}
+  #screen-ibamacod .ibc-gemoji{font-size:26px;flex-shrink:0;line-height:1}
+  #screen-ibamacod .ibc-gtxt{flex:1;min-width:0}
+  #screen-ibamacod .ibc-gnome{font-size:14px;font-weight:700;color:var(--text)}
+  #screen-ibamacod .ibc-gsub{font-size:12px;color:var(--text3);margin-top:2px;line-height:1.35}
+  #screen-ibamacod .ibc-gnum{font-size:13px;font-weight:700;color:var(--accent);background:var(--accent-dim);border-radius:20px;padding:3px 10px;flex-shrink:0}
+  #screen-ibamacod .ibc-ghdr{font-size:15px;margin-bottom:12px}
   </style>
   <div id="screen-ibamacod" class="screen">
     <div class="shdr" style="margin-bottom:14px">
@@ -784,8 +793,7 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
       <div style="flex:1"><div class="shdr-title">Códigos IBAMA</div><div class="shdr-sub">Consulta da lista de resíduos · código, descrição e periculosidade</div></div>
     </div>
     <div class="ibc-toolbar">
-      <input class="inp" type="text" id="ibc-busca" placeholder="🔎 Buscar por código ou descrição..." oninput="renderIbamaCodigos()">
-      <select class="inp sel" id="ibc-grupo" onchange="renderIbamaCodigos()"></select>
+      <input class="inp" type="text" id="ibc-busca" placeholder="🔎 Buscar em todos os grupos (código ou descrição)..." oninput="renderIbamaCodigos()">
     </div>
     <div id="ibc-content"></div>
   </div>
@@ -1695,7 +1703,7 @@ function excluirHist(id){if(!confirm('Excluir este orçamento?'))return;try{var 
 function editarHist(id){try{var h=JSON.parse(localStorage.getItem('rpro_hist')||'[]'),x=h.find(function(i){return i.id===id;});if(!x)return;_preencherForm(x);editandoId=id;calcular();navTo('orcamento',g('nav-orcamento'));toast('✏️ Editando — ajuste e salve');}catch(e){}}
 function limparHist(){if(confirm('Apagar todo o histórico?')){localStorage.removeItem('rpro_hist');renderHist();toast('🗑️ Limpo');}}
 
-function navTo(id,el){document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active');});document.querySelectorAll('.nav-item').forEach(function(n){n.classList.remove('active');});g('screen-'+id).classList.add('active');el.classList.add('active');if(id==='historico')renderHist();if(id==='coletas')renderColetas();if(id==='contratos')renderContratos();if(id==='parceiros')renderParceiros();if(id==='clientes')renderClientes();if(id==='ibamacod'){_ibcInit();renderIbamaCodigos();}if(id==='relatorios')renderRelatorios();if(id==='documentos')renderDocumentos();}
+function navTo(id,el){document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active');});document.querySelectorAll('.nav-item').forEach(function(n){n.classList.remove('active');});g('screen-'+id).classList.add('active');el.classList.add('active');if(id==='historico')renderHist();if(id==='coletas')renderColetas();if(id==='contratos')renderContratos();if(id==='parceiros')renderParceiros();if(id==='clientes')renderClientes();if(id==='ibamacod')renderIbamaCodigos();if(id==='relatorios')renderRelatorios();if(id==='documentos')renderDocumentos();}
 
 function atualizarDestSelect(id){ renderRes(); }
 
@@ -2080,31 +2088,37 @@ var GRUPOS=[
 
 var _ibamaGrupoAtual=null;
 
-// ── ABA CÓDIGOS IBAMA (consulta em tabela) ──
+// ── ABA CÓDIGOS IBAMA (grupos → itens) ──
+var _ibcGrupo='';
 function _ibcStripCode(d){return (''+(d==null?'':d)).replace(/^[\d.\s]+[—-]\s*/,'');}
-function _ibcInit(){
-  var s=g('ibc-grupo'); if(!s||s.getAttribute('data-init'))return;
-  s.innerHTML='<option value="">Todos os grupos</option>'+GRUPOS.map(function(gp){return '<option value="'+gp.pre+'">'+gp.emoji+' '+gp.pre+' · '+gp.nome+'</option>';}).join('');
-  s.setAttribute('data-init','1');
+function _ibcCount(pre){var src=(typeof IBAMA!=='undefined')?IBAMA:[],n=0;for(var i=0;i<src.length;i++)if(String(src[i].c).slice(0,2)===pre)n++;return n;}
+function _ibcTabela(list){
+  var total=list.length,LIM=300,shown=list.slice(0,LIM);
+  var rows=shown.map(function(x){var badge=x.p?'<span class="badge-danger">⚠ Perigoso</span>':'<span class="badge-safe">Não perigoso</span>';return '<tr><td class="code-cell">'+esca(x.c)+'</td><td>'+esca(_ibcStripCode(x.d))+'</td><td>'+badge+'</td></tr>';}).join('');
+  return '<div class="ibc-count">'+total.toLocaleString('pt-BR')+' código(s)'+(total>LIM?(' · mostrando os primeiros '+LIM):'')+'</div>'+
+    '<div class="ibc-tablewrap"><table class="residue-table"><thead><tr><th style="width:120px">Código</th><th>Descrição</th><th style="width:140px">Periculosidade</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
 }
+function ibcAbrirGrupo(pre){_ibcGrupo=pre;renderIbamaCodigos();try{var c=document.querySelector('.content');if(c&&c.scrollTo)c.scrollTo(0,0);window.scrollTo(0,0);}catch(e){}}
+function ibcVoltar(){_ibcGrupo='';renderIbamaCodigos();}
 function renderIbamaCodigos(){
   var el=g('ibc-content'); if(!el)return;
   var src=(typeof IBAMA!=='undefined')?IBAMA:[];
-  var q=(g('ibc-busca').value||'').trim().toLowerCase();
-  var grp=(g('ibc-grupo').value||'');
-  var list=src.filter(function(x){
-    if(grp && String(x.c).slice(0,2)!==grp) return false;
-    if(q) return (String(x.c)+' '+String(x.d)).toLowerCase().indexOf(q)>=0;
-    return true;
-  });
-  var total=list.length, LIM=250, shown=list.slice(0,LIM);
-  if(!total){ el.innerHTML='<div class="empty"><div class="empty-ico">🔎</div><div class="empty-t">Nada encontrado</div><div class="empty-s">Tente outro termo ou grupo.</div></div>'; return; }
-  var rows=shown.map(function(x){
-    var badge=x.p?'<span class="badge-danger">⚠ Perigoso</span>':'<span class="badge-safe">Não perigoso</span>';
-    return '<tr><td class="code-cell">'+esca(x.c)+'</td><td>'+esca(_ibcStripCode(x.d))+'</td><td>'+badge+'</td></tr>';
-  }).join('');
-  el.innerHTML='<div class="ibc-count">'+total.toLocaleString('pt-BR')+' código(s)'+(total>LIM?(' · mostrando os primeiros '+LIM+' — refine a busca'):'')+'</div>'+
-    '<div class="ibc-tablewrap"><table class="residue-table"><thead><tr><th style="width:120px">Código</th><th>Descrição</th><th style="width:140px">Periculosidade</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+  var q=(g('ibc-busca')&&g('ibc-busca').value||'').trim().toLowerCase();
+  if(q){ // busca varre todos os grupos
+    var list=src.filter(function(x){return (String(x.c)+' '+String(x.d)).toLowerCase().indexOf(q)>=0;});
+    el.innerHTML=list.length?_ibcTabela(list):'<div class="empty"><div class="empty-ico">🔎</div><div class="empty-t">Nada encontrado</div><div class="empty-s">Tente outro termo.</div></div>';
+    return;
+  }
+  if(_ibcGrupo){ // itens de um grupo
+    var gp=GRUPOS.filter(function(x){return x.pre===_ibcGrupo;})[0]||{emoji:'📄',pre:_ibcGrupo,nome:_ibcGrupo,sub:''};
+    var items=src.filter(function(x){return String(x.c).slice(0,2)===_ibcGrupo;});
+    el.innerHTML='<button class="btn btn-ghost btn-sm" style="width:auto;margin-bottom:12px" onclick="ibcVoltar()">‹ Voltar aos grupos</button>'+
+      '<div class="ibc-ghdr">'+gp.emoji+' <b>'+gp.pre+' · '+esca(gp.nome)+'</b>'+(gp.sub?' <span style="color:var(--text3)">— '+esca(gp.sub)+'</span>':'')+'</div>'+
+      (items.length?_ibcTabela(items):'<div class="empty"><div class="empty-t">Sem itens neste grupo.</div></div>');
+    return;
+  }
+  // grade de grupos (tela inicial)
+  el.innerHTML='<div class="ibc-grid">'+GRUPOS.map(function(gp){return '<div class="ibc-gcard" onclick="ibcAbrirGrupo(\''+gp.pre+'\')"><div class="ibc-gemoji">'+gp.emoji+'</div><div class="ibc-gtxt"><div class="ibc-gnome">'+gp.pre+' · '+esca(gp.nome)+'</div><div class="ibc-gsub">'+esca(gp.sub)+'</div></div><div class="ibc-gnum">'+_ibcCount(gp.pre)+'</div></div>';}).join('')+'</div>';
 }
 
 function ibamaAbrir(resId){
