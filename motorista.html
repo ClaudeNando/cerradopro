@@ -62,6 +62,10 @@ function getParam(n){return new URLSearchParams(location.search).get(n);}
 function brData(d){if(!d)return '—';var p=(''+d).split('-');return p.length===3?p[2]+'/'+p[1]+'/'+p[0]:d;}
 function msg(ic,t,s){el('content').innerHTML='<div class="card"><div class="msg"><div class="ic">'+ic+'</div><div class="t">'+t+'</div><div class="s">'+s+'</div></div></div>';}
 var WASTE_DEF=['Papel e papelão','Sucata','Madeira','Plástico','Orgânico','Isopor','Contaminado de óleo','RCC','Terra contaminada','Lâmpadas','Eletrônicos'];
+// máscara de hora HH:MM só por digitação (sem relógio nativo)
+function maskHora(el){var v=el.value.replace(/\D/g,'').slice(0,4);if(v.length>=3)v=v.slice(0,2)+':'+v.slice(2);el.value=v;}
+// avaliação segura de peso, aceitando + - * / (ex.: 20+15)
+function evalPeso(val){if(val==null)return 0;var s=(''+val).replace(/,/g,'.').replace(/[^0-9+\-*/.() ]/g,'');if(!s)return 0;try{var r=Function('"use strict";return('+s+')')();return (isNaN(r)||!isFinite(r))?0:r;}catch(e){return parseFloat(s)||0;}}
 
 // --- assinatura por toque ---
 function initSig(canvas){
@@ -98,10 +102,10 @@ function render(token, d){
   var pre='<div class="card"><div class="sec">Dados da coleta</div>'+
     ro('Gerador',s.gerador)+ro('CNPJ',s.cnpj)+ro('Endereço',s.local)+ro('Destinador',s.destinador)+
     ro('Resíduo',s.residuo)+ro('Data',brData(s.dataColeta))+ro('MTR',s.mtr)+ro('Transportador',s.transportador)+ro('Veículo',s.veiculo)+'</div>';
-  var wrows=wl.map(function(w,i){return '<div class="wrow"><div class="wn">'+esc(w)+'</div><input class="inp peso" data-w="'+esc(w)+'" type="number" inputmode="decimal" placeholder="kg"></div>';}).join('');
+  var wrows=wl.map(function(w,i){return '<div class="wrow"><div class="wn">'+esc(w)+'</div><input class="inp peso" data-w="'+esc(w)+'" type="text" inputmode="text" placeholder="kg (ex.: 20+15)"></div>';}).join('');
   var form='<div class="card"><div class="sec">Horários e KM</div>'+
-      '<div class="g2"><div><label class="fl">Hora saída</label><input class="inp" type="time" id="f-hs"></div><div><label class="fl">Hora chegada</label><input class="inp" type="time" id="f-hc"></div></div>'+
-      '<div class="g2"><div><label class="fl">Início serviço</label><input class="inp" type="time" id="f-is"></div><div><label class="fl">Fim serviço</label><input class="inp" type="time" id="f-fs"></div></div>'+
+      '<div class="g2"><div><label class="fl">Hora saída</label><input class="inp" type="text" inputmode="numeric" maxlength="5" placeholder="00:00" oninput="maskHora(this)" id="f-hs"></div><div><label class="fl">Hora chegada</label><input class="inp" type="text" inputmode="numeric" maxlength="5" placeholder="00:00" oninput="maskHora(this)" id="f-hc"></div></div>'+
+      '<div class="g2"><div><label class="fl">Início serviço</label><input class="inp" type="text" inputmode="numeric" maxlength="5" placeholder="00:00" oninput="maskHora(this)" id="f-is"></div><div><label class="fl">Fim serviço</label><input class="inp" type="text" inputmode="numeric" maxlength="5" placeholder="00:00" oninput="maskHora(this)" id="f-fs"></div></div>'+
       '<div class="g2"><div><label class="fl">KM saída</label><input class="inp" type="number" inputmode="numeric" id="f-kms"></div><div><label class="fl">KM volta</label><input class="inp" type="number" inputmode="numeric" id="f-kmv"></div></div>'+
     '</div>'+
     '<div class="card"><div class="sec">Peso na balança (kg)</div>'+wrows+'</div>'+
@@ -118,7 +122,7 @@ function render(token, d){
 
 function enviar(token){
   var btn=el('f-enviar'); btn.disabled=true; btn.textContent='Enviando…';
-  var pesos={}; Array.prototype.forEach.call(document.querySelectorAll('.peso'),function(i){var v=(i.value||'').trim();if(v!=='')pesos[i.getAttribute('data-w')]=v;});
+  var pesos={}; Array.prototype.forEach.call(document.querySelectorAll('.peso'),function(i){var n=evalPeso(i.value);if(n>0)pesos[i.getAttribute('data-w')]=n;});
   var exec={horaSaida:el('f-hs').value||'',horaChegada:el('f-hc').value||'',inicioServico:el('f-is').value||'',fimServico:el('f-fs').value||'',
     kmSaida:el('f-kms').value||'',kmVolta:el('f-kmv').value||'',pesos:pesos,obs:el('f-obs').value||'',
     assinaturaMotorista:sigMot?sigMot.data():'',assinaturaResponsavel:sigResp?sigResp.data():'',submittedMs:Date.now()};

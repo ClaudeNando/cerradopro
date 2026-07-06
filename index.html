@@ -3196,56 +3196,80 @@ function _osDados(coleta, exec, snapshot){
     assResponsavel:exec.assinaturaResponsavel||''
   };
 }
-// RENDER — desenha o PDF no layout do MODELO OS
+function _osFmtKg(v){var n=parseFloat((''+(v==null?'':v)).replace(',','.'));if(isNaN(n)||n<=0)return '';var kg=n.toLocaleString('pt-BR',{maximumFractionDigits:2});return n>=1000?(kg+' kg  ('+(n/1000).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+' t)'):(kg+' kg');}
+// RENDER — desenha o PDF no layout profissional do MODELO OS
 function _osRenderPDF(d, logo){
   var doc=new window.jspdf.jsPDF({unit:'mm',format:'a4'});
-  var W=210,MG=12,x0=MG,cw=W-MG*2,y;
+  var W=210,MG=13,x0=MG,cw=W-MG*2,mid=x0+cw/2,y;
+  var DARK=[40,26,15],MUT=[120,105,90],AC=[219,106,29],LINE=[200,190,175],STRIP=[236,229,216];
+  function col(c){doc.setTextColor(c[0],c[1],c[2]);}
+  function T(x,yy,t,sz,bold,c,al){doc.setFont('helvetica',bold?'bold':'normal');doc.setFontSize(sz);col(c||DARK);doc.text(t==null?'':(''+t),x,yy,al?{align:al}:undefined);}
   function br(dt){if(!dt)return '';var p=(''+dt).split('-');return p.length===3?p[2]+'/'+p[1]+'/'+p[0]:dt;}
-  function lbl(x,yy,w,h,t){doc.setFillColor(232,228,218);doc.rect(x,yy,w,h,'F');doc.setDrawColor(160);doc.rect(x,yy,w,h);doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(40,26,15);doc.text((t||'').toString(),x+2,yy+h/2+1.2);}
-  function val(x,yy,w,h,t,bold){doc.setDrawColor(160);doc.rect(x,yy,w,h);doc.setFont('helvetica',bold?'bold':'normal');doc.setFontSize(8);doc.setTextColor(40,26,15);var s=doc.splitTextToSize((t==null?'':''+t),w-3);doc.text(s,x+2,yy+h/2-((s.length-1)*1.4)+1.2);}
-  // Cabeçalho
+  function field(x,yy,w,label,value){
+    doc.setFont('helvetica','bold');doc.setFontSize(7.5);col(MUT);doc.text(label,x,yy);
+    var lw=doc.getTextWidth(label)+1.2;
+    doc.setFont('helvetica','normal');doc.setFontSize(8.5);col(DARK);
+    var s=doc.splitTextToSize((value==null||value==='')?'—':(''+value),w-lw);doc.text(s[0]||'—',x+lw,yy);
+  }
   y=12;
-  if(logo){try{doc.addImage(logo,'PNG',x0,y,22,22);}catch(e){}}
-  doc.setFont('helvetica','bold');doc.setFontSize(13);doc.setTextColor(40,26,15);
-  doc.text('ORDEM DE SERVIÇO',W/2,y+9,{align:'center'});
-  doc.setFontSize(10.5);doc.text('GERENCIAMENTO DE RESÍDUOS',W/2,y+15,{align:'center'});
-  y+=27;
-  // Tabela de partes (Contratada/Contratante)
-  var lw=30, rw=52, mv=cw-lw-rw, h=8;
-  function bloco(titulo, p){
-    lbl(x0,y,lw,h,titulo); val(x0+lw,y,mv+rw,h,p.nome,true); y+=h;
-    lbl(x0,y,lw,h,'Endereço'); val(x0+lw,y,mv,h,p.endereco); val(x0+lw+mv,y,rw,h,'CNPJ: '+(p.cnpj||'')); y+=h;
-    lbl(x0,y,lw,h,'Município'); val(x0+lw,y,mv,h,p.municipio); val(x0+lw+mv,y,rw,h,'CEP: '+(p.cep||'')); y+=h;
-    lbl(x0,y,lw,h,'E-mail'); val(x0+lw,y,mv,h,p.email); val(x0+lw+mv,y,rw,h,'Tel: '+(p.telefone||'')); y+=h;
+  if(logo){try{doc.addImage(logo,'PNG',x0,y-1,20,20);}catch(e){}}
+  T(mid+6,y+6,'ORDEM DE SERVIÇO',13.5,true,DARK,'center');
+  T(mid+6,y+11.5,'Gerenciamento de Resíduos',10,false,MUT,'center');
+  y+=19; doc.setDrawColor(AC[0],AC[1],AC[2]);doc.setLineWidth(0.8);doc.line(x0,y,x0+cw,y);doc.setLineWidth(0.2); y+=6;
+  // Blocos de parte
+  function parte(titulo,p){
+    var bh=6,ch=20.5,tot=bh+ch;
+    doc.setFillColor(STRIP[0],STRIP[1],STRIP[2]);doc.rect(x0,y,cw,bh,'F');
+    doc.setDrawColor(LINE[0],LINE[1],LINE[2]);doc.rect(x0,y,cw,tot);
+    T(x0+2.5,y+4.1,titulo.toUpperCase(),8,true,DARK);
+    var iy=y+bh+4.5;
+    T(x0+2.5,iy,p.nome||'—',9.5,true,DARK); iy+=5.5;
+    field(x0+2.5,iy,cw*0.60,'Endereço:',p.endereco); field(mid+2,iy,cw*0.40-4,'CNPJ:',p.cnpj); iy+=5;
+    field(x0+2.5,iy,cw*0.60,'Município:',p.municipio); field(mid+2,iy,cw*0.40-4,'CEP:',p.cep); iy+=5;
+    field(x0+2.5,iy,cw*0.60,'E-mail:',p.email); field(mid+2,iy,cw*0.40-4,'Tel:',p.telefone);
+    y+=tot+4;
   }
-  bloco('Contratada', d.contratada); y+=4;
-  bloco('Contratante', d.contratante); y+=6;
-  // Extras (destinador, MTR, transportador, veículo)
-  var qw=cw/2;
-  lbl(x0,y,lw,h,'MTR'); val(x0+lw,y,qw-lw,h,d.mtr); lbl(x0+qw,y,lw,h,'Data'); val(x0+qw+lw,y,qw-lw,h,br(d.data)); y+=h;
-  lbl(x0,y,lw,h,'Transp.'); val(x0+lw,y,qw-lw,h,d.transportador); lbl(x0+qw,y,lw,h,'Veículo'); val(x0+qw+lw,y,qw-lw,h,d.veiculo); y+=h;
-  lbl(x0,y,lw,h,'Destino'); val(x0+lw,y,cw-lw,h,d.destinador); y+=8;
-  // Resíduos coletados / Peso na balança
-  var rc=70;
-  doc.setFillColor(232,228,218);doc.rect(x0,y,rc,9,'F');doc.rect(x0+rc,y,cw-rc,9,'F');doc.setDrawColor(160);doc.rect(x0,y,rc,9);doc.rect(x0+rc,y,cw-rc,9);
-  doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(40,26,15);
-  doc.text('RESÍDUOS COLETADOS',x0+2,y+5.6);doc.setFontSize(9.5);doc.text('PESO NA BALANÇA',x0+rc+(cw-rc)/2,y+5.8,{align:'center'}); y+=9;
-  d.residuos.forEach(function(r){ lbl(x0,y,rc,7.6,r.nome); val(x0+rc,y,cw-rc,7.6,r.peso?(r.peso+' kg'):''); y+=7.6; });
-  // Página 2 — Serviço + assinaturas
-  doc.addPage(); y=16;
-  doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(40,26,15);doc.text('SERVIÇO 1',x0,y); y+=6;
-  var tw=cw/3, th=14, s=d.servico;
-  val(x0,y,tw,th,'HORA SAÍDA: '+(s.horaSaida||''),true);val(x0+tw,y,tw,th,'HORA CHEGADA: '+(s.horaChegada||''),true);val(x0+tw*2,y,tw,th,'KM SAÍDA: '+(s.kmSaida||''),true); y+=th;
-  val(x0,y,tw,th,'INÍCIO SERVIÇO: '+(s.inicioServico||''),true);val(x0+tw,y,tw,th,'FIM SERVIÇO: '+(s.fimServico||''),true);val(x0+tw*2,y,tw,th,'KM VOLTA: '+(s.kmVolta||''),true); y+=th+10;
-  doc.setFont('helvetica','normal');doc.setFontSize(10);doc.text('DATA: '+(br(d.data)||'___/___/______'),x0,y); y+=6;
-  if(d.obs){doc.setFontSize(9);doc.text(doc.splitTextToSize('Observações: '+d.obs,cw),x0,y+4);}
-  y+=24;
-  function assinatura(img,legenda){
-    if(img){try{doc.addImage(img,'PNG',x0+2,y-16,58,16);}catch(e){}}
-    doc.setDrawColor(90);doc.line(x0,y,x0+cw*0.78,y); doc.setFontSize(9);doc.setTextColor(40,26,15);doc.text(legenda,x0,y+5); y+=26;
+  parte('Contratada',d.contratada);
+  parte('Contratante',d.contratante);
+  // Barra de logística
+  var mh=13.5;
+  doc.setFillColor(STRIP[0],STRIP[1],STRIP[2]);doc.rect(x0,y,cw,5.5,'F');doc.setDrawColor(LINE[0],LINE[1],LINE[2]);doc.rect(x0,y,cw,mh);
+  T(x0+2.5,y+3.8,'DADOS DA COLETA',8,true,DARK);
+  var ly=y+9;
+  field(x0+2.5,ly,cw*0.34,'MTR:',d.mtr); field(x0+2.5+cw*0.34,ly,cw*0.30,'Data:',br(d.data)); field(x0+2.5+cw*0.64,ly,cw*0.34,'Destino:',d.destinador); ly+=4.4;
+  field(x0+2.5,ly,cw*0.5,'Transportador:',d.transportador); field(mid+2,ly,cw*0.5-4,'Veículo:',d.veiculo);
+  y+=mh+5;
+  // Resíduos (só com peso > 0)
+  var rc=cw*0.6;
+  doc.setFillColor(STRIP[0],STRIP[1],STRIP[2]);doc.rect(x0,y,rc,7,'F');doc.rect(x0+rc,y,cw-rc,7,'F');doc.setDrawColor(LINE[0],LINE[1],LINE[2]);doc.rect(x0,y,rc,7);doc.rect(x0+rc,y,cw-rc,7);
+  T(x0+2.5,y+4.6,'RESÍDUOS COLETADOS',8,true,DARK); T(x0+rc+(cw-rc)/2,y+4.6,'PESO NA BALANÇA',8,true,DARK,'center'); y+=7;
+  var comPeso=d.residuos.filter(function(r){return parseFloat((''+r.peso).replace(',','.'))>0;});
+  if(!comPeso.length){ doc.setDrawColor(LINE[0],LINE[1],LINE[2]);doc.rect(x0,y,cw,8); T(x0+2.5,y+5.2,'Nenhum resíduo com peso registrado.',8.5,false,MUT); y+=8; }
+  else comPeso.forEach(function(r){ doc.setDrawColor(LINE[0],LINE[1],LINE[2]);doc.rect(x0,y,rc,7.5);doc.rect(x0+rc,y,cw-rc,7.5); T(x0+2.5,y+5,r.nome,8.5,false,DARK); T(x0+rc+2.5,y+5,_osFmtKg(r.peso),9,true,DARK); y+=7.5; });
+  y+=7;
+  // SERVIÇO — linha do tempo cronológica
+  if(y>232){doc.addPage();y=16;}
+  T(x0,y+1,'SERVIÇO',11,true,DARK); y+=4;
+  var s=d.servico, tl=[['Saída da base',s.horaSaida],['Início do serviço',s.inicioServico],['Fim do serviço',s.fimServico],['Chegada à base',s.horaChegada]];
+  var tw=cw/4, th=15;
+  tl.forEach(function(it,i){ var cx=x0+tw*i; doc.setDrawColor(LINE[0],LINE[1],LINE[2]);doc.rect(cx,y,tw,th); doc.setFillColor(STRIP[0],STRIP[1],STRIP[2]);doc.rect(cx,y,tw,5,'F');doc.rect(cx,y,tw,5); T(cx+tw/2,y+3.4,it[0],6.6,true,DARK,'center'); T(cx+tw/2,y+11,(it[1]||'—'),13,true,DARK,'center'); });
+  y+=th;
+  var kw=cw/2;
+  doc.setDrawColor(LINE[0],LINE[1],LINE[2]);doc.rect(x0,y,kw,8);doc.rect(x0+kw,y,kw,8);
+  field(x0+2.5,y+5,kw-4,'KM saída:',s.kmSaida); field(x0+kw+2.5,y+5,kw-4,'KM volta:',s.kmVolta);
+  y+=8+4;
+  T(x0,y,'Data: '+(br(d.data)||'____/____/________'),9.5,false,DARK); y+=8;
+  if(d.obs){ T(x0,y,'Observações:',8,true,MUT); doc.setFont('helvetica','normal');doc.setFontSize(8.5);col(DARK);var os=doc.splitTextToSize(''+d.obs,cw);doc.text(os,x0,y+4); y+=4+os.length*4+4; }
+  // Assinaturas — caixas modernas lado a lado
+  if(y+34>290){doc.addPage();y=16;}
+  y+=4; var sw=(cw-6)/2, sh=24;
+  function sig(x,img,legenda){
+    doc.setDrawColor(LINE[0],LINE[1],LINE[2]);doc.setFillColor(252,250,246);doc.roundedRect(x,y,sw,sh,2,2,'FD');
+    if(img){try{doc.addImage(img,'PNG',x+3,y+2,sw-6,sh-8);}catch(e){}} else T(x+sw/2,y+sh/2+1,'assinar',9,false,LINE,'center');
+    T(x+sw/2,y+sh+4.5,legenda,7.5,false,MUT,'center');
   }
-  assinatura(d.assMotorista,'Assinatura Motorista');
-  assinatura(d.assResponsavel,'Assinatura do Responsável no Local e função');
+  sig(x0,d.assMotorista,'Assinatura do Motorista');
+  sig(x0+sw+6,d.assResponsavel,'Assinatura do Responsável no local');
   return doc;
 }
 function _slug(s){return (''+(s||'os')).normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-zA-Z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,40)||'os';}
