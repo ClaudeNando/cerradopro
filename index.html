@@ -688,22 +688,25 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
       <div class="col-sum-i"><div class="col-sum-n" id="col-n-afazer">0</div><div class="col-sum-l">A Fazer</div></div>
     </div>
     <div class="col-tabs" style="margin-bottom:12px">
-      <div class="col-tab active" id="vtab-lista" onclick="setVista('lista',this)">📋 Lista</div>
-      <div class="col-tab" id="vtab-mes" onclick="setVista('mes',this)">📅 Mês</div>
+      <div class="col-tab" id="vtab-lista" onclick="setVista('lista',this)">📋 Lista</div>
+      <div class="col-tab active" id="vtab-mes" onclick="setVista('mes',this)">📅 Mês</div>
     </div>
 
-    <div id="ag-lista">
+    <div id="ag-lista" style="display:none">
       <div class="col-tabs">
         <div class="col-tab" id="ftab-todas" onclick="setFiltroColeta('todas',this)">Todas</div>
         <div class="col-tab" id="ftab-executada" onclick="setFiltroColeta('executada',this)">Executadas</div>
         <div class="col-tab" id="ftab-vencida" onclick="setFiltroColeta('vencida',this)">Vencidas</div>
         <div class="col-tab active" id="ftab-afazer" onclick="setFiltroColeta('afazer',this)">A Fazer</div>
       </div>
-      <div class="field" style="margin-bottom:12px"><input class="inp" type="text" id="col-busca" placeholder="🔎 Buscar por MTR, gerador, destinador..." oninput="renderColetas()"></div>
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <input class="inp" type="text" id="col-busca" placeholder="🔎 Buscar por MTR, gerador, destinador..." oninput="renderColetas()">
+        <button class="btn btn-ghost btn-sm" id="col-sort-btn" onclick="toggleColSort()" style="width:auto;white-space:nowrap;flex-shrink:0">⭳ Recentes</button>
+      </div>
       <div id="col-list"></div>
     </div>
 
-    <div id="ag-mes" style="display:none">
+    <div id="ag-mes">
       <div class="ag-mes-nav">
         <button class="ag-nav-btn" onclick="mudaMes(-1)">‹</button>
         <div class="ag-mes-label" id="ag-mes-label"></div>
@@ -2377,7 +2380,7 @@ function usarRotaKm(km,nome){
 }
 
 // ── COLETAS: agenda + controle de MTR/CDF ──
-var _filtroColeta='afazer', _vista='lista', _mesRef=new Date(), _diaSel=new Date().toISOString().slice(0,10);
+var _filtroColeta='afazer', _vista='mes', _colSort='', _mesRef=new Date(), _diaSel=new Date().toISOString().slice(0,10);
 var MESES=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
 var DIAS_SEM=['dom','seg','ter','qua','qui','sex','sáb'];
 /* ── Contratos recorrentes (consome DecisionEngine.avaliarContrato / aplicarReajuste) ── */
@@ -2957,6 +2960,9 @@ function setColetaEstado(id,estado,ev){
   toast(estado==='executada'?'✅ Executada':estado==='vencida'?'⚠️ Vencida':'↩️ A fazer');
 }
 function setVista(v,el){_vista=v;document.querySelectorAll('#vtab-lista,#vtab-mes').forEach(function(t){t.classList.remove('active');});el.classList.add('active');g('ag-lista').style.display=v==='lista'?'block':'none';g('ag-mes').style.display=v==='mes'?'block':'none';renderColetas();}
+// Ordenação da lista: '' = automático (Executadas → mais recentes; demais → mais antigas)
+function _colSortDir(){ if(_colSort)return _colSort; return _filtroColeta==='executada'?'desc':'asc'; }
+function toggleColSort(){ _colSort=(_colSortDir()==='desc')?'asc':'desc'; renderColetas(); }
 function setFiltroColeta(f,el){_filtroColeta=f;el.parentNode.querySelectorAll('.col-tab').forEach(function(t){t.classList.remove('active');});el.classList.add('active');renderColetas();}
 function renderColetas(){
   var arr=lColetas(),nE=0,nV=0,nF=0;
@@ -2975,7 +2981,9 @@ function renderLista(){
     if(q)return [c.gerador,c.mtr,c.destinador,c.residuo,c.transportador,c.veiculo].join(' ').toLowerCase().indexOf(q)>=0;
     return true;
   });
-  list.sort(function(a,b){return (''+(a.dataColeta||'9999')).localeCompare(''+(b.dataColeta||'9999'));});
+  var dir=_colSortDir();
+  var sb=g('col-sort-btn'); if(sb)sb.textContent=(dir==='desc'?'⭳ Recentes':'⭱ Antigas');
+  list.sort(function(a,b){var ka=a.dataColeta||'',kb=b.dataColeta||'';if(ka===kb)return 0;if(!ka)return 1;if(!kb)return -1;var c=ka<kb?-1:1;return dir==='desc'?-c:c;});
   if(!list.length){el.innerHTML='<div class="empty"><span class="empty-ico">📅</span><div class="empty-t">'+((q||_filtroColeta!=='todas')?'Nada aqui':'Nenhuma coleta')+'</div><div style="font-size:12px;margin-top:4px;color:var(--text3)">Toque em + Nova coleta</div></div>';return;}
   var html='',lastD=null;
   list.forEach(function(c){var d=c.dataColeta||'';if(d!==lastD){html+='<div class="ag-dia-hdr">'+(d?hdrData(d):'Sem data')+'</div>';lastD=d;}html+=cardColeta(c);});
