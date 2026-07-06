@@ -763,6 +763,32 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
       <button class="btn btn-primary" onclick="abrirCliente()" style="width:auto;border-radius:24px;box-shadow:0 4px 16px rgba(219,106,29,.4)">+ Novo cliente</button>
     </div>
   </div>
+  <style>
+  #screen-ibamacod .ibc-toolbar{display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+  #screen-ibamacod .ibc-toolbar .inp{flex:2;min-width:200px}
+  #screen-ibamacod .ibc-toolbar .sel{flex:1;min-width:200px;max-width:320px}
+  #screen-ibamacod .ibc-count{font-size:12px;color:var(--text3);margin-bottom:10px}
+  .ibc-tablewrap{overflow-x:auto;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,0.05)}
+  .residue-table{width:100%;border-collapse:collapse;background:#fff;border-radius:8px;overflow:hidden}
+  .residue-table th{background:#f5f4f0;color:#706b64;font-size:13px;font-weight:600;padding:12px 16px;text-align:left;white-space:nowrap}
+  .residue-table td{padding:13px 16px;border-bottom:1px solid #e6e4e0;font-size:14px;vertical-align:middle;color:var(--text)}
+  .residue-table tr:last-child td{border-bottom:none}
+  .residue-table tbody tr:hover{background:#faf9f7}
+  .code-cell{font-family:'DM Mono','Courier New',monospace;font-weight:700;color:#2d2926;white-space:nowrap}
+  .badge-danger{display:inline-flex;align-items:center;background:#fde8e8;color:#9b1c1c;padding:4px 10px;border-radius:12px;font-size:12px;font-weight:600;white-space:nowrap}
+  .badge-safe{display:inline-flex;align-items:center;background:#edf7ed;color:#1e4620;padding:4px 10px;border-radius:12px;font-size:12px;font-weight:500;white-space:nowrap}
+  </style>
+  <div id="screen-ibamacod" class="screen">
+    <div class="shdr" style="margin-bottom:14px">
+      <div class="shdr-icon">📖</div>
+      <div style="flex:1"><div class="shdr-title">Códigos IBAMA</div><div class="shdr-sub">Consulta da lista de resíduos · código, descrição e periculosidade</div></div>
+    </div>
+    <div class="ibc-toolbar">
+      <input class="inp" type="text" id="ibc-busca" placeholder="🔎 Buscar por código ou descrição..." oninput="renderIbamaCodigos()">
+      <select class="inp sel" id="ibc-grupo" onchange="renderIbamaCodigos()"></select>
+    </div>
+    <div id="ibc-content"></div>
+  </div>
   <div id="screen-relatorios" class="screen">
     <div class="shdr" style="margin-bottom:14px">
       <div class="shdr-icon">📊</div>
@@ -796,6 +822,7 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
   <div class="nav-item" id="nav-contratos" onclick="navTo('contratos',this)"><div class="nav-icon"><i data-lucide="repeat"></i></div><div class="nav-label">Contratos</div></div>
   <div class="nav-item" id="nav-parceiros" onclick="navTo('parceiros',this)"><div class="nav-icon"><i data-lucide="truck"></i></div><div class="nav-label">Parceiros</div></div>
   <div class="nav-item" id="nav-clientes" onclick="navTo('clientes',this)"><div class="nav-icon"><i data-lucide="contact"></i></div><div class="nav-label">Clientes</div></div>
+  <div class="nav-item" id="nav-ibamacod" onclick="navTo('ibamacod',this)"><div class="nav-icon"><i data-lucide="book-open"></i></div><div class="nav-label">Códigos IBAMA</div></div>
   <div class="nav-item" id="nav-relatorios" onclick="navTo('relatorios',this)"><div class="nav-icon"><i data-lucide="pie-chart"></i></div><div class="nav-label">Relatórios</div></div>
   <div class="nav-item" id="nav-documentos" onclick="navTo('documentos',this)"><div class="nav-icon"><i data-lucide="folder-lock"></i></div><div class="nav-label">Documentos</div></div>
   <div class="nav-footer">
@@ -1668,7 +1695,7 @@ function excluirHist(id){if(!confirm('Excluir este orçamento?'))return;try{var 
 function editarHist(id){try{var h=JSON.parse(localStorage.getItem('rpro_hist')||'[]'),x=h.find(function(i){return i.id===id;});if(!x)return;_preencherForm(x);editandoId=id;calcular();navTo('orcamento',g('nav-orcamento'));toast('✏️ Editando — ajuste e salve');}catch(e){}}
 function limparHist(){if(confirm('Apagar todo o histórico?')){localStorage.removeItem('rpro_hist');renderHist();toast('🗑️ Limpo');}}
 
-function navTo(id,el){document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active');});document.querySelectorAll('.nav-item').forEach(function(n){n.classList.remove('active');});g('screen-'+id).classList.add('active');el.classList.add('active');if(id==='historico')renderHist();if(id==='coletas')renderColetas();if(id==='contratos')renderContratos();if(id==='parceiros')renderParceiros();if(id==='clientes')renderClientes();if(id==='relatorios')renderRelatorios();if(id==='documentos')renderDocumentos();}
+function navTo(id,el){document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active');});document.querySelectorAll('.nav-item').forEach(function(n){n.classList.remove('active');});g('screen-'+id).classList.add('active');el.classList.add('active');if(id==='historico')renderHist();if(id==='coletas')renderColetas();if(id==='contratos')renderContratos();if(id==='parceiros')renderParceiros();if(id==='clientes')renderClientes();if(id==='ibamacod'){_ibcInit();renderIbamaCodigos();}if(id==='relatorios')renderRelatorios();if(id==='documentos')renderDocumentos();}
 
 function atualizarDestSelect(id){ renderRes(); }
 
@@ -2052,6 +2079,33 @@ var GRUPOS=[
 ];
 
 var _ibamaGrupoAtual=null;
+
+// ── ABA CÓDIGOS IBAMA (consulta em tabela) ──
+function _ibcStripCode(d){return (''+(d==null?'':d)).replace(/^[\d.\s]+[—-]\s*/,'');}
+function _ibcInit(){
+  var s=g('ibc-grupo'); if(!s||s.getAttribute('data-init'))return;
+  s.innerHTML='<option value="">Todos os grupos</option>'+GRUPOS.map(function(gp){return '<option value="'+gp.pre+'">'+gp.emoji+' '+gp.pre+' · '+gp.nome+'</option>';}).join('');
+  s.setAttribute('data-init','1');
+}
+function renderIbamaCodigos(){
+  var el=g('ibc-content'); if(!el)return;
+  var src=(typeof IBAMA!=='undefined')?IBAMA:[];
+  var q=(g('ibc-busca').value||'').trim().toLowerCase();
+  var grp=(g('ibc-grupo').value||'');
+  var list=src.filter(function(x){
+    if(grp && String(x.c).slice(0,2)!==grp) return false;
+    if(q) return (String(x.c)+' '+String(x.d)).toLowerCase().indexOf(q)>=0;
+    return true;
+  });
+  var total=list.length, LIM=250, shown=list.slice(0,LIM);
+  if(!total){ el.innerHTML='<div class="empty"><div class="empty-ico">🔎</div><div class="empty-t">Nada encontrado</div><div class="empty-s">Tente outro termo ou grupo.</div></div>'; return; }
+  var rows=shown.map(function(x){
+    var badge=x.p?'<span class="badge-danger">⚠ Perigoso</span>':'<span class="badge-safe">Não perigoso</span>';
+    return '<tr><td class="code-cell">'+esca(x.c)+'</td><td>'+esca(_ibcStripCode(x.d))+'</td><td>'+badge+'</td></tr>';
+  }).join('');
+  el.innerHTML='<div class="ibc-count">'+total.toLocaleString('pt-BR')+' código(s)'+(total>LIM?(' · mostrando os primeiros '+LIM+' — refine a busca'):'')+'</div>'+
+    '<div class="ibc-tablewrap"><table class="residue-table"><thead><tr><th style="width:120px">Código</th><th>Descrição</th><th style="width:140px">Periculosidade</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+}
 
 function ibamaAbrir(resId){
   ibamaResId=resId;
