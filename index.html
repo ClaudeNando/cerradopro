@@ -745,6 +745,21 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
       <button class="btn btn-primary" onclick="abrirParceiro()" style="width:auto;border-radius:24px;box-shadow:0 4px 16px rgba(219,106,29,.4)">+ Novo parceiro</button>
     </div>
   </div>
+  <div id="screen-clientes" class="screen">
+    <div class="shdr" style="margin-bottom:14px">
+      <div class="shdr-icon">👤</div>
+      <div style="flex:1"><div class="shdr-title">Clientes</div><div class="shdr-sub">Cadastro comercial · base única de clientes</div></div>
+    </div>
+    <div class="card" style="margin-bottom:12px">
+      <div style="font-size:12px;color:var(--text3);line-height:1.5;margin-bottom:10px">Base única de clientes. É alimentada sozinha pelos orçamentos, mas você pode adicionar, editar e excluir aqui. Traga os que só existem em orçamentos/contratos com o botão abaixo.</div>
+      <button class="btn res-btn-sec" style="width:auto" onclick="importarClientes()">⬇️ Importar de orçamentos e contratos</button>
+    </div>
+    <div class="field" style="margin-bottom:12px"><input class="inp" type="text" id="cliente-busca" placeholder="🔎 Buscar por nome, CNPJ, contato..." oninput="renderClientes()"></div>
+    <div id="clientes-list"></div>
+    <div style="position:fixed;right:16px;bottom:calc(var(--nav-h) + var(--sb) + 16px);z-index:60">
+      <button class="btn btn-primary" onclick="abrirCliente()" style="width:auto;border-radius:24px;box-shadow:0 4px 16px rgba(219,106,29,.4)">+ Novo cliente</button>
+    </div>
+  </div>
   <div id="screen-relatorios" class="screen">
     <div class="shdr" style="margin-bottom:14px">
       <div class="shdr-icon">📊</div>
@@ -777,6 +792,7 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
   <div class="nav-item active" id="nav-coletas" onclick="navTo('coletas',this)"><div class="nav-icon"><i data-lucide="calendar-days"></i></div><div class="nav-label">Coletas</div></div>
   <div class="nav-item" id="nav-contratos" onclick="navTo('contratos',this)"><div class="nav-icon"><i data-lucide="repeat"></i></div><div class="nav-label">Contratos</div></div>
   <div class="nav-item" id="nav-parceiros" onclick="navTo('parceiros',this)"><div class="nav-icon"><i data-lucide="truck"></i></div><div class="nav-label">Parceiros</div></div>
+  <div class="nav-item" id="nav-clientes" onclick="navTo('clientes',this)"><div class="nav-icon"><i data-lucide="contact"></i></div><div class="nav-label">Clientes</div></div>
   <div class="nav-item" id="nav-relatorios" onclick="navTo('relatorios',this)"><div class="nav-icon"><i data-lucide="pie-chart"></i></div><div class="nav-label">Relatórios</div></div>
   <div class="nav-item" id="nav-documentos" onclick="navTo('documentos',this)"><div class="nav-icon"><i data-lucide="folder-lock"></i></div><div class="nav-label">Documentos</div></div>
   <div class="nav-footer">
@@ -884,6 +900,27 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
       <div class="form-actions">
         <button class="btn btn-del" id="doc-excluir-btn" onclick="docExcluir()" style="display:none">🗑 Excluir</button>
         <button class="btn btn-primary btn-save" id="doc-salvar-btn" onclick="docSalvar()">Salvar documento</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CLIENTE (cadastro comercial) -->
+<div class="overlay" id="cliente-modal" onclick="if(event.target===this)fecharCliente()">
+  <div class="modal">
+    <div class="modal-head"><div class="modal-title" id="cliente-titulo">Novo cliente</div><button class="modal-close-btn" onclick="fecharCliente()">×</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="cl-id">
+      <div class="form-grid">
+        <div class="field c12"><label class="flabel">Nome / Razão Social</label><input class="inp" type="text" id="cl-nome" placeholder="Empresa ABC Ltda"></div>
+        <div class="field c6"><label class="flabel">CNPJ</label><input class="inp inp-mono" type="text" id="cl-cnpj" placeholder="00.000.000/0000-00" maxlength="18" inputmode="numeric" oninput="maskCNPJ(this)"></div>
+        <div class="field c6"><label class="flabel">Contato</label><input class="inp" type="text" id="cl-contato" placeholder="Nome"></div>
+        <div class="field c6"><label class="flabel">Telefone</label><input class="inp" type="text" id="cl-telefone" placeholder="(62) 90000-0000" inputmode="tel"></div>
+        <div class="field c6"><label class="flabel">Endereço / Local</label><input class="inp" type="text" id="cl-local" placeholder="Cidade / endereço"></div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-del" id="cl-excluir-btn" onclick="excluirCliente()" style="display:none">🗑 Excluir</button>
+        <button class="btn btn-primary btn-save" onclick="salvarClienteModal()">Salvar cliente</button>
       </div>
     </div>
   </div>
@@ -1562,17 +1599,68 @@ function salvarClienteDoOrcamento(cli){
 // Mapa unificado (cadastro tem prioridade; histórico complementa) para sugestões/preenchimento no orçamento
 function _mapClientesAll(){
   var map=_mapClientes();  // histórico (base)
-  lClientes().forEach(function(c){var nm=(c.nome||'').trim();if(!nm)return;map[_normNome(nm)]={nome:nm,cnpj:c.cnpj||'',contato:c.contato||'',local:c.local||'',telefone:c.telefone||''};});
+  try{lContratos().forEach(function(ct){var nm=(ct.cliente||'').trim();if(!nm)return;var k=_normNome(nm);if(!map[k])map[k]={nome:nm,cnpj:'',contato:'',local:'',telefone:''};});}catch(e){}  // clientes de Contratos
+  lClientes().forEach(function(c){var nm=(c.nome||'').trim();if(!nm)return;map[_normNome(nm)]={nome:nm,cnpj:c.cnpj||'',contato:c.contato||'',local:c.local||'',telefone:c.telefone||''};});  // cadastro comercial tem prioridade
   return map;
 }
 function renderClienteSugestoes(){var dl=g('cli-sugestoes');if(!dl)return;var map=_mapClientesAll();dl.innerHTML=Object.keys(map).sort().map(function(k){return '<option value="'+(map[k].nome||'').replace(/"/g,'&quot;')+'"></option>';}).join('');}
 function selecionarCliente(val){var c=_mapClientesAll()[_normNome(val)];if(!c)return;g('cli-nome').value=c.nome;if(c.cnpj)g('cli-cnpj').value=c.cnpj;if(c.contato)g('cli-contato').value=c.contato;if(c.local)g('cli-local').value=c.local;if(c.telefone&&g('cli-telefone'))g('cli-telefone').value=c.telefone;}
+// ── ABA CLIENTES (CRUD do cadastro comercial rpro_clientes) ──
+function renderClientes(){
+  var el=g('clientes-list'); if(!el)return;
+  var q=(g('cliente-busca')&&g('cliente-busca').value||'').trim().toLowerCase();
+  var arr=lClientes().slice().sort(function(a,b){return (a.nome||'').localeCompare(b.nome||'');});
+  if(q)arr=arr.filter(function(c){return [c.nome,c.cnpj,c.contato,c.telefone,c.local].join(' ').toLowerCase().indexOf(q)>=0;});
+  if(!arr.length){el.innerHTML='<div class="empty"><div class="empty-ico">👤</div><div class="empty-t">'+(q?'Nada encontrado':'Nenhum cliente')+'</div><div class="empty-s">Adicione um cliente ou importe de orçamentos/contratos.</div></div>';return;}
+  el.innerHTML=arr.map(function(c){
+    var sub=[c.cnpj||(c.semCnpj?'sem CNPJ':''),c.contato,c.telefone].filter(Boolean).join(' · ');
+    return '<div class="hist-card" onclick="abrirCliente(\''+esca(c.id)+'\')">'+
+      '<div class="hist-top"><div class="hist-name">'+esca(c.nome||'(sem nome)')+'</div></div>'+
+      (sub?'<div class="hist-sub">'+esca(sub)+'</div>':'')+
+      (c.local?'<div class="hist-sub">📍 '+esca(c.local)+'</div>':'')+
+    '</div>';
+  }).join('');
+}
+function abrirCliente(id){
+  var c=id?lClientes().find(function(x){return String(x.id)===String(id);}):null;
+  g('cliente-titulo').textContent=c?'Editar cliente':'Novo cliente';
+  g('cl-id').value=c?c.id:'';
+  g('cl-nome').value=c?c.nome||'':'';g('cl-cnpj').value=c?c.cnpj||'':'';g('cl-contato').value=c?c.contato||'':'';g('cl-telefone').value=c?c.telefone||'':'';g('cl-local').value=c?c.local||'':'';
+  g('cl-excluir-btn').style.display=c?'block':'none';
+  g('cliente-modal').classList.add('open');
+}
+function fecharCliente(){g('cliente-modal').classList.remove('open');}
+function salvarClienteModal(){
+  var nome=(g('cl-nome').value||'').trim(), cnpj=(g('cl-cnpj').value||'').trim();
+  if(!nome&&!cnpj){toast('⚠️ Informe ao menos o nome ou o CNPJ');return;}
+  var id=g('cl-id').value;
+  if(id){  // edição por id (permite alterar o CNPJ sem duplicar)
+    var arr=lClientes(), i=arr.findIndex(function(x){return String(x.id)===String(id);});
+    if(i>=0){arr[i]=Object.assign({},arr[i],{nome:nome,cnpj:cnpj,contato:g('cl-contato').value.trim(),telefone:g('cl-telefone').value.trim(),local:g('cl-local').value.trim(),semCnpj:!_cnpjDigits(cnpj),atualizadoEm:Date.now()});sClientes(arr);}
+  }else{
+    upsertCliente({nome:nome,cnpj:cnpj,contato:g('cl-contato').value.trim(),telefone:g('cl-telefone').value.trim(),local:g('cl-local').value.trim()});
+  }
+  fecharCliente();renderClientes();try{renderClienteSugestoes();}catch(e){}toast('✅ Cliente salvo');
+}
+function excluirCliente(){
+  var id=g('cl-id').value; if(!id)return;
+  if(!confirm('Excluir este cliente do cadastro?'))return;
+  sClientes(lClientes().filter(function(x){return String(x.id)!==String(id);}));
+  fecharCliente();renderClientes();try{renderClienteSugestoes();}catch(e){}toast('🗑️ Excluído');
+}
+function importarClientes(){
+  var map=_mapClientesAll(), keys=Object.keys(map), antes=lClientes().length;
+  keys.forEach(function(k){var c=map[k]; if(c&&c.nome)upsertCliente(c);});
+  var novos=lClientes().length-antes;
+  renderClientes();try{renderClienteSugestoes();}catch(e){}
+  toast(novos>0?('✅ '+novos+' cliente(s) importado(s)'):'Tudo já estava no cadastro');
+}
 function carregarHist(id){try{var h=JSON.parse(localStorage.getItem('rpro_hist')||'[]'),x=h.find(function(i){return i.id===id;});if(!x)return;_preencherForm(x);editandoId=null;renderResultado(calcular());navTo('resultado',g('nav-resultado'));toast('📋 Carregado — campos preenchidos');}catch(e){}}
 function excluirHist(id){if(!confirm('Excluir este orçamento?'))return;try{var h=JSON.parse(localStorage.getItem('rpro_hist')||'[]').filter(function(i){return i.id!==id;});lset('rpro_hist',JSON.stringify(h));renderHist();toast('🗑️ Excluído');}catch(e){}}
 function editarHist(id){try{var h=JSON.parse(localStorage.getItem('rpro_hist')||'[]'),x=h.find(function(i){return i.id===id;});if(!x)return;_preencherForm(x);editandoId=id;calcular();navTo('orcamento',g('nav-orcamento'));toast('✏️ Editando — ajuste e salve');}catch(e){}}
 function limparHist(){if(confirm('Apagar todo o histórico?')){localStorage.removeItem('rpro_hist');renderHist();toast('🗑️ Limpo');}}
 
-function navTo(id,el){document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active');});document.querySelectorAll('.nav-item').forEach(function(n){n.classList.remove('active');});g('screen-'+id).classList.add('active');el.classList.add('active');if(id==='historico')renderHist();if(id==='coletas')renderColetas();if(id==='contratos')renderContratos();if(id==='parceiros')renderParceiros();if(id==='relatorios')renderRelatorios();if(id==='documentos')renderDocumentos();}
+function navTo(id,el){document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active');});document.querySelectorAll('.nav-item').forEach(function(n){n.classList.remove('active');});g('screen-'+id).classList.add('active');el.classList.add('active');if(id==='historico')renderHist();if(id==='coletas')renderColetas();if(id==='contratos')renderContratos();if(id==='parceiros')renderParceiros();if(id==='clientes')renderClientes();if(id==='relatorios')renderRelatorios();if(id==='documentos')renderDocumentos();}
 
 function atualizarDestSelect(id){ renderRes(); }
 
@@ -3030,7 +3118,7 @@ if(window.CloudSync){
       if(k==='rpro_hist'){ renderHist(); return; }
       if(k==='rpro_contratos'){ renderContratos(); return; }
       if(k==='rpro_parceiros'){ renderParceiros(); return; }
-      if(k==='rpro_clientes'){ try{renderClienteSugestoes();}catch(e){} return; }
+      if(k==='rpro_clientes'){ try{renderClienteSugestoes();renderClientes();}catch(e){} return; }
     },
     onLogout:function(){ try{fecharCfg();}catch(e){} }
   });
