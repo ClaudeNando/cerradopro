@@ -3130,6 +3130,7 @@ function gerarLinkMotorista(){
   var c=lColetas().find(function(x){return String(x.id)===String(id);});
   if(!c){toast('⚠️ Coleta não encontrada');return;}
   var cli=(c.gerador)?_mapClientesAll()[_normNome(c.gerador)]:null;  // enriquece CNPJ/endereço/telefone
+  window._osLinkNome=c.gerador||'';
   var token=(Date.now().toString(36)+Math.random().toString(36).slice(2,9));
   var expira=Date.now()+OS_EXP_DIAS*86400000;
   var snap={gerador:c.gerador||'',cnpj:(cli&&cli.cnpj)||'',local:(cli&&cli.local)||'',telefone:(cli&&cli.telefone)||'',contato:(cli&&cli.contato)||'',
@@ -3146,7 +3147,7 @@ function gerarLinkMotorista(){
   }).catch(function(err){console.error(err);area.innerHTML='<div style="font-size:12px;color:var(--danger);line-height:1.5">Não foi possível gerar o link. Verifique a conexão e as regras do Firestore (coleção <b>os_tokens</b>).</div>';});
 }
 function copiarOSLink(){var i=g('col-os-input');if(!i)return;i.select();var ok=false;try{ok=document.execCommand('copy');}catch(e){}try{navigator.clipboard.writeText(i.value);ok=true;}catch(e){}toast(ok?'✅ Link copiado':'Selecione e copie');}
-function whatsOSLink(){var i=g('col-os-input');if(!i)return;window.open('https://wa.me/?text='+encodeURIComponent('Ordem de Serviço — preencha os dados da coleta:\n'+i.value),'_blank');}
+function whatsOSLink(){var i=g('col-os-input');if(!i)return;var nm=window._osLinkNome?('Ordem de Serviço – '+window._osLinkNome):'Ordem de Serviço';window.open('https://wa.me/?text='+encodeURIComponent(nm+'\nMotorista, preencha os dados da coleta:\n'+i.value),'_blank');}
 // Escuta as submissões do motorista e aplica na coleta (marca Executada + guarda os dados)
 function iniciarOS(){
   var fb=_fb(),u=_fbUser(); if(!fb||!fb.firestore||!u)return; pararOS();

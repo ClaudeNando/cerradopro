@@ -66,6 +66,10 @@ var WASTE_DEF=['Papel e papelão','Sucata','Madeira','Plástico','Orgânico','Is
 function maskHora(el){var v=el.value.replace(/\D/g,'').slice(0,4);if(v.length>=3)v=v.slice(0,2)+':'+v.slice(2);el.value=v;}
 // avaliação segura de peso, aceitando + - * / (ex.: 20+15)
 function evalPeso(val){if(val==null)return 0;var s=(''+val).replace(/,/g,'.').replace(/[^0-9+\-*/.() ]/g,'');if(!s)return 0;try{var r=Function('"use strict";return('+s+')')();return (isNaN(r)||!isFinite(r))?0:r;}catch(e){return parseFloat(s)||0;}}
+// só permite dígitos, + - . , enquanto digita (remove letras e qualquer outra coisa)
+function maskPeso(el){el.value=el.value.replace(/[^0-9+\-.,]/g,'');}
+// só dígitos (KM)
+function maskNum(el){el.value=el.value.replace(/[^0-9]/g,'');}
 
 // --- assinatura por toque ---
 function initSig(canvas){
@@ -98,15 +102,16 @@ var sigMot=null, sigResp=null;
 
 function render(token, d){
   var s=d.snapshot||{}, wl=Array.isArray(d.residuos)&&d.residuos.length?d.residuos:WASTE_DEF;
+  try{ if(s.gerador){document.title=s.gerador+' · OS'; var st=document.querySelector('.top .sub'); if(st)st.textContent=s.gerador;} }catch(e){}
   function ro(k,v){return v?('<div class="ro"><span class="k">'+k+'</span><span class="v">'+esc(v)+'</span></div>'):'';}
   var pre='<div class="card"><div class="sec">Dados da coleta</div>'+
     ro('Gerador',s.gerador)+ro('CNPJ',s.cnpj)+ro('Endereço',s.local)+ro('Destinador',s.destinador)+
     ro('Resíduo',s.residuo)+ro('Data',brData(s.dataColeta))+ro('MTR',s.mtr)+ro('Transportador',s.transportador)+ro('Veículo',s.veiculo)+'</div>';
-  var wrows=wl.map(function(w,i){return '<div class="wrow"><div class="wn">'+esc(w)+'</div><input class="inp peso" data-w="'+esc(w)+'" type="text" inputmode="text" placeholder="kg (ex.: 20+15)"></div>';}).join('');
+  var wrows=wl.map(function(w,i){return '<div class="wrow"><div class="wn">'+esc(w)+'</div><input class="inp peso" data-w="'+esc(w)+'" type="text" inputmode="text" oninput="maskPeso(this)" placeholder="kg (ex.: 20+15)"></div>';}).join('');
   var form='<div class="card"><div class="sec">Horários e KM</div>'+
       '<div class="g2"><div><label class="fl">Hora saída</label><input class="inp" type="text" inputmode="numeric" maxlength="5" placeholder="00:00" oninput="maskHora(this)" id="f-hs"></div><div><label class="fl">Hora chegada</label><input class="inp" type="text" inputmode="numeric" maxlength="5" placeholder="00:00" oninput="maskHora(this)" id="f-hc"></div></div>'+
       '<div class="g2"><div><label class="fl">Início serviço</label><input class="inp" type="text" inputmode="numeric" maxlength="5" placeholder="00:00" oninput="maskHora(this)" id="f-is"></div><div><label class="fl">Fim serviço</label><input class="inp" type="text" inputmode="numeric" maxlength="5" placeholder="00:00" oninput="maskHora(this)" id="f-fs"></div></div>'+
-      '<div class="g2"><div><label class="fl">KM saída</label><input class="inp" type="number" inputmode="numeric" id="f-kms"></div><div><label class="fl">KM volta</label><input class="inp" type="number" inputmode="numeric" id="f-kmv"></div></div>'+
+      '<div class="g2"><div><label class="fl">KM saída</label><input class="inp" type="text" inputmode="numeric" oninput="maskNum(this)" id="f-kms"></div><div><label class="fl">KM volta</label><input class="inp" type="text" inputmode="numeric" oninput="maskNum(this)" id="f-kmv"></div></div>'+
     '</div>'+
     '<div class="card"><div class="sec">Peso na balança (kg)</div>'+wrows+'</div>'+
     '<div class="card"><div class="sec">Observações</div><textarea class="inp" id="f-obs" rows="3" placeholder="Opcional"></textarea></div>'+
