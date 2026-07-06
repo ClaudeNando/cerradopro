@@ -1079,6 +1079,7 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
       <div id="col-os-wrap" style="display:none;margin-top:10px">
         <button class="btn res-btn-sec" id="col-os-btn" onclick="gerarLinkMotorista()">📲 Enviar ao motorista</button>
         <div id="col-os-result" style="display:none;margin-top:12px"></div>
+        <div id="col-osdoc" style="display:none;margin-top:12px"></div>
       </div>
       <div style="height:8px"></div>
       <button class="btn btn-outline" id="col-excluir-btn" onclick="excluirColeta()" style="display:none;color:var(--danger);border-color:var(--danger)">🗑 Excluir</button>
@@ -3073,6 +3074,18 @@ function abrirColeta(id){
   g('col-excluir-btn').style.display=ed?'flex':'none';
   if(g('col-os-wrap'))g('col-os-wrap').style.display=ed?'block':'none';
   var _or=g('col-os-result'); if(_or){_or.style.display='none';_or.innerHTML='';}
+  var _od=g('col-osdoc');
+  if(_od){
+    if(ed&&ed.os){
+      _od.style.display='block';
+      _od.innerHTML='<div class="cfg-s" style="margin-bottom:6px">Ordem de Serviço · dados do motorista recebidos</div>'+
+        '<div class="btn-row">'+
+        (ed.osPdfUrl?'<button class="btn res-btn-sec btn-sm" onclick="verOSpdf('+ed.id+')">👁 Ver</button>':'')+
+        '<button class="btn res-btn-sec btn-sm" onclick="baixarOSpdf('+ed.id+')">⬇️ Baixar</button>'+
+        '<button class="btn res-btn-sec btn-sm" onclick="gerarOSpdf('+ed.id+')">🔁 Gerar/Regerar</button>'+
+        '</div>';
+    }else{_od.style.display='none';_od.innerHTML='';}
+  }
   g('coleta-modal').classList.add('open');
 }
 function fecharColeta(){g('coleta-modal').classList.remove('open');}
@@ -3153,9 +3166,136 @@ function _osAplicar(token,data){
     arr[i].os={horaSaida:e.horaSaida||'',horaChegada:e.horaChegada||'',inicioServico:e.inicioServico||'',fimServico:e.fimServico||'',kmSaida:e.kmSaida||'',kmVolta:e.kmVolta||'',pesos:e.pesos||{},obs:e.obs||'',submittedMs:e.submittedMs||Date.now()};
     sColetas(arr);
     try{renderColetas();}catch(_e){}
+    try{ _osGerarUpload(arr[i], e, data.snapshot); }catch(_e){}   // TASK-034: gera o PDF da OS automaticamente
   }
   try{fb.firestore().collection(OS_COL).doc(token).update({status:'aplicado',aplicadoMs:Date.now()}).catch(function(){});}catch(_e2){}
 }
+
+// ════════ TASK-034 — PDF da Ordem de Serviço (mapeamento + render separados) ════════
+var OS_CONTRATADA={nome:'CERRADO TRANSPORTES E SOLUÇÕES AMBIENTAIS EIRELI',endereco:'Rua da Divisa, Qd 7, lote 20, n° 2479 – Jardim Canedo III',cnpj:'54.571.403/0001-10',municipio:'Senador Canedo – GO',cep:'75.250-652',email:'engenharia@cerradotransportes.com.br',telefone:'(62) 99690-9497'};
+var _osLogoData=null;
+function _loadLogoDataURL(cb){
+  if(_osLogoData!==null){cb(_osLogoData||null);return;}
+  try{var img=new Image();img.onload=function(){try{var cv=document.createElement('canvas');cv.width=img.naturalWidth;cv.height=img.naturalHeight;cv.getContext('2d').drawImage(img,0,0);_osLogoData=cv.toDataURL('image/png');}catch(e){_osLogoData='';}cb(_osLogoData||null);};img.onerror=function(){_osLogoData='';cb(null);};img.src='logo.png';}catch(e){_osLogoData='';cb(null);}
+}
+// MAPEAMENTO — extrai os campos da coleta + execução + snapshot (contratante enriquecido pelo cadastro)
+function _osDados(coleta, exec, snapshot){
+  exec=exec||{}; snapshot=snapshot||{};
+  var cli=(coleta.gerador)?(_mapClientesAll()[_normNome(coleta.gerador)]||{}):{};
+  var pesos=exec.pesos||(coleta.os&&coleta.os.pesos)||{};
+  var residuos=OS_WASTE.map(function(w){return {nome:w,peso:pesos[w]||''};});
+  return {
+    contratada:OS_CONTRATADA,
+    contratante:{nome:coleta.gerador||'',cnpj:snapshot.cnpj||cli.cnpj||'',endereco:snapshot.local||cli.local||'',municipio:'',cep:'',email:'',telefone:snapshot.telefone||cli.telefone||''},
+    destinador:coleta.destinador||'',mtr:coleta.mtr||'',transportador:coleta.transportador||'',veiculo:coleta.veiculo||'',
+    residuos:residuos,
+    servico:{horaSaida:exec.horaSaida||'',horaChegada:exec.horaChegada||'',inicioServico:exec.inicioServico||'',fimServico:exec.fimServico||'',kmSaida:exec.kmSaida||'',kmVolta:exec.kmVolta||''},
+    obs:exec.obs||(coleta.os&&coleta.os.obs)||'',
+    data:coleta.dataColeta||'',
+    assMotorista:exec.assinaturaMotorista||'',
+    assResponsavel:exec.assinaturaResponsavel||''
+  };
+}
+// RENDER — desenha o PDF no layout do MODELO OS
+function _osRenderPDF(d, logo){
+  var doc=new window.jspdf.jsPDF({unit:'mm',format:'a4'});
+  var W=210,MG=12,x0=MG,cw=W-MG*2,y;
+  function br(dt){if(!dt)return '';var p=(''+dt).split('-');return p.length===3?p[2]+'/'+p[1]+'/'+p[0]:dt;}
+  function lbl(x,yy,w,h,t){doc.setFillColor(232,228,218);doc.rect(x,yy,w,h,'F');doc.setDrawColor(160);doc.rect(x,yy,w,h);doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(40,26,15);doc.text((t||'').toString(),x+2,yy+h/2+1.2);}
+  function val(x,yy,w,h,t,bold){doc.setDrawColor(160);doc.rect(x,yy,w,h);doc.setFont('helvetica',bold?'bold':'normal');doc.setFontSize(8);doc.setTextColor(40,26,15);var s=doc.splitTextToSize((t==null?'':''+t),w-3);doc.text(s,x+2,yy+h/2-((s.length-1)*1.4)+1.2);}
+  // Cabeçalho
+  y=12;
+  if(logo){try{doc.addImage(logo,'PNG',x0,y,22,22);}catch(e){}}
+  doc.setFont('helvetica','bold');doc.setFontSize(13);doc.setTextColor(40,26,15);
+  doc.text('ORDEM DE SERVIÇO',W/2,y+9,{align:'center'});
+  doc.setFontSize(10.5);doc.text('GERENCIAMENTO DE RESÍDUOS',W/2,y+15,{align:'center'});
+  y+=27;
+  // Tabela de partes (Contratada/Contratante)
+  var lw=30, rw=52, mv=cw-lw-rw, h=8;
+  function bloco(titulo, p){
+    lbl(x0,y,lw,h,titulo); val(x0+lw,y,mv+rw,h,p.nome,true); y+=h;
+    lbl(x0,y,lw,h,'Endereço'); val(x0+lw,y,mv,h,p.endereco); val(x0+lw+mv,y,rw,h,'CNPJ: '+(p.cnpj||'')); y+=h;
+    lbl(x0,y,lw,h,'Município'); val(x0+lw,y,mv,h,p.municipio); val(x0+lw+mv,y,rw,h,'CEP: '+(p.cep||'')); y+=h;
+    lbl(x0,y,lw,h,'E-mail'); val(x0+lw,y,mv,h,p.email); val(x0+lw+mv,y,rw,h,'Tel: '+(p.telefone||'')); y+=h;
+  }
+  bloco('Contratada', d.contratada); y+=4;
+  bloco('Contratante', d.contratante); y+=6;
+  // Extras (destinador, MTR, transportador, veículo)
+  var qw=cw/2;
+  lbl(x0,y,lw,h,'MTR'); val(x0+lw,y,qw-lw,h,d.mtr); lbl(x0+qw,y,lw,h,'Data'); val(x0+qw+lw,y,qw-lw,h,br(d.data)); y+=h;
+  lbl(x0,y,lw,h,'Transp.'); val(x0+lw,y,qw-lw,h,d.transportador); lbl(x0+qw,y,lw,h,'Veículo'); val(x0+qw+lw,y,qw-lw,h,d.veiculo); y+=h;
+  lbl(x0,y,lw,h,'Destino'); val(x0+lw,y,cw-lw,h,d.destinador); y+=8;
+  // Resíduos coletados / Peso na balança
+  var rc=70;
+  doc.setFillColor(232,228,218);doc.rect(x0,y,rc,9,'F');doc.rect(x0+rc,y,cw-rc,9,'F');doc.setDrawColor(160);doc.rect(x0,y,rc,9);doc.rect(x0+rc,y,cw-rc,9);
+  doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(40,26,15);
+  doc.text('RESÍDUOS COLETADOS',x0+2,y+5.6);doc.setFontSize(9.5);doc.text('PESO NA BALANÇA',x0+rc+(cw-rc)/2,y+5.8,{align:'center'}); y+=9;
+  d.residuos.forEach(function(r){ lbl(x0,y,rc,7.6,r.nome); val(x0+rc,y,cw-rc,7.6,r.peso?(r.peso+' kg'):''); y+=7.6; });
+  // Página 2 — Serviço + assinaturas
+  doc.addPage(); y=16;
+  doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(40,26,15);doc.text('SERVIÇO 1',x0,y); y+=6;
+  var tw=cw/3, th=14, s=d.servico;
+  val(x0,y,tw,th,'HORA SAÍDA: '+(s.horaSaida||''),true);val(x0+tw,y,tw,th,'HORA CHEGADA: '+(s.horaChegada||''),true);val(x0+tw*2,y,tw,th,'KM SAÍDA: '+(s.kmSaida||''),true); y+=th;
+  val(x0,y,tw,th,'INÍCIO SERVIÇO: '+(s.inicioServico||''),true);val(x0+tw,y,tw,th,'FIM SERVIÇO: '+(s.fimServico||''),true);val(x0+tw*2,y,tw,th,'KM VOLTA: '+(s.kmVolta||''),true); y+=th+10;
+  doc.setFont('helvetica','normal');doc.setFontSize(10);doc.text('DATA: '+(br(d.data)||'___/___/______'),x0,y); y+=6;
+  if(d.obs){doc.setFontSize(9);doc.text(doc.splitTextToSize('Observações: '+d.obs,cw),x0,y+4);}
+  y+=24;
+  function assinatura(img,legenda){
+    if(img){try{doc.addImage(img,'PNG',x0+2,y-16,58,16);}catch(e){}}
+    doc.setDrawColor(90);doc.line(x0,y,x0+cw*0.78,y); doc.setFontSize(9);doc.setTextColor(40,26,15);doc.text(legenda,x0,y+5); y+=26;
+  }
+  assinatura(d.assMotorista,'Assinatura Motorista');
+  assinatura(d.assResponsavel,'Assinatura do Responsável no Local e função');
+  return doc;
+}
+function _slug(s){return (''+(s||'os')).normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-zA-Z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,40)||'os';}
+function _osBuildDoc(coleta, exec, snapshot, cb){
+  if(typeof window.jspdf==='undefined'){toast('⚠️ Aguarde o PDF carregar…');cb(null);return;}
+  _loadLogoDataURL(function(logo){ var doc=null; try{doc=_osRenderPDF(_osDados(coleta,exec,snapshot),logo);}catch(e){console.error(e);} cb(doc); });
+}
+// Busca a execução completa (com assinaturas) no token, se houver
+function _osExec(coleta, cb){
+  var fb=_fb();
+  if(coleta.osToken&&fb&&fb.firestore){
+    fb.firestore().collection(OS_COL).doc(coleta.osToken).get().then(function(doc){cb((doc.exists&&doc.data().execucao)||coleta.os||{});}).catch(function(){cb(coleta.os||{});});
+  }else cb(coleta.os||{});
+}
+function _osGerarUpload(coleta, exec, snapshot){
+  var fb=_fb(); if(!fb||!fb.storage)return;
+  _osBuildDoc(coleta, exec, snapshot, function(doc){
+    if(!doc)return;
+    try{
+      var blob=doc.output('blob'), path='os/'+coleta.id+'.pdf';
+      fb.storage().ref().child(path).put(blob,{contentType:'application/pdf'})
+        .then(function(){return fb.storage().ref().child(path).getDownloadURL();})
+        .then(function(url){var a=lColetas(),i=a.findIndex(function(x){return String(x.id)===String(coleta.id);});if(i>=0){a[i].osPdfUrl=url;a[i].osPdfPath=path;a[i].osPdfEm=Date.now();sColetas(a);} })
+        .catch(function(e){console.error(e);});
+    }catch(e){console.error(e);}
+  });
+}
+function gerarOSpdf(id){
+  var c=lColetas().find(function(x){return String(x.id)===String(id);}); if(!c){toast('⚠️ Coleta não encontrada');return;}
+  var fb=_fb(); if(!fb||!fb.storage){toast('⚠️ Sem conexão com a nuvem');return;}
+  toast('⏳ Gerando OS…');
+  _osExec(c,function(exec){
+    _osBuildDoc(c,exec,null,function(doc){
+      if(!doc){toast('⚠️ Não foi possível gerar');return;}
+      try{
+        var blob=doc.output('blob'), path='os/'+c.id+'.pdf';
+        fb.storage().ref().child(path).put(blob,{contentType:'application/pdf'})
+          .then(function(){return fb.storage().ref().child(path).getDownloadURL();})
+          .then(function(url){var a=lColetas(),i=a.findIndex(function(x){return String(x.id)===String(c.id);});if(i>=0){a[i].osPdfUrl=url;a[i].osPdfPath=path;a[i].osPdfEm=Date.now();sColetas(a);}toast('✅ OS gerada e salva');try{if(g('col-id').value==String(c.id))abrirColeta(+c.id);}catch(e){}})
+          .catch(function(e){console.error(e);toast('❌ Falha ao enviar a OS ao Storage');});
+      }catch(e){console.error(e);toast('❌ Erro ao gerar OS');}
+    });
+  });
+}
+function baixarOSpdf(id){
+  var c=lColetas().find(function(x){return String(x.id)===String(id);}); if(!c)return;
+  toast('⏳ Gerando OS…');
+  _osExec(c,function(exec){ _osBuildDoc(c,exec,null,function(doc){ if(doc)doc.save('OS-'+_slug(c.gerador||c.id)+'.pdf'); else toast('⚠️ Não foi possível gerar'); }); });
+}
+function verOSpdf(id){var c=lColetas().find(function(x){return String(x.id)===String(id);}); if(c&&c.osPdfUrl)window.open(c.osPdfUrl,'_blank','noopener'); else toast('Gere a OS primeiro');}
 
 renderRes();
 renderHist();
