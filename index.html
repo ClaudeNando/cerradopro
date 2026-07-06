@@ -1076,6 +1076,10 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
       </div>
       <div style="height:8px"></div>
       <button class="btn btn-primary" onclick="salvarColeta()">✓ Salvar coleta</button>
+      <div id="col-os-wrap" style="display:none;margin-top:10px">
+        <button class="btn res-btn-sec" id="col-os-btn" onclick="gerarLinkMotorista()">📲 Enviar ao motorista</button>
+        <div id="col-os-result" style="display:none;margin-top:12px"></div>
+      </div>
       <div style="height:8px"></div>
       <button class="btn btn-outline" id="col-excluir-btn" onclick="excluirColeta()" style="display:none;color:var(--danger);border-color:var(--danger)">🗑 Excluir</button>
     </div>
@@ -3067,6 +3071,8 @@ function abrirColeta(id){
   g('col-data-exec').value=ed?(ed.dataExecucao||''):'';
   colToggleExec();
   g('col-excluir-btn').style.display=ed?'flex':'none';
+  if(g('col-os-wrap'))g('col-os-wrap').style.display=ed?'block':'none';
+  var _or=g('col-os-result'); if(_or){_or.style.display='none';_or.innerHTML='';}
   g('coleta-modal').classList.add('open');
 }
 function fecharColeta(){g('coleta-modal').classList.remove('open');}
@@ -3089,7 +3095,7 @@ function salvarColeta(){
   var arr=lColetas(), id=g('col-id').value;
   var estado=g('col-estado').value||'afazer';
   var obj={gerador:ger,transportador:transp,veiculo:veic,mtr:mtr,dataColeta:g('col-data').value,destinador:destinador,residuo:g('col-residuo').value.trim(),estado:estado,executada:(estado==='executada'),dataExecucao:(estado==='executada')?(g('col-data-exec').value||new Date().toISOString().slice(0,10)):''};
-  if(id){var i=arr.findIndex(function(c){return c.id==id;});if(i>=0)arr[i]=Object.assign({id:+id},obj);}
+  if(id){var i=arr.findIndex(function(c){return c.id==id;});if(i>=0)arr[i]=Object.assign({},arr[i],obj,{id:+id});}  // preserva campos extras (os/osToken)
   else{obj.id=Date.now();arr.push(obj);if(obj.dataColeta)_diaSel=obj.dataColeta;}
   sColetas(arr);fecharColeta();renderColetas();toast('✅ Coleta salva');
 }
@@ -3098,6 +3104,57 @@ function excluirColeta(){
   if(!confirm('Excluir esta coleta?'))return;
   sColetas(lColetas().filter(function(c){return c.id!=id;}));
   fecharColeta();renderColetas();toast('🗑️ Coleta excluída');
+}
+
+// ════════ TASK-030 — Portal do Motorista (coleção os_tokens) ════════
+var OS_COL='os_tokens', OS_EXP_DIAS=7, _osUnsub=null;
+var OS_WASTE=['Papel e papelão','Sucata','Madeira','Plástico','Orgânico','Isopor','Contaminado de óleo','RCC','Terra contaminada','Lâmpadas','Eletrônicos'];
+function gerarLinkMotorista(){
+  var fb=_fb(),u=_fbUser();
+  if(!fb||!fb.firestore){toast('⚠️ Sem conexão com a nuvem');return;}
+  if(!u){toast('⚠️ Faça login');return;}
+  var id=g('col-id').value; if(!id){toast('⚠️ Salve a coleta primeiro');return;}
+  var c=lColetas().find(function(x){return String(x.id)===String(id);});
+  if(!c){toast('⚠️ Coleta não encontrada');return;}
+  var cli=(c.gerador)?_mapClientesAll()[_normNome(c.gerador)]:null;  // enriquece CNPJ/endereço/telefone
+  var token=(Date.now().toString(36)+Math.random().toString(36).slice(2,9));
+  var expira=Date.now()+OS_EXP_DIAS*86400000;
+  var snap={gerador:c.gerador||'',cnpj:(cli&&cli.cnpj)||'',local:(cli&&cli.local)||'',telefone:(cli&&cli.telefone)||'',contato:(cli&&cli.contato)||'',
+    destinador:c.destinador||'',residuo:c.residuo||'',dataColeta:c.dataColeta||'',mtr:c.mtr||'',transportador:c.transportador||'',veiculo:c.veiculo||''};
+  var payload={coletaId:String(id),empresa:(cfg.empresa||'Cerrado Soluções Ambientais'),criadoMs:Date.now(),expiraMs:expira,status:'pendente',residuos:OS_WASTE,snapshot:snap};
+  var area=g('col-os-result');area.style.display='block';area.innerHTML='<div style="font-size:12px;color:var(--text3)">Gerando link…</div>';
+  fb.firestore().collection(OS_COL).doc(token).set(payload).then(function(){
+    var base=location.origin+location.pathname.replace(/[^/]*$/,'');
+    var url=base+'motorista.html?token='+token;
+    var ate=new Date(expira).toLocaleDateString('pt-BR');
+    area.innerHTML='<div style="font-size:12.5px;font-weight:700;color:#2a7a40;margin-bottom:8px">✅ Link do motorista — válido até '+ate+'</div>'+
+      '<input class="inp inp-mono" id="col-os-input" readonly value="'+esca(url)+'" style="margin-bottom:10px;font-size:12px" onclick="this.select()">'+
+      '<div class="btn-row"><button class="btn btn-primary btn-sm" onclick="copiarOSLink()">📋 Copiar</button><button class="btn btn-dark btn-sm" onclick="whatsOSLink()">💬 WhatsApp</button></div>';
+  }).catch(function(err){console.error(err);area.innerHTML='<div style="font-size:12px;color:var(--danger);line-height:1.5">Não foi possível gerar o link. Verifique a conexão e as regras do Firestore (coleção <b>os_tokens</b>).</div>';});
+}
+function copiarOSLink(){var i=g('col-os-input');if(!i)return;i.select();var ok=false;try{ok=document.execCommand('copy');}catch(e){}try{navigator.clipboard.writeText(i.value);ok=true;}catch(e){}toast(ok?'✅ Link copiado':'Selecione e copie');}
+function whatsOSLink(){var i=g('col-os-input');if(!i)return;window.open('https://wa.me/?text='+encodeURIComponent('Ordem de Serviço — preencha os dados da coleta:\n'+i.value),'_blank');}
+// Escuta as submissões do motorista e aplica na coleta (marca Executada + guarda os dados)
+function iniciarOS(){
+  var fb=_fb(),u=_fbUser(); if(!fb||!fb.firestore||!u)return; pararOS();
+  _osUnsub=fb.firestore().collection(OS_COL).where('status','==','enviado').onSnapshot(function(snap){
+    snap.forEach(function(d){ _osAplicar(d.id,d.data()); });
+  },function(){});
+}
+function pararOS(){ if(_osUnsub){try{_osUnsub();}catch(e){}_osUnsub=null;} }
+function _osAplicar(token,data){
+  if(!data||data.status!=='enviado')return;
+  var fb=_fb(); if(!fb)return;
+  var arr=lColetas(), i=arr.findIndex(function(x){return String(x.id)===String(data.coletaId);}), e=data.execucao||{};
+  if(i>=0){
+    arr[i].estado='executada'; arr[i].executada=true;
+    arr[i].dataExecucao=arr[i].dataExecucao||new Date().toISOString().slice(0,10);
+    arr[i].osToken=token;
+    arr[i].os={horaSaida:e.horaSaida||'',horaChegada:e.horaChegada||'',inicioServico:e.inicioServico||'',fimServico:e.fimServico||'',kmSaida:e.kmSaida||'',kmVolta:e.kmVolta||'',pesos:e.pesos||{},obs:e.obs||'',submittedMs:e.submittedMs||Date.now()};
+    sColetas(arr);
+    try{renderColetas();}catch(_e){}
+  }
+  try{fb.firestore().collection(OS_COL).doc(token).update({status:'aplicado',aplicadoMs:Date.now()}).catch(function(){});}catch(_e2){}
 }
 
 renderRes();
@@ -3125,7 +3182,7 @@ if(window.CloudSync){
 }
 // TASK-024: sincronização estruturada das coletas (coleção própria, fora do blob)
 if(typeof firebase!=='undefined'&&firebase.auth){
-  firebase.auth().onAuthStateChanged(function(user){ if(user){iniciarColetasEstruturadas();iniciarDocumentos();} else {pararColetasEstruturadas();pararDocumentos();} });
+  firebase.auth().onAuthStateChanged(function(user){ if(user){iniciarColetasEstruturadas();iniciarDocumentos();iniciarOS();} else {pararColetasEstruturadas();pararDocumentos();pararOS();} });
 }
 try{checkBackupLembrete();}catch(e){}
 // Ícones Lucide: renderiza os existentes e observa o DOM para converter os injetados dinamicamente.

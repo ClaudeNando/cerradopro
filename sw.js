@@ -1,7 +1,8 @@
-const CACHE_NAME = 'rpro-v62';
+const CACHE_NAME = 'rpro-v63';
 const ASSETS = [
   './index.html',
   './documentos.html',
+  './motorista.html',
   './manifest.json',
   './ibama.js',
   './logo.png',
