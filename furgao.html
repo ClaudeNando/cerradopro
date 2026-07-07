@@ -436,7 +436,7 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
 <script src="cloud-sync.js"></script>
 
 <script>
-var DEF_CFG={consumo:10,diesel:7.20,parcela:4202.39,kmMes:10392,ipva:4570,seguro:7265,licen:308,motorista:5000,oleoCusto:1000,oleoKm:10000,pneuCusto:3000,pneuKm:50000,manutCusto:3000,manutKm:50000,imposto:15.45,margem:30,backupDias:7};
+var DEF_CFG={consumo:10,diesel:6.80,parcela:4202.39,kmMes:2400,ipva:4570,seguro:7265,licen:308,motorista:5000,oleoCusto:1000,oleoKm:10000,pneuCusto:3000,pneuKm:50000,manutCusto:3000,manutKm:50000,imposto:15.45,margem:30,backupDias:7};
 // Custo cheio de referência do furgão (R$/km) — mesmo valor usado no orçamento do ResíduosPRO (DEF.transp.forn.FURGAO).
 var REF_CUSTO_CHEIO_KM=6.46;
 
@@ -763,6 +763,44 @@ function renderRegistros(){
     g('registros-list').innerHTML='<div class="empty"><span class="empty-ico">🔎</span><div class="empty-t">Nenhuma viagem encontrada</div><div class="empty-s">Ajuste a busca</div></div>';
     return;
   }
+  // ── RESUMO MENSAL (km/mês + lucro do mês após fixo) ──────
+  var fixoMes=calcCustoTotal().fixoMensal;
+  var porMes={};
+  viagens.forEach(function(v){
+    if(!v.data) return;
+    var m=String(v.data).slice(0,7);
+    if(!porMes[m]) porMes[m]={km:0,fat:0,custo:0,n:0};
+    porMes[m].km+=(v.km||0);
+    porMes[m].fat+=(v.fat||0);
+    porMes[m].custo+=(v.custo!=null?v.custo:((v.km||0)*est.total));
+    porMes[m].n++;
+  });
+  var mesesK=Object.keys(porMes).sort().reverse();
+  var resMes='';
+  if(mesesK.length){
+    var mesLbl=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+    var somaKm=mesesK.reduce(function(s,m){return s+porMes[m].km;},0);
+    var mediaKm=somaKm/mesesK.length;
+    var linhasMes=mesesK.map(function(m){
+      var d=porMes[m], mm=m.split('-');
+      var rot=(mesLbl[(+mm[1]-1)]||m)+'/'+mm[0];
+      var lucro=d.fat-d.custo-(d.fat*(cfg.imposto/100))-fixoMes;
+      var cor=lucro>=0?'var(--success)':'var(--danger)';
+      return '<div class="ctrow" style="align-items:center">'+
+        '<span class="ct-label">'+rot+' <span style="color:var(--text4);font-size:11px">('+d.n+'×)</span></span>'+
+        '<span style="display:flex;gap:14px;align-items:center;font-family:monospace;font-size:12px">'+
+          '<span style="color:var(--text2)">'+fmt(d.km)+' km</span>'+
+          '<span style="color:var(--text2)">'+brl(d.fat)+'</span>'+
+          '<span style="color:'+cor+';font-weight:700">'+brl(lucro)+'</span>'+
+        '</span></div>';
+    }).join('');
+    resMes='<div style="background:var(--accent-dim);border-radius:10px;padding:12px;margin-bottom:12px">'+
+      '<div style="font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:0.8px">Resumo mensal · média '+fmt(Math.round(mediaKm))+' km/mês</div>'+
+      '<div style="font-size:10px;color:var(--text4);margin:2px 0 8px">km · faturado · lucro do mês após fixo ('+brl(fixoMes)+'/mês)</div>'+
+      linhasMes+
+    '</div>';
+  }
+
   var html='';
   sorted.forEach(function(v){
     var imp=(v.fat||0)*(cfg.imposto/100);
@@ -788,7 +826,7 @@ function renderRegistros(){
         '<div style="font-size:11px;color:var(--text4);margin-top:6px">Custo real não informado</div>')+
     '</div>';
   });
-  g('registros-list').innerHTML=html;
+  g('registros-list').innerHTML=resMes+html;
 }
 
 // ── CLIENTES ─────────────────────────────────────────────
