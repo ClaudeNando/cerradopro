@@ -790,14 +790,53 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
   #screen-ibamacod .ibc-gsub{font-size:12px;color:var(--text3);margin-top:2px;line-height:1.35}
   #screen-ibamacod .ibc-gnum{font-size:13px;font-weight:700;color:var(--accent);background:var(--accent-dim);border-radius:20px;padding:3px 10px;flex-shrink:0}
   #screen-ibamacod .ibc-ghdr{font-size:15px;margin-bottom:12px}
+  #screen-ibamacod .ia-box{background:linear-gradient(135deg,#f5f9ff,#eef4fb);border:1px solid #d6e4f5;border-radius:14px;padding:16px;margin-bottom:18px}
+  #screen-ibamacod .ia-box-hdr{font-size:14px;font-weight:800;color:var(--text);margin-bottom:10px;display:flex;align-items:center;gap:8px}
+  #screen-ibamacod .ia-badge{font-size:10px;font-weight:800;letter-spacing:.5px;color:#fff;background:var(--accent);border-radius:20px;padding:2px 8px}
+  #screen-ibamacod .ia-row{display:flex;gap:10px;flex-wrap:wrap}
+  #screen-ibamacod .ia-row .inp{flex:1;min-width:200px}
+  #screen-ibamacod .ia-loading{margin-top:12px;font-size:13px;color:var(--text3);display:flex;align-items:center;gap:8px}
+  #screen-ibamacod .ia-err{margin-top:12px;background:#fdecec;border:1px solid #f5c2c2;color:#a12626;border-radius:10px;padding:11px 13px;font-size:13px}
+  #screen-ibamacod .ia-card{margin-top:14px;background:#fff;border:1px solid var(--border);border-radius:12px;padding:16px;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+  #screen-ibamacod .ia-cod-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:6px}
+  #screen-ibamacod .ia-cod{font-family:'DM Mono',monospace;font-size:26px;font-weight:600;color:var(--accent);letter-spacing:1px}
+  #screen-ibamacod .ia-copy{border:1px solid var(--border);background:#fff;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;color:var(--text2)}
+  #screen-ibamacod .ia-copy:hover{border-color:var(--accent);color:var(--accent)}
+  #screen-ibamacod .ia-tag{font-size:11px;font-weight:800;border-radius:20px;padding:3px 10px}
+  #screen-ibamacod .ia-tag.perig{background:#fdecec;color:#c0392b}
+  #screen-ibamacod .ia-tag.ok{background:#eaf7ee;color:#1e8449}
+  #screen-ibamacod .ia-desc-of{font-size:14px;color:var(--text);font-weight:600;margin-bottom:2px}
+  #screen-ibamacod .ia-warn{font-size:12px;color:#b9770e;background:#fdf6e3;border:1px solid #f2e2b6;border-radius:8px;padding:7px 10px;margin:8px 0}
+  #screen-ibamacod .ia-just{font-size:13px;color:var(--text2);line-height:1.5;margin:8px 0}
+  #screen-ibamacod .ia-mtr{margin-top:10px;border-top:1px dashed var(--border);padding-top:10px}
+  #screen-ibamacod .ia-mtr-t{font-size:12px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+  #screen-ibamacod .ia-mtr-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px 14px}
+  #screen-ibamacod .ia-mtr-i .k{font-size:11px;color:var(--text3)}
+  #screen-ibamacod .ia-mtr-i .v{font-size:13px;color:var(--text);font-weight:600}
+  #screen-ibamacod .ia-disc{font-size:11px;color:var(--text3);font-style:italic;margin-top:10px;line-height:1.4}
+  #screen-ibamacod .ia-hist{margin-top:12px}
+  #screen-ibamacod .ia-hist-t{font-size:11px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+  #screen-ibamacod .ia-chip{display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid var(--border);border-radius:20px;padding:5px 11px;font-size:12px;color:var(--text2);cursor:pointer;margin:0 6px 6px 0}
+  #screen-ibamacod .ia-chip:hover{border-color:var(--accent);color:var(--accent)}
+  #screen-ibamacod .ia-chip b{font-family:'DM Mono',monospace;color:var(--accent)}
   </style>
   <div id="screen-ibamacod" class="screen">
     <div class="shdr" style="margin-bottom:14px">
       <div class="shdr-icon">📖</div>
       <div style="flex:1"><div class="shdr-title">Códigos IBAMA</div><div class="shdr-sub">Consulta da lista de resíduos · código, descrição e periculosidade</div></div>
     </div>
+    <div class="ia-box">
+      <div class="ia-box-hdr">🤖 Classificar resíduo por descrição <span class="ia-badge">IA</span></div>
+      <div class="ia-row">
+        <input class="inp" type="text" id="ia-desc" maxlength="500" autocomplete="off" placeholder="Descreva o resíduo. Ex.: óleo lubrificante usado, embalagem contaminada, sucata de ferro..." onkeydown="if(event.key==='Enter')iaClassificar()">
+        <button class="btn btn-primary" id="ia-btn" style="width:auto" onclick="iaClassificar()">Classificar</button>
+      </div>
+      <div id="ia-result"></div>
+      <div class="ia-disc">Esta classificação é auxiliar e não substitui análise técnica de responsável habilitado.</div>
+      <div id="ia-hist"></div>
+    </div>
     <div class="ibc-toolbar">
-      <input class="inp" type="text" id="ibc-busca" placeholder="🔎 Buscar em todos os grupos (código ou descrição)..." oninput="renderIbamaCodigos()">
+      <input class="inp" type="text" id="ibc-busca" placeholder="🔎 Buscar na lista oficial (código ou descrição)..." oninput="renderIbamaCodigos()">
     </div>
     <div id="ibc-content"></div>
   </div>
@@ -1182,6 +1221,7 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-storage-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-functions-compat.js"></script>
 
 <!-- Camada compartilhada de login/sincronização/backup -->
 <script src="cloud-sync.js"></script>
@@ -2105,6 +2145,7 @@ function _ibcTabela(list){
 function ibcAbrirGrupo(pre){_ibcGrupo=pre;renderIbamaCodigos();try{var c=document.querySelector('.content');if(c&&c.scrollTo)c.scrollTo(0,0);window.scrollTo(0,0);}catch(e){}}
 function ibcVoltar(){_ibcGrupo='';renderIbamaCodigos();}
 function renderIbamaCodigos(){
+  try{_iaHistRender();}catch(e){}
   var el=g('ibc-content'); if(!el)return;
   var src=(typeof IBAMA!=='undefined')?IBAMA:[];
   var q=(g('ibc-busca')&&g('ibc-busca').value||'').trim().toLowerCase();
@@ -2123,6 +2164,80 @@ function renderIbamaCodigos(){
   }
   // grade de grupos (tela inicial)
   el.innerHTML='<div class="ibc-grid">'+GRUPOS.map(function(gp){return '<div class="ibc-gcard" onclick="ibcAbrirGrupo(\''+gp.pre+'\')"><div class="ibc-gemoji">'+gp.emoji+'</div><div class="ibc-gtxt"><div class="ibc-gnome">'+gp.pre+' · '+esca(gp.nome)+'</div><div class="ibc-gsub">'+esca(gp.sub)+'</div></div><div class="ibc-gnum">'+_ibcCount(gp.pre)+'</div></div>';}).join('')+'</div>';
+}
+
+// ── Classificador IBAMA por IA (Cloud Function) ──────────
+function _iaFns(){ return firebase.app().functions('southamerica-east1'); }
+
+function iaClassificar(){
+  var inp=g('ia-desc'); var res=g('ia-result'); if(!inp||!res) return;
+  var desc=(inp.value||'').trim();
+  if(!desc){ inp.focus(); return; }
+  var btn=g('ia-btn'); var lbl=btn?btn.textContent:'';
+  if(btn){ btn.disabled=true; btn.textContent='Classificando…'; }
+  res.innerHTML='<div class="ia-loading">🤖 Consultando a IA…</div>';
+  _iaFns().httpsCallable('classificarResiduoIBAMA')({descricao:desc}).then(function(r){
+    _iaRender(r.data); _iaHistAdd(desc, r.data);
+  }).catch(function(e){
+    var msg=(e&&e.message)||'Não foi possível classificar agora.';
+    res.innerHTML='<div class="ia-err">⚠️ '+esca(msg)+'</div>';
+  }).then(function(){
+    if(btn){ btn.disabled=false; btn.textContent=lbl; }
+  });
+}
+
+function _iaRender(o){
+  var res=g('ia-result'); if(!res) return;
+  if(!o||!o.codigo){ res.innerHTML='<div class="ia-err">⚠️ Resposta inesperada da IA.</div>'; return; }
+  var cod=String(o.codigo).trim();
+  var local=(typeof IBAMA!=='undefined')?IBAMA.filter(function(x){return String(x.c)===cod;})[0]:null;
+  var descOf=local?local.d:(o.descricao||'—');
+  var cls=(o.classificacao||'').toLowerCase();
+  var perigoso=local?!!local.p:(cls.indexOf('perig')>=0 && cls.indexOf('não')<0 && cls.indexOf('nao')<0);
+  var mtr=o.mtr||{};
+  var mi=function(k,v){ return v?('<div class="ia-mtr-i"><div class="k">'+esca(k)+'</div><div class="v">'+esca(String(v))+'</div></div>'):''; };
+  var mtrHtml=mi('Estado físico',mtr.estado_fisico)+mi('Unidade',mtr.unidade)+mi('Destino recomendado',mtr.destino_recomendado);
+  res.innerHTML=
+    '<div class="ia-card">'+
+      '<div class="ia-cod-row">'+
+        '<span class="ia-cod">'+esca(cod)+'</span>'+
+        '<button class="ia-copy" onclick="iaCopiarCod(this,\''+esca(cod)+'\')">Copiar código</button>'+
+        '<span class="ia-tag '+(perigoso?'perig':'ok')+'">'+(perigoso?'Perigoso':'Não Perigoso')+'</span>'+
+      '</div>'+
+      '<div class="ia-desc-of">'+esca(descOf)+'</div>'+
+      (local?'':'<div class="ia-warn">⚠️ Código não encontrado na lista oficial local — confira manualmente.</div>')+
+      (o.justificativa?'<div class="ia-just">'+esca(String(o.justificativa))+'</div>':'')+
+      ((mtrHtml||mtr.observacoes)?('<div class="ia-mtr"><div class="ia-mtr-t">Preenchimento do MTR</div>'+
+        (mtrHtml?'<div class="ia-mtr-grid">'+mtrHtml+'</div>':'')+
+        (mtr.observacoes?'<div class="ia-just" style="margin:8px 0 0">'+esca(String(mtr.observacoes))+'</div>':'')+
+      '</div>'):'')+
+    '</div>';
+}
+
+function iaCopiarCod(btn,cod){
+  var done=function(){ var t=btn.getAttribute('data-lbl')||btn.textContent; btn.setAttribute('data-lbl',t); btn.textContent='Copiado!'; setTimeout(function(){btn.textContent=t;},1400); };
+  if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(cod).then(done,done); }
+  else { try{ var ta=document.createElement('textarea'); ta.value=cod; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); done(); }catch(e){} }
+}
+
+function _iaHistGet(){ try{ return JSON.parse(localStorage.getItem('rpro_ia_hist')||'[]'); }catch(e){ return []; } }
+function _iaHistAdd(q,o){
+  var h=_iaHistGet(); h.unshift({q:q,o:o,ts:Date.now()}); h=h.slice(0,8);
+  try{ localStorage.setItem('rpro_ia_hist',JSON.stringify(h)); }catch(e){}
+  _iaHistRender();
+}
+function _iaHistRender(){
+  var el=g('ia-hist'); if(!el) return;
+  var h=_iaHistGet();
+  if(!h.length){ el.innerHTML=''; return; }
+  el.innerHTML='<div class="ia-hist"><div class="ia-hist-t">Consultas recentes</div>'+
+    h.map(function(it,i){ var q=(it.q||''); return '<span class="ia-chip" onclick="iaHistVer('+i+')" title="'+esca(q)+'"><b>'+esca(String((it.o&&it.o.codigo)||'?'))+'</b> '+esca(q.slice(0,32))+(q.length>32?'…':'')+'</span>'; }).join('')+
+  '</div>';
+}
+function iaHistVer(i){
+  var it=_iaHistGet()[i]; if(!it) return;
+  var inp=g('ia-desc'); if(inp) inp.value=it.q||'';
+  _iaRender(it.o);
 }
 
 function ibamaAbrir(resId){
