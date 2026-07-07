@@ -183,6 +183,9 @@ textarea.inp{resize:none;min-height:80px;line-height:1.6}
 .ag-ev{display:block;padding:3px 6px;font-size:11px;font-weight:500;border-radius:4px;background:#FAF5EB;border:1px solid var(--border);color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ag-ev.ev-vencida{background:#FEF2F2;border-color:#FECACA;color:#991B1B}
 .ag-ev.ev-recebido{background:#F0FDF4;border-color:#BBF7D0;color:#166534}
+.ag-ev.ev-propria{background:#e7f0fb;border-color:#b8d4f0;color:#1e40af}
+.ag-cell.wknd{background:#e6ded0}
+.ag-grid-head span:first-child,.ag-grid-head span:last-child{color:#9a8b74}
 .ag-more{font-size:11px;color:var(--accent);font-weight:600;margin-top:2px}
 .ag-dia-hdr{font-size:12px;font-weight:800;letter-spacing:0.5px;text-transform:uppercase;color:var(--text3);margin:16px 0 8px}
 .b-bad{background:rgba(176,48,32,0.12);color:var(--danger);border:1px solid rgba(176,48,32,0.22)}
@@ -3065,14 +3068,16 @@ function renderMes(){
   var startDow=new Date(y,m,1).getDay(), days=new Date(y,m+1,0).getDate();
   var arr=lColetas(), byDay={};
   arr.forEach(function(c){if(c.dataColeta){var p=c.dataColeta.split('-');if(+p[0]===y&&+p[1]===m+1)(byDay[+p[2]]=byDay[+p[2]]||[]).push(c);}});
+  var _prop={}; lParceiros().forEach(function(p){if(p.proprio&&p.nome)_prop[_normNome(p.nome)]=1;});  // frota própria (Cerrado)
   var tStr=new Date().toISOString().slice(0,10), html='';
   for(var i=0;i<startDow;i++)html+='<div class="ag-cell empty"></div>';
   for(var d=1;d<=days;d++){
     var ds=y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0'), items=byDay[d]||[];
+    var dow=new Date(y,m,d).getDay(), wk=(dow===0||dow===6)?' wknd':'';
     var maxShow=items.length>3?2:items.length, evs='';
-    items.slice(0,maxShow).forEach(function(c){var t=statusColeta(c).tipo;var nm=(c.gerador||'Coleta');evs+='<div class="ag-ev'+(t==='vencida'?' ev-vencida':t==='executada'?' ev-recebido':'')+'" title="'+(''+nm).replace(/"/g,'&quot;')+'">'+nm+'</div>';});
+    items.slice(0,maxShow).forEach(function(c){var t=statusColeta(c).tipo;var propria=c.transportador&&_prop[_normNome(c.transportador)];var ec=propria?' ev-propria':(t==='vencida'?' ev-vencida':t==='executada'?' ev-recebido':'');var nm=(c.gerador||'Coleta');evs+='<div class="ag-ev'+ec+'" title="'+(''+nm).replace(/"/g,'&quot;')+'">'+nm+'</div>';});
     if(items.length>maxShow)evs+='<div class="ag-more">+ '+(items.length-maxShow)+' coleta'+(items.length-maxShow>1?'s':'')+'</div>';
-    html+='<div class="ag-cell'+(ds===tStr?' hoje':'')+(ds===_diaSel?' sel':'')+'" onclick="selDia(\''+ds+'\')"><div class="ag-daynum">'+d+'</div><div class="ag-evs">'+evs+'</div></div>';
+    html+='<div class="ag-cell'+wk+(ds===tStr?' hoje':'')+(ds===_diaSel?' sel':'')+'" onclick="selDia(\''+ds+'\')"><div class="ag-daynum">'+d+'</div><div class="ag-evs">'+evs+'</div></div>';
   }
   g('ag-grid').innerHTML=html;
   renderDiaList();
