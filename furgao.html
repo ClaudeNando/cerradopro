@@ -106,6 +106,10 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
 /* SHDR */
 .shdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
 .shdr-title{font-size:18px;font-weight:800}
+.fbar{display:flex;gap:8px;margin-bottom:12px}
+.fbar .inp{flex:1;padding:10px 12px;font-size:14px}
+.fbar .fsort{flex:0 0 auto;width:auto;min-width:132px;padding:10px 30px 10px 12px;font-size:13px;background:var(--bg);border:1.5px solid var(--border);border-radius:12px;color:var(--text);outline:none;-webkit-appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'><path d='M6 9l6 6 6-6'/></svg>');background-repeat:no-repeat;background-position:right 9px center}
+.fbar .fsort:focus{border-color:var(--accent)}
 /* MODAL */
 .overlay{position:fixed;inset:0;background:rgba(13,33,55,0.60);display:flex;align-items:flex-end;z-index:100;opacity:0;pointer-events:none;transition:opacity .25s}
 .overlay.open{opacity:1;pointer-events:all}
@@ -217,6 +221,15 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
       <div class="shdr-title">Viagens</div>
     </div>
     <div class="info-box" id="custo-real-box"></div>
+    <div class="fbar">
+      <input class="inp" id="reg-busca" type="text" placeholder="🔎 Buscar por cliente ou observação…" autocomplete="off" oninput="renderRegistros()">
+      <select class="fsort" id="reg-sort" onchange="renderRegistros()">
+        <option value="data-desc">Data ↓ (recente)</option>
+        <option value="data-asc">Data ↑ (antiga)</option>
+        <option value="az">Cliente A–Z</option>
+        <option value="za">Cliente Z–A</option>
+      </select>
+    </div>
     <div id="registros-list"></div>
     <div style="position:fixed;right:14px;bottom:calc(var(--nav-h) + var(--sb) + 16px);z-index:60;display:flex;flex-direction:column;gap:10px;align-items:flex-end">
       <button class="btn btn-outline btn-sm" onclick="openRotaCompartilhada()" style="box-shadow:0 4px 14px rgba(0,0,0,.35);border-radius:24px;width:auto">🔗 Compartilhada</button>
@@ -229,6 +242,15 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
     <div class="shdr">
       <div class="shdr-title">Clientes</div>
       <button class="btn btn-ghost btn-sm" onclick="openNovoCliente()">+ Novo</button>
+    </div>
+    <div class="fbar">
+      <input class="inp" id="cln-busca" type="text" placeholder="🔎 Buscar por nome, cidade ou UF…" autocomplete="off" oninput="renderClientes()">
+      <select class="fsort" id="cln-sort" onchange="renderClientes()">
+        <option value="az">Nome A–Z</option>
+        <option value="za">Nome Z–A</option>
+        <option value="margem">Margem ↓</option>
+        <option value="fat">Faturamento ↓</option>
+      </select>
     </div>
     <div id="clientes-list"></div>
   </div>
@@ -465,6 +487,7 @@ var nextVId=Math.max(0,...viagens.map(function(v){return v.id;}))+1;
 var nextCId=Math.max(0,...clientes.map(function(c){return c.id;}))+1;
 
 function g(id){return document.getElementById(id);}
+function _norm(s){return (s||'').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').trim();}
 function brl(n){if(n===null||n===undefined||isNaN(n))return '—';return 'R$ '+Number(n).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function fmt(n){if(n===null||n===undefined||isNaN(n))return '—';return Number(n).toLocaleString('pt-BR',{maximumFractionDigits:0});}
 function pct(n){if(n===null||n===undefined||isNaN(n))return '—';return (n*100).toFixed(1).replace('.',',')+'%';}
@@ -726,7 +749,20 @@ function renderRegistros(){
     g('registros-list').innerHTML='<div class="empty"><span class="empty-ico">🗒️</span><div class="empty-t">Nenhuma viagem</div><div class="empty-s">Toque em + Registrar para adicionar</div></div>';
     return;
   }
-  var sorted=viagens.slice().sort(function(a,b){return (b.data||'').localeCompare(a.data||'');});
+  var q=_norm((g('reg-busca')?g('reg-busca').value:''));
+  var sortMode=(g('reg-sort')?g('reg-sort').value:'data-desc');
+  var lista=viagens.slice();
+  if(q) lista=lista.filter(function(v){return _norm((v.nome||'')+' '+(v.obs||'')).indexOf(q)>=0;});
+  var sorted=lista.sort(function(a,b){
+    if(sortMode==='az') return _norm(a.nome||'').localeCompare(_norm(b.nome||''));
+    if(sortMode==='za') return _norm(b.nome||'').localeCompare(_norm(a.nome||''));
+    if(sortMode==='data-asc') return (a.data||'').localeCompare(b.data||'');
+    return (b.data||'').localeCompare(a.data||'');
+  });
+  if(!sorted.length){
+    g('registros-list').innerHTML='<div class="empty"><span class="empty-ico">🔎</span><div class="empty-t">Nenhuma viagem encontrada</div><div class="empty-s">Ajuste a busca</div></div>';
+    return;
+  }
   var html='';
   sorted.forEach(function(v){
     var imp=(v.fat||0)*(cfg.imposto/100);
@@ -772,7 +808,29 @@ function renderClientes(){
     if(v.custo!=null) porCliente[v.clienteId].custo+=v.custo;
     porCliente[v.clienteId].n++;
   });
-  var html=clientes.map(function(c){
+  function _cliMargem(c){
+    var s=porCliente[c.id]||{fat:0,km:0,custo:0,n:0};
+    if(!(s.fat>0)) return -Infinity;
+    var imp=s.fat*(cfg.imposto/100);
+    var custoKm_est=c.km*est2.total;
+    var sobra=s.fat-Math.max(s.custo,custoKm_est*s.n)-imp;
+    return sobra/s.fat;
+  }
+  var q=_norm(g('cln-busca')?g('cln-busca').value:'');
+  var sortMode=(g('cln-sort')?g('cln-sort').value:'az');
+  var lista=clientes.slice();
+  if(q) lista=lista.filter(function(c){return _norm((c.nome||'')+' '+(c.local||'')+' '+(c.uf||'')).indexOf(q)>=0;});
+  lista.sort(function(a,b){
+    if(sortMode==='za') return _norm(b.nome||'').localeCompare(_norm(a.nome||''));
+    if(sortMode==='fat') return ((porCliente[b.id]||{}).fat||0)-((porCliente[a.id]||{}).fat||0);
+    if(sortMode==='margem') return _cliMargem(b)-_cliMargem(a);
+    return _norm(a.nome||'').localeCompare(_norm(b.nome||''));
+  });
+  if(!lista.length){
+    g('clientes-list').innerHTML='<div class="empty"><span class="empty-ico">🔎</span><div class="empty-t">Nenhum cliente encontrado</div><div class="empty-s">Ajuste a busca</div></div>';
+    return;
+  }
+  var html=lista.map(function(c){
     var stats=porCliente[c.id]||{fat:0,km:0,custo:0,n:0};
     var ideal=c.km*precoKm;
     var imp=stats.fat*(cfg.imposto/100);
