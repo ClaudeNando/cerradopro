@@ -1329,8 +1329,23 @@ if(window.CloudSync){
 try{checkBackupLembrete();}catch(e){}
 </script>
 <script>
-(function(){ function _i(){ if(window.lucide&&lucide.createIcons){try{lucide.createIcons();}catch(e){}} } _i();
-  if(window.MutationObserver&&document.body){ var t; new MutationObserver(function(){ clearTimeout(t); t=setTimeout(_i,60); }).observe(document.body,{childList:true,subtree:true}); } })();
+(function(){
+  var obs=null;
+  function run(){
+    if(!(window.lucide&&lucide.createIcons)) return;
+    // só processa se houver ícone novo pendente (<i data-lucide>); createIcons troca <i>→<svg> e remove o data-lucide
+    if(!document.querySelector('[data-lucide]')) return;
+    if(obs) obs.disconnect();                       // evita loop: createIcons também muda o DOM
+    try{ lucide.createIcons(); }catch(e){}
+    if(obs&&document.body) obs.observe(document.body,{childList:true,subtree:true});
+  }
+  try{ if(window.lucide&&lucide.createIcons) lucide.createIcons(); }catch(e){}
+  if(window.MutationObserver&&document.body){
+    var t;
+    obs=new MutationObserver(function(){ clearTimeout(t); t=setTimeout(run,60); });
+    obs.observe(document.body,{childList:true,subtree:true});
+  }
+})();
 </script>
 </body>
 </html>
