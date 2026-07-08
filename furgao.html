@@ -736,6 +736,8 @@ function kpi(label,value,sub,cls){
 }
 
 // ── REGISTROS ─────────────────────────────────────────────
+var resMesExp=false;
+function toggleResMes(){ resMesExp=!resMesExp; renderRegistros(); }
 function renderRegistros(){
   var real=calcCustoOperacional();
   var est=calcCustoEstimado();
@@ -781,7 +783,8 @@ function renderRegistros(){
     var mesLbl=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
     var somaKm=mesesK.reduce(function(s,m){return s+porMes[m].km;},0);
     var mediaKm=somaKm/mesesK.length;
-    var linhasMes=mesesK.map(function(m){
+    var vis=resMesExp?mesesK:mesesK.slice(0,6);
+    var linhasMes=vis.map(function(m){
       var d=porMes[m], mm=m.split('-');
       var rot=(mesLbl[(+mm[1]-1)]||m)+'/'+mm[0];
       var lucro=d.fat-d.custo-(d.fat*(cfg.imposto/100))-fixoMes;
@@ -794,10 +797,12 @@ function renderRegistros(){
           '<span style="color:'+cor+';font-weight:700">'+brl(lucro)+'</span>'+
         '</span></div>';
     }).join('');
+    var toggle=mesesK.length>6?'<div style="text-align:center;margin-top:8px"><button onclick="toggleResMes()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:5px 12px;color:var(--accent);font-size:12px;font-weight:700;cursor:pointer">'+(resMesExp?'▴ recolher':'▾ ver todos ('+mesesK.length+' meses)')+'</button></div>':'';
     resMes='<div style="background:var(--accent-dim);border-radius:10px;padding:12px;margin-bottom:12px">'+
       '<div style="font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:0.8px">Resumo mensal · média '+fmt(Math.round(mediaKm))+' km/mês</div>'+
-      '<div style="font-size:10px;color:var(--text4);margin:2px 0 8px">km · faturado · lucro do mês após fixo ('+brl(fixoMes)+'/mês)</div>'+
+      '<div style="font-size:10px;color:var(--text4);margin:2px 0 8px">'+(resMesExp?mesesK.length+' meses':'últimos '+Math.min(6,mesesK.length)+' meses')+' · km · faturado · lucro após fixo ('+brl(fixoMes)+'/mês)</div>'+
       linhasMes+
+      toggle+
     '</div>';
   }
 
