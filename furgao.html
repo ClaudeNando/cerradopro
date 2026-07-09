@@ -110,6 +110,11 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
 .fbar .inp{flex:1;padding:10px 12px;font-size:14px}
 .fbar .fsort{flex:0 0 auto;width:auto;min-width:120px;padding:10px 12px;font-size:13px;background:var(--bg);border:1.5px solid var(--border);border-radius:12px;color:var(--text);outline:none}
 .fbar .fsort:focus{border-color:var(--accent)}
+.cfg-extra-row{display:flex;gap:8px;margin-bottom:8px;align-items:center}
+.cfg-extra-row .cfg-extra-n{flex:2;min-width:0}
+.cfg-extra-row .cfg-extra-v{flex:1;min-width:0}
+.cfg-extra-del{flex:0 0 auto;background:transparent;border:1.5px solid var(--border);border-radius:10px;padding:10px 12px;cursor:pointer;font-size:14px;line-height:1}
+.cfg-extra-del:hover{border-color:var(--danger)}
 /* MODAL */
 .overlay{position:fixed;inset:0;background:rgba(13,33,55,0.60);display:flex;align-items:flex-end;z-index:100;opacity:0;pointer-events:none;transition:opacity .25s}
 .overlay.open{opacity:1;pointer-events:all}
@@ -387,6 +392,9 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
         <div class="field"><label class="flabel">Custo manutenção</label><input class="inp inp-mono" id="cfg-manut-c" type="number" step="1"></div>
         <div class="field"><label class="flabel">Km p/ manutenção</label><input class="inp inp-mono" id="cfg-manut-k" type="number" step="1000"></div>
       </div>
+      <div class="card-lbl" style="margin:12px 0 10px">Outros custos fixos (mensais)</div>
+      <div id="cfg-extras"></div>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="cfgExtraAdd()" style="width:auto;margin-top:2px">+ Adicionar custo</button>
       <div class="card-lbl" style="margin:12px 0 10px">Financeiro</div>
       <div class="g2">
         <div class="field"><label class="flabel">Imposto (%)</label><input class="inp inp-mono" id="cfg-imposto" type="number" step="0.01"></div>
@@ -436,7 +444,7 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
 <script src="cloud-sync.js"></script>
 
 <script>
-var DEF_CFG={consumo:10,diesel:6.80,parcela:4202.39,kmMes:2400,ipva:4570,seguro:7265,licen:308,motorista:5000,oleoCusto:1000,oleoKm:10000,pneuCusto:3000,pneuKm:50000,manutCusto:3000,manutKm:50000,imposto:15.45,margem:30,backupDias:7};
+var DEF_CFG={consumo:10,diesel:6.80,parcela:4202.39,kmMes:2400,ipva:4570,seguro:7265,licen:308,motorista:5000,oleoCusto:1000,oleoKm:10000,pneuCusto:3000,pneuKm:50000,manutCusto:3000,manutKm:50000,imposto:15.45,margem:30,backupDias:7,extras:[]};
 // Custo cheio de referência do furgão (R$/km) — mesmo valor usado no orçamento do ResíduosPRO (DEF.transp.forn.FURGAO).
 var REF_CUSTO_CHEIO_KM=6.46;
 
@@ -554,7 +562,8 @@ function calcCustoTotal(){
               _sdiv(cfg.pneuCusto,cfg.pneuKm,0) +
               _sdiv(cfg.manutCusto,cfg.manutKm,0);
 
-  var fixoMensal = cfg.parcela + cfg.motorista + (cfg.ipva/12) + (cfg.seguro/12) + (cfg.licen/12);
+  var extras = (cfg.extras||[]).reduce(function(s,e){return s+(+e.v||0);},0);
+  var fixoMensal = cfg.parcela + cfg.motorista + (cfg.ipva/12) + (cfg.seguro/12) + (cfg.licen/12) + extras;
 
   var totFat = viagens.reduce(function(s,v){return s+(v.fat||0);},0);
   var totKm  = viagens.reduce(function(s,v){return s+(v.km||0);},0);
@@ -602,7 +611,7 @@ function calcCustoTotal(){
       {label:'IPVA/mês', val: cfg.ipva/12},
       {label:'Seguro+Rastr./mês', val: cfg.seguro/12},
       {label:'Licenciamento/mês', val: cfg.licen/12},
-    ]
+    ].concat((cfg.extras||[]).filter(function(e){return (+e.v||0)>0;}).map(function(e){return {label:(e.n||'Outro'),val:(+e.v||0)};}))
   };
 }
 
@@ -1135,7 +1144,40 @@ function openCfg(){
   g('cfg-manut-c').value=cfg.manutCusto;g('cfg-manut-k').value=cfg.manutKm;
   g('cfg-imposto').value=cfg.imposto;g('cfg-margem').value=cfg.margem;
   g('cfg-backup-dias').value=cfg.backupDias||7;
+  _cfgExtrasRender();
   var _db=_diasDesdeBackup();g('cfg-backup-status').textContent=_db===null?'(último: nunca)':'(último: há '+_db+' dia(s))';
+}
+
+// ── Outros custos fixos (extras) ─────────────────────────
+function _cfgExtraNode(nome,valor){
+  var row=document.createElement('div');
+  row.className='cfg-extra-row';
+  row.innerHTML='<input class="inp cfg-extra-n" type="text" placeholder="Descrição (ex.: Starlink)" autocomplete="off">'+
+    '<input class="inp inp-mono cfg-extra-v" type="number" step="0.01" inputmode="decimal" placeholder="R$/mês">'+
+    '<button type="button" class="cfg-extra-del" title="Remover" onclick="this.parentNode.remove()">🗑</button>';
+  row.querySelector('.cfg-extra-n').value=nome||'';
+  row.querySelector('.cfg-extra-v').value=(valor===0||valor)?valor:'';
+  return row;
+}
+function _cfgExtrasRender(){
+  var box=g('cfg-extras'); if(!box) return;
+  box.innerHTML='';
+  (cfg.extras||[]).forEach(function(e){ box.appendChild(_cfgExtraNode(e.n,e.v)); });
+}
+function cfgExtraAdd(){
+  var box=g('cfg-extras'); if(!box) return;
+  var n=_cfgExtraNode('',''); box.appendChild(n);
+  var f=n.querySelector('.cfg-extra-n'); if(f) f.focus();
+}
+function _cfgExtrasCollect(){
+  var box=g('cfg-extras'); if(!box) return [];
+  var out=[];
+  Array.prototype.forEach.call(box.querySelectorAll('.cfg-extra-row'),function(r){
+    var nome=(r.querySelector('.cfg-extra-n').value||'').trim();
+    var val=+r.querySelector('.cfg-extra-v').value||0;
+    if(nome||val>0) out.push({n:nome||'Outro',v:val});
+  });
+  return out;
 }
 
 function salvarCfg(){
@@ -1148,6 +1190,7 @@ function salvarCfg(){
   cfg.manutCusto=+g('cfg-manut-c').value||3000;cfg.manutKm=+g('cfg-manut-k').value||50000;
   cfg.imposto=+g('cfg-imposto').value||15.45;cfg.margem=+g('cfg-margem').value||30;
   cfg.backupDias=Math.max(1,parseInt(g('cfg-backup-dias').value)||7);
+  cfg.extras=_cfgExtrasCollect();
   sCfg(cfg);closeModal('cfg-modal');
   renderDash();renderRegistros();renderClientes();
   toast('✅ Configurações salvas!');try{checkBackupLembrete();}catch(e){}
