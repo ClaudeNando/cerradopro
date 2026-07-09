@@ -518,11 +518,11 @@ function deepMerge(base,over){
 function lCfg(){try{var s=localStorage.getItem('fp2_cfg');var saved=s?JSON.parse(s):null;return saved?deepMerge(DEF_CFG,saved):JSON.parse(JSON.stringify(DEF_CFG));}catch(e){return JSON.parse(JSON.stringify(DEF_CFG));}}
 // Gravação de chaves sincronizáveis: explícita via CloudSync.save (TASK-010); fallback local se CloudSync não carregar.
 function lset(k,v){ if(window.CloudSync&&CloudSync.save) return CloudSync.save(k,v); localStorage.setItem(k,v); }
-function sCfg(c){lset('fp2_cfg',JSON.stringify(c));}
+function sCfg(c){lset('fp2_cfg',JSON.stringify(c)); try{pushFurgaoMetrics();}catch(e){}}
 function lClientes(){try{var s=localStorage.getItem('fp2_clientes');return s?JSON.parse(s):JSON.parse(JSON.stringify(DEF_CLIENTES));}catch(e){return JSON.parse(JSON.stringify(DEF_CLIENTES));}}
 function sClientes(){lset('fp2_clientes',JSON.stringify(clientes));}
 function lViagens(){try{var s=localStorage.getItem('fp2_viagens');return s?JSON.parse(s):JSON.parse(JSON.stringify(DEF_VIAGENS));}catch(e){return JSON.parse(JSON.stringify(DEF_VIAGENS));}}
-function sViagens(){lset('fp2_viagens',JSON.stringify(viagens));}
+function sViagens(){lset('fp2_viagens',JSON.stringify(viagens)); try{pushFurgaoMetrics();}catch(e){}}
 
 // ── CUSTO POR KM ─────────────────────────────────────────
 function calcMeses(){
@@ -617,6 +617,38 @@ function calcCustoTotal(){
 
 // Alias para compatibilidade
 function calcCustoEstimado(){ return calcCustoTotal(); }
+
+// ── MÉTRICAS DA FROTA → CerradoPRO (fonte única, TASK-035) ──────────────
+// FurgãoPRO é o ÚNICO lugar que calcula custo de frota. Deriva de calcCustoTotal()
+// e publica em Firestore furgao_metrics/current. O CerradoPRO lê essas métricas
+// para precificar a frota própria, sem constantes fixas duplicadas.
+function _furgaoMetrics(){
+  var t=calcCustoTotal();
+  return {
+    totalCostKm:      +(t.total||0),      // custo cheio/km (fixo rateado + variável)
+    variableCostKm:   +(t.varKm||0),      // só o que varia com o km
+    fixedMonthlyCost: +(t.fixoMensal||0), // custo fixo mensal do veículo
+    suggestedPriceKm: +(t.preco||0),      // preço sugerido/km (margem+imposto)
+    updatedAt: Date.now()
+  };
+}
+// Publica só quando algum valor muda (evita gravações redundantes no Firestore).
+function pushFurgaoMetrics(){
+  var m; try{ m=_furgaoMetrics(); }catch(e){ return; }
+  var prev=null; try{ prev=JSON.parse(localStorage.getItem('fp2_metrics')||'null'); }catch(e){}
+  var mudou = !prev || ['totalCostKm','variableCostKm','fixedMonthlyCost','suggestedPriceKm'].some(function(k){
+    return Math.abs((+prev[k]||0)-(+m[k]||0)) > 0.0001;
+  });
+  try{ localStorage.setItem('fp2_metrics', JSON.stringify(m)); }catch(e){}
+  if(!mudou) return;
+  try{
+    if(typeof firebase!=='undefined' && firebase.firestore && firebase.auth && firebase.auth().currentUser){
+      var by=''; try{ by=firebase.auth().currentUser.email||''; }catch(e){}
+      firebase.firestore().collection('furgao_metrics').doc('current')
+        .set({value:m, ts:Date.now(), by:by}, {merge:true}).catch(function(){});
+    }
+  }catch(e){}
+}
 
 // ── DASHBOARD ─────────────────────────────────────────────
 function renderDash(){
@@ -1365,9 +1397,14 @@ if(window.CloudSync){
       nextVId=Math.max(0,...viagens.map(function(v){return v.id||0;}))+1;
       nextCId=Math.max(0,...clientes.map(function(c){return c.id||0;}))+1;
       renderDash(); renderRegistros(); renderClientes();
+      try{pushFurgaoMetrics();}catch(e){} // custos podem ter mudado no sync → republica p/ CerradoPRO
     },
     onLogout:function(){ try{closeModal('cfg-modal');}catch(e){} }
   });
+}
+// Publica as métricas da frota assim que o usuário loga (fonte única p/ CerradoPRO, TASK-035).
+if(typeof firebase!=='undefined' && firebase.auth){
+  firebase.auth().onAuthStateChanged(function(u){ if(u){ try{pushFurgaoMetrics();}catch(e){} } });
 }
 try{checkBackupLembrete();}catch(e){}
 </script>
