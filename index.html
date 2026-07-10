@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- deploy v81 -->
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -1510,16 +1511,32 @@ function renderResultado(r){
     (ih?'<div class="rbox-light"><div class="card-head" style="margin-bottom:12px"><div class="card-icon"><i data-lucide="recycle"></i></div><div class="card-lbl">Destinação</div></div>'+ih+'</div>':'')+
     '<div class="rbox-light"><div class="card-head" style="margin-bottom:12px"><div class="card-icon"><i data-lucide="wallet"></i></div><div class="card-lbl">Resumo</div></div><div class="rrow"><div class="rl" style="font-weight:700;color:var(--text)">Total da nota</div><div class="rv" style="font-size:18px;color:var(--accent);font-weight:700">'+brl(r.tot)+'</div></div><div class="rrow"><div class="rl">Imposto ('+cfg.imposto+'%)</div><div class="rv neg">− '+brl(r.imp)+'</div></div>'+(r.ped>0?'<div class="rrow"><div class="rl">Pedágio</div><div class="rv neg">− '+brl(r.ped)+'</div></div>':'')+(r.cmot&&r.cmot.custoTotal>0?'<div class="rrow"><div class="rl">Custo motorista (viagem)</div><div class="rv neg">− '+brl(r.cmot.custoTotal)+'</div></div>':'')+'<div class="rrow"><div class="rl">Custo total</div><div class="rv neg">− '+brl(r.ct)+'</div></div></div>'+
     analiseNegHTML(r)+
+    furgaoMetricsWarnHTML(r)+
     pisoMarginalHTML(r)+
     desembolsoMotoristaHTML(r)+
     '<div class="res-actions"><button class="btn btn-primary" onclick="gerarProposta()"><i data-lucide="file-text"></i> Gerar proposta</button><button class="btn res-btn-sec" onclick="salvarHist()"><i data-lucide="save"></i> Salvar</button></div>';
 }
 
+// Aviso quando as métricas do furgão não estão frescas (frota própria). Nunca cai
+// no valor antigo em silêncio: usa cache com aviso, ou avisa que está indisponível.
+function furgaoMetricsWarnHTML(r){
+  if(!r||!r.proprio)return '';
+  if(r.furgaoMetricsSnap)return ''; // orçamento salvo: número congelado no snapshot, sem aviso
+  var wrap=function(txt){return '<div class="rbox-light" style="border-color:#e0b000;background:#fbf6e3"><div style="font-size:12px;color:#8a6d00;line-height:1.45">⚠️ '+txt+'</div></div>';};
+  var m=getFurgaoMetrics();
+  if(!m) return wrap('Métricas do furgão indisponíveis (offline ou ainda não sincronizadas). Usando a referência padrão — confira os custos no FurgãoPRO.');
+  var dias=Math.floor((Date.now()-(+m.updatedAt||0))/86400000);
+  if(dias>=15) return wrap('Métricas do furgão desatualizadas há '+dias+' dias. Atualize os custos no FurgãoPRO para preços corretos.');
+  return '';
+}
 function pisoMarginalHTML(r){
   if(!r||!r.proprio)return '';
   if(!window.DecisionEngine||!DecisionEngine.calcularPrecoMinimo)return '';
   var km=Number(r.km)||0; if(!km)return '';
-  var custoVarKm=(DecisionEngine.DEFAULTS&&DecisionEngine.DEFAULTS.furgao)?DecisionEngine.DEFAULTS.furgao.custoVariavelKm:1.39;
+  // Custo variável do furgão: métricas ao vivo do FurgãoPRO (ou snapshot do orçamento salvo);
+  // constante do DecisionEngine só como último recurso (offline/sem sync).
+  var _fm=(r&&r.furgaoMetricsSnap)?r.furgaoMetricsSnap:getFurgaoMetrics();
+  var custoVarKm=(_fm&&+_fm.variableCostKm)?+_fm.variableCostKm:((DecisionEngine.DEFAULTS&&DecisionEngine.DEFAULTS.furgao)?DecisionEngine.DEFAULTS.furgao.custoVariavelKm:1.39);
   var ped=Number(r.ped)||0;
   var cmotCusto=(r.cmot&&r.cmot.custoTotal)||0;
   var p;try{p=DecisionEngine.calcularPrecoMinimo({custoTotal:km*custoVarKm+ped+cmotCusto,km:km,imposto:cfg.imposto,margemAlvo:cfg.margemMin,precoProposto:r.tot,modo:'marginal'});}catch(e){return '';}
@@ -1611,7 +1628,7 @@ function _preencherForm(x){
 var FUNIL={enviado:{l:'Enviado',c:'#c87020'},negociacao:{l:'Em negociação',c:'#2563eb'},fechado:{l:'Fechado',c:'#2a7a40'},perdido:{l:'Perdido',c:'#b03020'}};
 function funilOpts(cur){return Object.keys(FUNIL).map(function(k){return '<option value="'+k+'"'+(k===cur?' selected':'')+'>'+FUNIL[k].l+'</option>';}).join('');}
 function setStatusHist(id,val){try{var h=JSON.parse(localStorage.getItem('rpro_hist')||'[]');h=h.map(function(i){return i.id===id?Object.assign({},i,{status:val}):i;});lset('rpro_hist',JSON.stringify(h));renderHist();}catch(e){}}
-function salvarHist(){var r=ultimoCalculo;if(!r)return;try{salvarClienteDoOrcamento(r.cli);}catch(e){}try{var h=JSON.parse(localStorage.getItem('rpro_hist')||'[]');if(editandoId&&h.some(function(i){return i.id===editandoId;})){h=h.map(function(i){return i.id===editandoId?Object.assign({},r,{id:editandoId,status:i.status||'enviado'}):i;});lset('rpro_hist',JSON.stringify(h));toast('✏️ Orçamento atualizado');}else{h.unshift(Object.assign({},r,{id:Date.now(),status:'enviado'}));if(h.length>50)h=h.slice(0,50);lset('rpro_hist',JSON.stringify(h));toast('💾 Salvo!');}editandoId=null;renderHist();}catch(e){}}
+function salvarHist(){var r=ultimoCalculo;if(!r)return;try{salvarClienteDoOrcamento(r.cli);}catch(e){}try{if(r.proprio&&!r.furgaoMetricsSnap){var _s=getFurgaoMetrics();if(_s)r.furgaoMetricsSnap=_s;}}catch(e){}try{var h=JSON.parse(localStorage.getItem('rpro_hist')||'[]');if(editandoId&&h.some(function(i){return i.id===editandoId;})){h=h.map(function(i){return i.id===editandoId?Object.assign({},r,{id:editandoId,status:i.status||'enviado'}):i;});lset('rpro_hist',JSON.stringify(h));toast('✏️ Orçamento atualizado');}else{h.unshift(Object.assign({},r,{id:Date.now(),status:'enviado'}));if(h.length>50)h=h.slice(0,50);lset('rpro_hist',JSON.stringify(h));toast('💾 Salvo!');}editandoId=null;renderHist();}catch(e){}}
 
 var _histFiltro='todas';
 function setHistFiltro(k){_histFiltro=k;renderHist();}
@@ -2589,7 +2606,8 @@ function _avaliarContratoUI(c){
 }
 function renderContratos(){
   var arr=lContratos(),list=g('ct-list');if(!list)return;
-  var fixo=(DecisionEngine.DEFAULTS&&DecisionEngine.DEFAULTS.furgao)?DecisionEngine.DEFAULTS.furgao.fixoMes:10214;
+  var _fmC=getFurgaoMetrics();
+  var fixo=(_fmC&&+_fmC.fixedMonthlyCost)?+_fmC.fixedMonthlyCost:((DecisionEngine.DEFAULTS&&DecisionEngine.DEFAULTS.furgao)?DecisionEngine.DEFAULTS.furgao.fixoMes:10214);
   var receita=0,ativos=0,contribTot=0,nReaj=0;
   if(!arr.length){
     list.innerHTML='<div class="empty"><div class="empty-ico">🔁</div><div class="empty-t">Nenhum contrato</div><div class="empty-s">Cadastre contratos recorrentes para acompanhar a receita garantida e os reajustes.</div></div>';
@@ -2727,6 +2745,9 @@ function orcVeicChange(){
       if(cap){var c=[];if(v.capacidadeT)c.push(fmt(v.capacidadeT)+' t');if(v.capacidadeM3)c.push(fmt(v.capacidadeM3)+' m³');cap.textContent=c.length?('Capacidade: '+c.join(' | ')+(v.custoKm?(' · ref. '+brl(v.custoKm)+'/km'):'')):'';}
     }
   }else if(cap){cap.textContent='';}
+  // Frota própria: o custo cheio/km vem do FurgãoPRO (fonte única, TASK-035), sobrepondo
+  // o R$/km do veículo. Campo segue editável para ajuste pontual do orçamento.
+  if(p&&p.proprio){ var _fm=getFurgaoMetrics(); if(_fm&&+_fm.totalCostKm&&custoft) custoft.value=(+_fm.totalCostKm).toFixed(2); }
   calcular();
 }
 function orcDestinadorChange(){ renderRes(); calcular(); }
@@ -2806,6 +2827,23 @@ var DOC_COL='documentos', _docUnsub=null, _docsCache=[];
 function _fb(){return (typeof firebase!=='undefined')?firebase:null;}
 function _fbUser(){try{return firebase.auth().currentUser;}catch(e){return null;}}
 function lDocumentos(){var a=[];try{a=JSON.parse(localStorage.getItem('rpro_documentos')||'[]');}catch(e){}return Array.isArray(a)?a:[];}
+// ── MÉTRICAS DA FROTA (fonte única = FurgãoPRO, TASK-035) ──────────────
+// Lê furgao_metrics/current e cacheia local. É consumido no lugar das constantes
+// fixas do furgão (custo cheio/variável/fixo). Orçamentos salvos guardam um
+// snapshot próprio (furgaoMetricsSnap), então não mudam quando as métricas mudam.
+var _furgUnsub=null;
+function getFurgaoMetrics(){ try{var m=JSON.parse(localStorage.getItem('rpro_furgao_metrics')||'null'); return (m&&+m.totalCostKm)?m:null;}catch(e){return null;} }
+function iniciarFurgaoMetrics(){
+  var fb=_fb(); if(!fb||!fb.firestore||!_fbUser()) return;
+  pararFurgaoMetrics();
+  _furgUnsub=fb.firestore().collection('furgao_metrics').doc('current').onSnapshot(function(doc){
+    var m=(doc.exists?(doc.data()||{}):{}).value||null;
+    if(m&&+m.totalCostKm){ try{localStorage.setItem('rpro_furgao_metrics',JSON.stringify(m));}catch(e){} }
+    try{renderContratos();}catch(e){} // a cobertura do custo fixo depende das métricas
+  },function(){});
+}
+function pararFurgaoMetrics(){ if(_furgUnsub){try{_furgUnsub();}catch(e){} _furgUnsub=null;} }
+
 function iniciarDocumentos(){
   var fb=_fb(); if(!fb||!fb.firestore||!_fbUser()) return;
   pararDocumentos();
@@ -2950,7 +2988,11 @@ function comparativoParceirosHTML(r){
   var km=Number(r.km)||0;if(!km)return '';
   var pesoKg=(r.itens||[]).reduce(function(s,it){return s+(Number(it.peso)||0);},0);
   var lista=parceiros.map(function(p){return {nome:p.nome,custoKm:Number(p.custoKm)||0,capacidadeKg:Number(p.capacidadeKg)||0};});
-  var res;try{res=DecisionEngine.escolherMelhorParceiro({km:km,pesoKg:pesoKg>0?pesoKg:null,parceiros:lista,incluirFurgao:true});}catch(e){return '';}
+  // Furgão próprio: custo cheio/km vem das métricas ao vivo do FurgãoPRO (fonte única);
+  // sem métricas, cai na constante interna do DecisionEngine via incluirFurgao.
+  var _fmP=getFurgaoMetrics();
+  if(_fmP&&+_fmP.totalCostKm){ lista.push({nome:'Furgão (próprio)',custoKm:+_fmP.totalCostKm,capacidadeKg:1500}); }
+  var res;try{res=DecisionEngine.escolherMelhorParceiro({km:km,pesoKg:pesoKg>0?pesoKg:null,parceiros:lista,incluirFurgao:!(_fmP&&+_fmP.totalCostKm)});}catch(e){return '';}
   if(!res||!res.ranking||!res.ranking.length)return '';
   var linhas=res.ranking.map(function(x){
     var rec=res.recomendado&&res.recomendado.nome===x.nome;
@@ -3025,6 +3067,7 @@ function calcTransbordo(){
     capCacambaM3:pf('tb-cap-m3'),capCacambaKg:pf('tb-cap-kg'),
     mobilizacao:pf('tb-mob'),locacaoValor:pf('tb-loc-valor'),locacaoQtd:pf('tb-loc-qtd'),
     custoRollOnKm:pf('tb-rollkm')};
+  var _fmT=getFurgaoMetrics(); if(_fmT&&+_fmT.totalCostKm)p.custoVeicKm=+_fmT.totalCostKm; // custo cheio/km do furgão ao vivo
   var r=DecisionEngine.calcularCapacidadeTransbordo(p);
   cfg.transbordo={rollOnKm:p.custoRollOnKm||10,cacambaM3:p.capCacambaM3||0,cacambaKg:p.capCacambaKg||0};
   try{sCfg(cfg);}catch(e){}
@@ -3544,7 +3587,7 @@ if(window.CloudSync){
 }
 // TASK-024: sincronização estruturada das coletas (coleção própria, fora do blob)
 if(typeof firebase!=='undefined'&&firebase.auth){
-  firebase.auth().onAuthStateChanged(function(user){ if(user){iniciarColetasEstruturadas();iniciarDocumentos();iniciarOS();} else {pararColetasEstruturadas();pararDocumentos();pararOS();} });
+  firebase.auth().onAuthStateChanged(function(user){ if(user){iniciarColetasEstruturadas();iniciarDocumentos();iniciarOS();iniciarFurgaoMetrics();} else {pararColetasEstruturadas();pararDocumentos();pararOS();pararFurgaoMetrics();} });
 }
 try{checkBackupLembrete();}catch(e){}
 // Ícones Lucide: renderiza os existentes e observa o DOM para converter os injetados dinamicamente.
