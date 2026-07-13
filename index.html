@@ -1238,6 +1238,28 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
   </div>
 </div>
 
+<div class="overlay" id="fviagem-modal" onclick="if(event.target===this)fecharFViagem()">
+  <div class="modal">
+    <div class="modal-head"><div class="modal-title">🚐 Lançar viagem no FurgãoPRO</div><button class="modal-close-btn" onclick="fecharFViagem()">×</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="fv-coleta-id">
+      <div style="font-size:12px;color:var(--text3);margin-bottom:10px;line-height:1.5">Esta coleta é da <b>frota própria</b>. Confirme os dados para lançar a viagem no FurgãoPRO (entra no custo/rentabilidade do furgão). Deixe como está se preferir lançar depois.</div>
+      <div class="field"><label class="flabel">Cliente</label><input class="inp" type="text" id="fv-cliente" readonly></div>
+      <div class="g2">
+        <div class="field"><label class="flabel">Data</label><input class="inp inp-mono" type="date" id="fv-data"></div>
+        <div class="field"><label class="flabel">Km ida+volta</label><input class="inp inp-mono" type="number" id="fv-km" placeholder="0" inputmode="decimal"></div>
+      </div>
+      <div class="g2">
+        <div class="field"><label class="flabel">Faturamento (R$)</label><input class="inp inp-mono" type="number" id="fv-fat" placeholder="0" inputmode="decimal"></div>
+        <div class="field"><label class="flabel">Custo desembolsado (opc.)</label><input class="inp inp-mono" type="number" id="fv-custo" placeholder="0" inputmode="decimal"></div>
+      </div>
+      <button class="btn btn-primary" id="fv-btn" onclick="lancarFViagem()">🚐 Lançar no furgão</button>
+      <div style="height:8px"></div>
+      <button class="btn btn-ghost btn-sm" onclick="fecharFViagem()" style="width:auto">Agora não</button>
+    </div>
+  </div>
+</div>
+
 <div class="overlay" id="rota-modal" onclick="if(event.target===this)fecharRota()">
   <div class="modal">
     <div class="modal-handle-wrap"><div class="modal-handle"></div></div>
@@ -3255,7 +3277,7 @@ function cardColeta(c){
     '<button type="button" class="col-state-btn col-state-exec'+(t==='executada'?' on':'')+'" onclick="setColetaEstado('+c.id+',\'executada\',event)">✓ Executada</button>'+
   '</div></div>';
   return '<div class="col-card'+cls+'" onclick="abrirColeta('+c.id+')">'+
-    '<div class="col-top"><div><div class="col-ger">'+(c.gerador||'Sem nome')+(c.recorrenciaId?' <span title="Recorrente" style="font-size:11px;opacity:.7">🔁</span>':'')+'</div><div class="col-mtr">MTR '+(c.mtr||'—')+'</div></div>'+badge+'</div>'+
+    '<div class="col-top"><div><div class="col-ger">'+(c.gerador||'Sem nome')+(c.recorrenciaId?' <span title="Recorrente" style="font-size:11px;opacity:.7">🔁</span>':'')+(c.furgaoViagemId?' <span title="Viagem lançada no furgão" style="font-size:11px;opacity:.7">🚐</span>':'')+'</div><div class="col-mtr">MTR '+(c.mtr||'—')+'</div></div>'+badge+'</div>'+
     (tv?'<div class="col-row">🚛 '+tv+'</div>':'')+
     (c.destinador?'<div class="col-row">🏭 '+c.destinador+'</div>':'')+
     (c.residuo?'<div class="col-row">♻️ '+c.residuo+'</div>':'')+
@@ -3271,6 +3293,51 @@ function setColetaEstado(id,estado,ev){
   arr[i].dataExecucao=(estado==='executada')?(arr[i].dataExecucao||new Date().toISOString().slice(0,10)):'';
   sColetas(arr); renderColetas();
   toast(estado==='executada'?'✅ Executada':estado==='vencida'?'⚠️ Vencida':'↩️ A fazer');
+  // Fase 2: coleta de frota própria executada → oferece lançar a viagem no FurgãoPRO (uma vez).
+  if(estado==='executada'){ var c=arr[i]; if(_coletaEhFurgao(c)&&!c.furgaoViagemId){ try{abrirFViagem(c.id);}catch(e){} } }
+}
+function _coletaEhFurgao(c){ if(!c||!c.transportador)return false; var k=_normNome(c.transportador),pr=false; lParceiros().forEach(function(p){if(p.proprio&&_normNome(p.nome)===k)pr=true;}); return pr; }
+function abrirFViagem(coletaId){
+  var c=lColetas().find(function(x){return String(x.id)===String(coletaId);}); if(!c)return;
+  g('fv-coleta-id').value=c.id;
+  g('fv-cliente').value=c.gerador||'(sem cliente)';
+  g('fv-data').value=c.dataExecucao||new Date().toISOString().slice(0,10);
+  var km='',fat=''; // pré-preenche da recorrência, se a coleta veio de uma
+  if(c.recorrenciaId){ try{ var r=lRecorrencias().find(function(x){return x.id===c.recorrenciaId;}); if(r){ km=r.km||''; fat=r.fat||''; } }catch(e){} }
+  g('fv-km').value=km||''; g('fv-fat').value=fat||''; g('fv-custo').value='';
+  g('fviagem-modal').classList.add('open');
+}
+function fecharFViagem(){ g('fviagem-modal').classList.remove('open'); }
+// Escreve a viagem em furgaopro/fp2_viagens via TRANSAÇÃO (atômico, sem perda) e idempotente por coletaId.
+function lancarFViagem(){
+  var cid=g('fv-coleta-id').value, c=lColetas().find(function(x){return String(x.id)===String(cid);});
+  if(!c){toast('⚠️ Coleta não encontrada');return;}
+  var km=+g('fv-km').value||0; if(!km){toast('⚠️ Informe o KM (ida+volta)');return;}
+  var fb=_fb(),u=_fbUser();
+  if(!fb||!fb.firestore||!u){toast('⚠️ Sem conexão — lance a viagem no FurgãoPRO manualmente');return;}
+  var viagem={ id:Date.now(), coletaId:c.id, nome:c.gerador||'', clienteId:null,
+    data:g('fv-data').value||c.dataExecucao||new Date().toISOString().slice(0,10),
+    km:km, fat:(g('fv-fat').value?+g('fv-fat').value:null), custo:(g('fv-custo').value?+g('fv-custo').value:null),
+    obs:'Coleta '+(c.mtr?('MTR '+c.mtr):('#'+c.id))+' (CerradoPRO)' };
+  var btn=g('fv-btn'); if(btn){btn.disabled=true;btn.textContent='Lançando…';}
+  var ref=fb.firestore().collection('furgaopro').doc('fp2_viagens');
+  fb.firestore().runTransaction(function(tx){
+    return tx.get(ref).then(function(doc){
+      var lista=[]; try{ lista=doc.exists?JSON.parse((doc.data()||{}).value||'[]'):[]; }catch(e){ lista=[]; }
+      if(!Array.isArray(lista))lista=[];
+      if(lista.some(function(v){return v&&v.coletaId===c.id;}))return; // já existe → não duplica
+      lista.push(viagem);
+      tx.set(ref,{value:JSON.stringify(lista),ts:Date.now(),by:(u.email||'')});
+    });
+  }).then(function(){
+    var a=lColetas(),j=a.findIndex(function(x){return x.id===c.id;});
+    if(j>=0){ a[j].furgaoViagemId=viagem.id; sColetas(a); }
+    if(btn){btn.disabled=false;btn.textContent='🚐 Lançar no furgão';}
+    fecharFViagem(); renderColetas(); toast('🚐 Viagem lançada no FurgãoPRO');
+  }).catch(function(){
+    if(btn){btn.disabled=false;btn.textContent='🚐 Lançar no furgão';}
+    toast('⚠️ Não foi possível lançar agora. Tente de novo em instantes.');
+  });
 }
 function setVista(v,el){_vista=v;document.querySelectorAll('#vtab-lista,#vtab-mes').forEach(function(t){t.classList.remove('active');});el.classList.add('active');g('ag-lista').style.display=v==='lista'?'block':'none';g('ag-mes').style.display=v==='mes'?'block':'none';renderColetas();}
 // Ordenação da lista: '' = automático (Executadas → mais recentes; demais → mais antigas)
