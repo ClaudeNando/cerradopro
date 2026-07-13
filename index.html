@@ -3502,6 +3502,7 @@ function renderRecorrencias(){
       '<div class="hist-top"><div class="hist-name">'+esca(r.gerador||'(sem gerador)')+(pr?' <span class="badge" style="background:#e7f0fb;color:#1e40af">furgão</span>':'')+'</div><div class="hist-val" style="font-size:13px">'+nd+' coletas</div></div>'+
       '<div class="hist-sub">'+esca(r.transportador||'—')+' · '+freq+'</div>'+
       '<div class="hist-sub">'+brData(r.inicio)+' → '+brData(r.fim)+'</div>'+
+      '<div style="font-size:11px;color:var(--accent);margin-top:5px">✏️ Toque para editar</div>'+
     '</div>';
   }).join('');
 }
@@ -3597,10 +3598,15 @@ function salvarRecorrencia(){
   if(o.tipo==='diasMes'&&!o.dias.length){toast('⚠️ Informe os dias do mês (ex.: 10, 20, 30)');return;}
   if(!o.inicio||!o.fim){toast('⚠️ Informe início e fim do período');return;}
   if(o.fim<o.inicio){toast('⚠️ A data-fim é anterior ao início');return;}
-  var arr=lRecorrencias(), id;
-  if(_recEditId){ var i=arr.findIndex(function(x){return x.id==_recEditId;}); id=+_recEditId; if(i>=0)arr[i]=Object.assign({},arr[i],o,{id:id}); }
+  var arr=lRecorrencias(), id, editando=!!_recEditId;
+  if(!editando){ // evita duplicata acidental (ex.: usar "+ Nova" em vez de editar o card existente)
+    var dup=arr.find(function(x){return o.gerador&&_normNome(x.gerador)===_normNome(o.gerador);});
+    if(dup&&!confirm('Já existe uma recorrência para "'+o.gerador+'".\n\nOK = criar outra separada mesmo assim.\nCancelar = voltar (edite a existente tocando no card da lista).'))return;
+  }
+  if(editando){ var i=arr.findIndex(function(x){return x.id==_recEditId;}); id=+_recEditId; if(i>=0)arr[i]=Object.assign({},arr[i],o,{id:id}); }
   else{ id=Date.now(); o.id=id; arr.push(o); }
   sRecorrencias(arr);
+  if(editando)recRemoverColetas(id); // limpa a agenda futura antiga (preserva as executadas) antes de regenerar
   var rec=arr.find(function(x){return x.id===id;});
   var add=recGerarColetas(rec,true);
   _recEditId=null; _recMostrarLista(); renderRecorrencias(); renderColetas();
