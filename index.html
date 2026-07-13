@@ -699,6 +699,7 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
       <div class="col-tab" id="vtab-lista" onclick="setVista('lista',this)">📋 Lista</div>
       <div class="col-tab active" id="vtab-mes" onclick="setVista('mes',this)">📅 Mês</div>
     </div>
+    <div style="margin-bottom:12px"><button class="btn btn-ghost btn-sm" onclick="abrirRecorrencias()" style="width:auto">🔁 Recorrências</button></div>
 
     <div id="ag-lista" style="display:none">
       <div class="col-tabs">
@@ -1168,6 +1169,57 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
       </div>
       <div style="height:8px"></div>
       <button class="btn btn-outline" id="col-excluir-btn" onclick="excluirColeta()" style="display:none;color:var(--danger);border-color:var(--danger)">🗑 Excluir</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="recorrencias-modal" onclick="if(event.target===this)fecharRecorrencias()">
+  <div class="modal">
+    <div class="modal-head"><div class="modal-title">🔁 Recorrências</div><button class="modal-close-btn" onclick="fecharRecorrencias()">×</button></div>
+    <div class="modal-body">
+      <div id="rec-list-wrap">
+        <div style="font-size:12px;color:var(--text3);margin-bottom:10px;line-height:1.5">Coletas que se repetem (ex.: Argo no último dia útil; Mosaic dias 10/20/30). A agenda se preenche sozinha até a data-fim.</div>
+        <button class="btn btn-primary" onclick="recNova()" style="margin-bottom:12px">+ Nova recorrência</button>
+        <div id="rec-list"></div>
+      </div>
+      <div id="rec-form" style="display:none">
+        <div class="field"><label class="flabel">Gerador (cliente)</label><input class="inp" type="text" id="rec-gerador" placeholder="Ex.: Argo, Mosaic..."></div>
+        <div class="g2">
+          <div class="field"><label class="flabel">Transportador</label>
+            <select class="inp sel" id="rec-transp" onchange="recTranspChange()"></select>
+            <input class="inp" type="text" id="rec-transp-txt" placeholder="Nome do transportador" style="display:none;margin-top:8px" oninput="recProjUpdate()">
+          </div>
+          <div class="field"><label class="flabel">Veículo (opcional)</label><input class="inp" type="text" id="rec-veiculo" placeholder="Furgão, Baú..."></div>
+        </div>
+        <div class="g2">
+          <div class="field"><label class="flabel">Destinador (opcional)</label><input class="inp" type="text" id="rec-destinador" placeholder="Para onde vai"></div>
+          <div class="field"><label class="flabel">Resíduo (opcional)</label><input class="inp" type="text" id="rec-residuo" placeholder="Descrição curta"></div>
+        </div>
+        <div class="field"><label class="flabel">Frequência</label>
+          <select class="inp sel" id="rec-tipo" onchange="recTipoChange()">
+            <option value="diasMes">Dias fixos do mês</option>
+            <option value="ultimoDiaUtil">Último dia útil do mês</option>
+            <option value="semanal">Semanal</option>
+          </select>
+        </div>
+        <div class="field" id="rec-dias-wrap"><label class="flabel">Dias do mês</label><input class="inp inp-mono" type="text" id="rec-dias" placeholder="Ex.: 10, 20, 30" oninput="recProjUpdate()"></div>
+        <div class="field" id="rec-semana-wrap" style="display:none"><label class="flabel">Dia da semana</label>
+          <select class="inp sel" id="rec-diasemana" onchange="recProjUpdate()"><option value="1">Segunda</option><option value="2">Terça</option><option value="3">Quarta</option><option value="4">Quinta</option><option value="5">Sexta</option><option value="6">Sábado</option><option value="0">Domingo</option></select>
+        </div>
+        <div class="g2">
+          <div class="field"><label class="flabel">Início</label><input class="inp inp-mono" type="date" id="rec-inicio" onchange="recProjUpdate()"></div>
+          <div class="field"><label class="flabel">Fim</label><input class="inp inp-mono" type="date" id="rec-fim" onchange="recProjUpdate()"></div>
+        </div>
+        <div class="g2">
+          <div class="field"><label class="flabel">Km ida+volta (furgão)</label><input class="inp inp-mono" type="number" id="rec-km" placeholder="0" oninput="recProjUpdate()"></div>
+          <div class="field"><label class="flabel">Faturamento/coleta (opc.)</label><input class="inp inp-mono" type="number" id="rec-fat" placeholder="0" oninput="recProjUpdate()"></div>
+        </div>
+        <div id="rec-proj" style="font-size:12px;color:var(--text2);background:var(--bg);border:1px solid var(--border2);border-radius:10px;padding:10px;margin-bottom:12px;line-height:1.5"></div>
+        <button class="btn btn-primary" onclick="salvarRecorrencia()">✓ Salvar e agendar</button>
+        <div style="height:8px"></div>
+        <button class="btn btn-ghost btn-sm" onclick="_recMostrarLista()" style="width:auto">← Voltar</button>
+        <button class="btn btn-outline" id="rec-excluir" onclick="excluirRecorrencia()" style="display:none;color:var(--danger);border-color:var(--danger);margin-top:8px">🗑 Excluir recorrência</button>
+      </div>
     </div>
   </div>
 </div>
@@ -3175,7 +3227,7 @@ function cardColeta(c){
     '<button type="button" class="col-state-btn col-state-exec'+(t==='executada'?' on':'')+'" onclick="setColetaEstado('+c.id+',\'executada\',event)">✓ Executada</button>'+
   '</div></div>';
   return '<div class="col-card'+cls+'" onclick="abrirColeta('+c.id+')">'+
-    '<div class="col-top"><div><div class="col-ger">'+(c.gerador||'Sem nome')+'</div><div class="col-mtr">MTR '+(c.mtr||'—')+'</div></div>'+badge+'</div>'+
+    '<div class="col-top"><div><div class="col-ger">'+(c.gerador||'Sem nome')+(c.recorrenciaId?' <span title="Recorrente" style="font-size:11px;opacity:.7">🔁</span>':'')+'</div><div class="col-mtr">MTR '+(c.mtr||'—')+'</div></div>'+badge+'</div>'+
     (tv?'<div class="col-row">🚛 '+tv+'</div>':'')+
     (c.destinador?'<div class="col-row">🏭 '+c.destinador+'</div>':'')+
     (c.residuo?'<div class="col-row">♻️ '+c.residuo+'</div>':'')+
@@ -3371,6 +3423,145 @@ function excluirColeta(){
   if(!confirm('Excluir esta coleta?'))return;
   sColetas(lColetas().filter(function(c){return c.id!=id;}));
   fecharColeta();renderColetas();toast('🗑️ Coleta excluída');
+}
+
+// ════════ RECORRÊNCIAS — agenda automática de coletas (Fase 1) ════════
+function lRecorrencias(){try{return JSON.parse(localStorage.getItem('rpro_recorrencias')||'[]');}catch(e){return [];}}
+function sRecorrencias(a){try{lset('rpro_recorrencias',JSON.stringify(a));}catch(e){}}
+function _recIso(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function _recUltDiaUtil(ano,mes){var d=new Date(ano,mes+1,0);while(d.getDay()===0||d.getDay()===6)d.setDate(d.getDate()-1);return d;}
+// Gera todas as datas (ISO yyyy-mm-dd) da recorrência no período. Dia inexistente (ex.: 30/fev) cai no último dia do mês.
+function recDatas(r){
+  var out=[]; if(!r||!r.inicio||!r.fim)return out;
+  var ini=new Date(r.inicio+'T00:00:00'), fim=new Date(r.fim+'T00:00:00');
+  if(isNaN(ini)||isNaN(fim)||fim<ini)return out;
+  if(r.tipo==='semanal'){
+    var dw=(r.diaSemana==null)?1:+r.diaSemana, d=new Date(ini);
+    while(d<=fim){ if(d.getDay()===dw)out.push(_recIso(new Date(d))); d.setDate(d.getDate()+1); }
+  }else{
+    var cur=new Date(ini.getFullYear(),ini.getMonth(),1), last=new Date(fim.getFullYear(),fim.getMonth(),1);
+    while(cur<=last){
+      var ano=cur.getFullYear(), mes=cur.getMonth();
+      if(r.tipo==='ultimoDiaUtil'){ var du=_recUltDiaUtil(ano,mes); if(du>=ini&&du<=fim)out.push(_recIso(du)); }
+      else{ (r.dias||[]).forEach(function(dd){ var ult=new Date(ano,mes+1,0).getDate(); var day=Math.min(Math.max(1,+dd),ult); var dt=new Date(ano,mes,day); if(dt>=ini&&dt<=fim)out.push(_recIso(dt)); }); }
+      cur.setMonth(cur.getMonth()+1);
+    }
+  }
+  return out.sort();
+}
+// Gera as coletas (A fazer) que ainda não existem para a recorrência (idempotente — não duplica).
+function recGerarColetas(r,silent){
+  var datas=recDatas(r), arr=lColetas(), have={};
+  arr.forEach(function(c){ if(c.recorrenciaId===r.id&&c.dataColeta)have[c.dataColeta]=1; });
+  var base=Date.now(), add=0;
+  datas.forEach(function(dt,i){
+    if(have[dt])return;
+    arr.push({id:base+i,recorrenciaId:r.id,gerador:r.gerador||'',transportador:r.transportador||'',veiculo:r.veiculo||'',destinador:r.destinador||'',residuo:r.residuo||'',mtr:'',dataColeta:dt,estado:'afazer',executada:false,dataExecucao:''});
+    add++;
+  });
+  if(add>0)sColetas(arr);
+  if(!silent)toast(add>0?('📅 '+add+' coleta(s) agendada(s)'):'Agenda já em dia');
+  return add;
+}
+// Remove só as coletas NÃO executadas da recorrência (preserva as já feitas).
+function recRemoverColetas(recId){ sColetas(lColetas().filter(function(c){return !(c.recorrenciaId===recId&&statusColeta(c).tipo!=='executada');})); }
+function _recProprio(nome){ var k=_normNome(nome||''),pr=false; lParceiros().forEach(function(p){if(p.proprio&&_normNome(p.nome)===k)pr=true;}); return pr; }
+// Projeção mensal (furgão usa o custo cheio/km ao vivo do FurgãoPRO — TASK-035).
+function recProjMensal(r){
+  var datas=recDatas(r); if(!datas.length)return null;
+  var meses={}; datas.forEach(function(d){meses[d.slice(0,7)]=1;});
+  var nMes=Object.keys(meses).length||1, porMes=datas.length/nMes;
+  var km=+r.km||0, fat=+r.fat||0, m=getFurgaoMetrics();
+  var custoKm=(m&&+m.totalCostKm)?+m.totalCostKm:6.46, proprio=_recProprio(r.transportador);
+  return {total:datas.length,porMes:porMes,kmMes:km*porMes,custoMes:proprio?km*porMes*custoKm:0,fatMes:fat*porMes,proprio:proprio,custoKm:custoKm};
+}
+
+var _recEditId=null;
+function abrirRecorrencias(){ g('recorrencias-modal').classList.add('open'); _recMostrarLista(); renderRecorrencias(); }
+function fecharRecorrencias(){ g('recorrencias-modal').classList.remove('open'); }
+function _recMostrarLista(){ g('rec-form').style.display='none'; g('rec-list-wrap').style.display='block'; }
+function _recMostrarForm(){ g('rec-form').style.display='block'; g('rec-list-wrap').style.display='none'; }
+function renderRecorrencias(){
+  var el=g('rec-list'); if(!el)return; var arr=lRecorrencias();
+  if(!arr.length){ el.innerHTML='<div class="empty" style="padding:16px 0"><div class="empty-ico">🔁</div><div class="empty-t">Nenhuma recorrência</div><div class="empty-s">Cadastre uma coleta que se repete e a agenda se preenche sozinha.</div></div>'; return; }
+  var dias=['dom','seg','ter','qua','qui','sex','sáb'];
+  el.innerHTML=arr.slice().sort(function(a,b){return (a.gerador||'').localeCompare(b.gerador||'');}).map(function(r){
+    var pr=_recProprio(r.transportador);
+    var freq=r.tipo==='ultimoDiaUtil'?'último dia útil do mês':r.tipo==='semanal'?('toda '+dias[r.diaSemana||1]):('dias '+(r.dias||[]).join(', ')+' do mês');
+    var nd=recDatas(r).length;
+    return '<div class="hist-card" onclick="recEditar('+r.id+')">'+
+      '<div class="hist-top"><div class="hist-name">'+esca(r.gerador||'(sem gerador)')+(pr?' <span class="badge" style="background:#e7f0fb;color:#1e40af">furgão</span>':'')+'</div><div class="hist-val" style="font-size:13px">'+nd+' coletas</div></div>'+
+      '<div class="hist-sub">'+esca(r.transportador||'—')+' · '+freq+'</div>'+
+      '<div class="hist-sub">'+brData(r.inicio)+' → '+brData(r.fim)+'</div>'+
+    '</div>';
+  }).join('');
+}
+function _recFillTransp(cur){
+  var s=g('rec-transp'); if(!s)return;
+  var arr=lParceiros().filter(function(p){return p.transportador;}).sort(function(a,b){return (a.nome||'').localeCompare(b.nome||'');});
+  s.innerHTML='<option value="">— selecionar —</option>'+arr.map(function(p){return '<option value="'+esca(p.nome)+'">'+esca(p.nome)+(p.proprio?' (frota própria)':'')+'</option>';}).join('')+'<option value="__m__">✏️ Outro (digitar)</option>';
+  if(cur){ if(arr.some(function(p){return p.nome===cur;}))s.value=cur; else s.value='__m__'; } else s.value='';
+  recTranspChange();
+}
+function recTranspChange(){ var man=g('rec-transp').value==='__m__'; g('rec-transp-txt').style.display=man?'block':'none'; recProjUpdate(); }
+function recTipoChange(){ var t=g('rec-tipo').value; g('rec-dias-wrap').style.display=(t==='diasMes')?'block':'none'; g('rec-semana-wrap').style.display=(t==='semanal')?'block':'none'; recProjUpdate(); }
+function recNova(){ _recEditId=null; _recFillForm(null); _recMostrarForm(); }
+function recEditar(id){ var r=lRecorrencias().find(function(x){return x.id==id;}); if(!r)return; _recEditId=r.id; _recFillForm(r); _recMostrarForm(); }
+function _recFillForm(r){
+  g('rec-gerador').value=r?r.gerador||'':'';
+  _recFillTransp(r?r.transportador:'');
+  g('rec-transp-txt').value=(r&&g('rec-transp').value==='__m__')?(r.transportador||''):'';
+  g('rec-veiculo').value=r?r.veiculo||'':'';
+  g('rec-destinador').value=r?r.destinador||'':'';
+  g('rec-residuo').value=r?r.residuo||'':'';
+  g('rec-tipo').value=r?r.tipo||'diasMes':'diasMes';
+  g('rec-dias').value=(r&&r.dias)?r.dias.join(', '):'';
+  g('rec-diasemana').value=(r&&r.diaSemana!=null)?r.diaSemana:'1';
+  g('rec-inicio').value=r?r.inicio||'':new Date().toISOString().slice(0,10);
+  g('rec-fim').value=r?r.fim||'':'2026-12-31';
+  g('rec-km').value=(r&&r.km)?r.km:'';
+  g('rec-fat').value=(r&&r.fat)?r.fat:'';
+  g('rec-excluir').style.display=r?'block':'none';
+  recTipoChange();
+}
+function _recFormObj(){
+  var transp=g('rec-transp').value; if(transp==='__m__')transp=(g('rec-transp-txt').value||'').trim();
+  var dias=(g('rec-dias').value||'').split(/[,\s]+/).map(function(x){return parseInt(x,10);}).filter(function(x){return x>=1&&x<=31;});
+  return {gerador:(g('rec-gerador').value||'').trim(),transportador:transp,veiculo:(g('rec-veiculo').value||'').trim(),destinador:(g('rec-destinador').value||'').trim(),residuo:(g('rec-residuo').value||'').trim(),tipo:g('rec-tipo').value,dias:dias,diaSemana:+g('rec-diasemana').value,inicio:g('rec-inicio').value,fim:g('rec-fim').value,km:+g('rec-km').value||0,fat:+g('rec-fat').value||0};
+}
+function recProjUpdate(){
+  var box=g('rec-proj'); if(!box)return;
+  var r=_recFormObj(); r.id=_recEditId||'_tmp';
+  var p=recProjMensal(r);
+  if(!p){ box.innerHTML='<span style="color:var(--text3)">Defina a regra e o período para ver a projeção.</span>'; return; }
+  var s='<b>'+p.total+'</b> coletas no período · ~<b>'+p.porMes.toFixed(1).replace('.',',')+'</b>/mês';
+  if(p.proprio&&p.kmMes>0)s+='<br>Furgão: ~'+Math.round(p.kmMes)+' km/mês · custo ~'+brl(p.custoMes)+'/mês (a '+brl(p.custoKm)+'/km)';
+  if(p.fatMes>0)s+='<br>Faturamento previsto: ~'+brl(p.fatMes)+'/mês';
+  box.innerHTML=s;
+}
+function salvarRecorrencia(){
+  var o=_recFormObj();
+  if(!o.gerador){toast('⚠️ Informe o gerador/cliente');return;}
+  if(o.tipo==='diasMes'&&!o.dias.length){toast('⚠️ Informe os dias do mês (ex.: 10, 20, 30)');return;}
+  if(!o.inicio||!o.fim){toast('⚠️ Informe início e fim do período');return;}
+  if(o.fim<o.inicio){toast('⚠️ A data-fim é anterior ao início');return;}
+  var arr=lRecorrencias(), id;
+  if(_recEditId){ var i=arr.findIndex(function(x){return x.id==_recEditId;}); id=+_recEditId; if(i>=0)arr[i]=Object.assign({},arr[i],o,{id:id}); }
+  else{ id=Date.now(); o.id=id; arr.push(o); }
+  sRecorrencias(arr);
+  var rec=arr.find(function(x){return x.id===id;});
+  var add=recGerarColetas(rec,true);
+  _recEditId=null; _recMostrarLista(); renderRecorrencias(); renderColetas();
+  toast('✅ Recorrência salva — '+add+' coleta(s) agendada(s)');
+}
+function excluirRecorrencia(){
+  if(!_recEditId)return;
+  var rm=confirm('Excluir a recorrência.\n\nOK = também remover as coletas futuras (não executadas) dela.\nCancelar = manter as coletas já agendadas.');
+  var id=+_recEditId;
+  sRecorrencias(lRecorrencias().filter(function(x){return x.id!==id;}));
+  if(rm)recRemoverColetas(id);
+  _recEditId=null; _recMostrarLista(); renderRecorrencias(); renderColetas();
+  toast('🗑️ Recorrência excluída');
 }
 
 // ════════ TASK-030 — Portal do Motorista (coleção os_tokens) ════════
@@ -3587,10 +3778,11 @@ if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch
 if(window.CloudSync){
   CloudSync.initSync({
     collection:'residuospro',
-    syncKeys:['rpro_cfg','rpro_hist','rpro_contratos','rpro_parceiros','rpro_clientes'],
+    syncKeys:['rpro_cfg','rpro_hist','rpro_contratos','rpro_parceiros','rpro_clientes','rpro_recorrencias'],
     onRemote:function(k){
       // Re-renderiza só o que a chave alterada afeta (evita trocar um card sob o clique)
       if(k==='rpro_cfg'){ cfg=lCfg(); renderHist(); renderContratos(); renderParceiros(); return; }
+      if(k==='rpro_recorrencias'){ try{if(g('recorrencias-modal').classList.contains('open'))renderRecorrencias();}catch(e){} return; }
       if(k==='rpro_hist'){ renderHist(); return; }
       if(k==='rpro_contratos'){ renderContratos(); return; }
       if(k==='rpro_parceiros'){ renderParceiros(); return; }
