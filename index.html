@@ -145,7 +145,9 @@ textarea.inp{resize:none;min-height:80px;line-height:1.6}
 .b-warn{background:rgba(200,112,32,0.14);color:#8a4800;border:1px solid rgba(200,112,32,0.25)}
 .b-danger{background:rgba(176,48,32,0.13);color:#9a2414;border:1px solid rgba(176,48,32,0.28)}
 .col-sum{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
-.col-sum-i{background:var(--card);border:1px solid var(--border2);border-radius:14px;padding:13px 8px;text-align:center;box-shadow:var(--shadow-sm)}
+.col-sum-i{background:var(--card);border:1px solid var(--border2);border-radius:14px;padding:13px 8px;text-align:center;box-shadow:var(--shadow-sm);cursor:pointer;transition:transform .12s,border-color .12s}
+.col-sum-i:hover{border-color:var(--accent)}
+.col-sum-i:active{transform:scale(0.97)}
 .col-sum-venc .col-sum-n{color:var(--danger)}
 .col-sum-n{font-size:24px;font-weight:800;font-family:'DM Mono',monospace;line-height:1}
 .col-sum-l{font-size:10px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:var(--text3);margin-top:5px}
@@ -185,6 +187,7 @@ textarea.inp{resize:none;min-height:80px;line-height:1.6}
 .ag-ev.ev-vencida{background:#FEF2F2;border-color:#FECACA;color:#991B1B}
 .ag-ev.ev-recebido{background:#F0FDF4;border-color:#BBF7D0;color:#166534}
 .ag-ev.ev-propria{background:#e7f0fb;border-color:#b8d4f0;color:#1e40af}
+.ag-ev.ev-propria-exec{background:#556b2f;border-color:#44561f;color:#fff;font-weight:600}
 .ag-cell.wknd{background:#8f959d;border-color:#7e848c}
 .ag-cell.wknd .ag-daynum{color:#f3f4f6}
 .ag-grid-head span:first-child,.ag-grid-head span:last-child{color:#9a8b74}
@@ -688,9 +691,9 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
       <div style="flex:1"><div class="shdr-title">Coletas</div><div class="shdr-sub">Agenda + execução das coletas</div></div>
     </div>
     <div class="col-sum">
-      <div class="col-sum-i col-sum-exec"><div class="col-sum-n" id="col-n-exec">0</div><div class="col-sum-l">Executadas</div></div>
-      <div class="col-sum-i col-sum-venc"><div class="col-sum-n" id="col-n-venc">0</div><div class="col-sum-l">Vencidas</div></div>
-      <div class="col-sum-i"><div class="col-sum-n" id="col-n-afazer">0</div><div class="col-sum-l">A Fazer</div></div>
+      <div class="col-sum-i col-sum-exec" onclick="coletaSumClick('executada')" title="Ver executadas"><div class="col-sum-n" id="col-n-exec">0</div><div class="col-sum-l">Executadas</div></div>
+      <div class="col-sum-i col-sum-venc" onclick="coletaSumClick('vencida')" title="Ver vencidas"><div class="col-sum-n" id="col-n-venc">0</div><div class="col-sum-l">Vencidas</div></div>
+      <div class="col-sum-i" onclick="coletaSumClick('afazer')" title="Ver a fazer"><div class="col-sum-n" id="col-n-afazer">0</div><div class="col-sum-l">A Fazer</div></div>
     </div>
     <div class="col-tabs" style="margin-bottom:12px">
       <div class="col-tab" id="vtab-lista" onclick="setVista('lista',this)">📋 Lista</div>
@@ -3194,6 +3197,17 @@ function setVista(v,el){_vista=v;document.querySelectorAll('#vtab-lista,#vtab-me
 function _colSortDir(){ if(_colSort)return _colSort; return _filtroColeta==='executada'?'desc':'asc'; }
 function toggleColSort(){ _colSort=(_colSortDir()==='desc')?'asc':'desc'; renderColetas(); }
 function setFiltroColeta(f,el){_filtroColeta=f;el.parentNode.querySelectorAll('.col-tab').forEach(function(t){t.classList.remove('active');});el.classList.add('active');renderColetas();}
+// Card-resumo clicável: abre a Lista já filtrada pelo status clicado.
+function coletaSumClick(f){
+  _vista='lista';
+  document.querySelectorAll('#vtab-lista,#vtab-mes').forEach(function(t){t.classList.remove('active');});
+  var vt=g('vtab-lista'); if(vt)vt.classList.add('active');
+  var al=g('ag-lista'), am=g('ag-mes'); if(al)al.style.display='block'; if(am)am.style.display='none';
+  _filtroColeta=f;
+  if(al)al.querySelectorAll('.col-tabs .col-tab').forEach(function(t){t.classList.remove('active');});
+  var tab=g('ftab-'+f); if(tab)tab.classList.add('active');
+  renderColetas();
+}
 function renderColetas(){
   var arr=lColetas(),nE=0,nV=0,nF=0;
   arr.forEach(function(c){var t=statusColeta(c).tipo;if(t==='executada')nE++;else if(t==='vencida')nV++;else nF++;});
@@ -3234,7 +3248,7 @@ function renderMes(){
     var ds=y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0'), items=byDay[d]||[];
     var dow=new Date(y,m,d).getDay(), wk=(dow===0||dow===6)?' wknd':'';
     var maxShow=items.length>3?2:items.length, evs='';
-    items.slice(0,maxShow).forEach(function(c){var t=statusColeta(c).tipo;var propria=c.transportador&&_prop[_normNome(c.transportador)];var ec=propria?' ev-propria':(t==='vencida'?' ev-vencida':t==='executada'?' ev-recebido':'');var nm=(c.gerador||'Coleta');evs+='<div class="ag-ev'+ec+'" title="'+(''+nm).replace(/"/g,'&quot;')+'">'+nm+'</div>';});
+    items.slice(0,maxShow).forEach(function(c){var t=statusColeta(c).tipo;var propria=c.transportador&&_prop[_normNome(c.transportador)];var ec=propria?(t==='executada'?' ev-propria-exec':' ev-propria'):(t==='vencida'?' ev-vencida':t==='executada'?' ev-recebido':'');var nm=(c.gerador||'Coleta');evs+='<div class="ag-ev'+ec+'" title="'+(''+nm).replace(/"/g,'&quot;')+'">'+nm+'</div>';});
     if(items.length>maxShow)evs+='<div class="ag-more">+ '+(items.length-maxShow)+' coleta'+(items.length-maxShow>1?'s':'')+'</div>';
     html+='<div class="ag-cell'+wk+(ds===tStr?' hoje':'')+(ds===_diaSel?' sel':'')+'" onclick="selDia(\''+ds+'\')"><div class="ag-daynum">'+d+'</div><div class="ag-evs">'+evs+'</div></div>';
   }
