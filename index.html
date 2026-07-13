@@ -1021,7 +1021,10 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
     <div class="modal-body">
       <input type="hidden" id="ct-id">
       <div class="form-grid">
-        <div class="field c12"><label class="flabel">Cliente</label><input class="inp" type="text" id="ct-cliente" placeholder="Nome do cliente"></div>
+        <div class="field c12"><label class="flabel">Cliente</label>
+          <select class="inp sel" id="ct-cliente"></select>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="ctNovoCliente()" style="width:auto;margin-top:8px">+ Novo cliente</button>
+        </div>
         <div class="field c6"><label class="flabel">Valor (R$)</label><input class="inp inp-mono" type="number" id="ct-valor" placeholder="0,00" inputmode="decimal"></div>
         <div class="field c6"><label class="flabel">Periodicidade</label><select class="inp sel" id="ct-period"><option value="mensal">Mensal</option><option value="trimestral">Trimestral</option><option value="semestral">Semestral</option><option value="anual">Anual</option></select></div>
         <div class="field c6"><label class="flabel">Início</label><input class="inp inp-mono" type="date" id="ct-inicio"></div>
@@ -1797,7 +1800,7 @@ function abrirCliente(id){
   g('cl-excluir-btn').style.display=c?'block':'none';
   g('cliente-modal').classList.add('open');
 }
-function fecharCliente(){g('cliente-modal').classList.remove('open');}
+function fecharCliente(){g('cliente-modal').classList.remove('open');g('cliente-modal').style.zIndex='';window._retornoContrato=false;}
 function salvarClienteModal(){
   var nome=(g('cl-nome').value||'').trim(), cnpj=(g('cl-cnpj').value||'').trim();
   if(!nome&&!cnpj){toast('⚠️ Informe ao menos o nome ou o CNPJ');return;}
@@ -1808,7 +1811,9 @@ function salvarClienteModal(){
   }else{
     upsertCliente({nome:nome,cnpj:cnpj,contato:g('cl-contato').value.trim(),telefone:g('cl-telefone').value.trim(),local:g('cl-local').value.trim()});
   }
+  var _ret=window._retornoContrato;
   fecharCliente();renderClientes();try{renderClienteSugestoes();}catch(e){}toast('✅ Cliente salvo');
+  if(_ret){ try{_ctFillClientes(nome);}catch(e){} } // voltou do fluxo de contrato → já seleciona o novo cliente
 }
 function excluirCliente(){
   var id=g('cl-id').value; if(!id)return;
@@ -2703,7 +2708,7 @@ function renderContratos(){
 function abrirContrato(id){
   var arr=lContratos(),c=(typeof id==='number')?arr.find(function(x){return x.id===id;}):null;
   g('ct-id').value=c?c.id:'';g('contrato-titulo').textContent=c?'Editar contrato':'Novo contrato';
-  g('ct-cliente').value=c?c.cliente||'':'';g('ct-valor').value=c?c.valor||'':'';
+  _ctFillClientes(c?c.cliente:'');g('ct-valor').value=c?c.valor||'':'';
   g('ct-period').value=c?c.periodicidade||'mensal':'mensal';g('ct-inicio').value=c?c.inicio||'':'';
   g('ct-duracao').value=c?c.duracao||'':'';g('ct-indice').value=c?c.reajusteIndice||'sem':'sem';
   g('ct-reajuste').value=c?(c.reajustePercent||''):'';g('ct-kmmes').value=c?(c.kmMes||''):'';g('ct-obs').value=c?c.obs||'':'';
@@ -2711,10 +2716,20 @@ function abrirContrato(id){
   g('contrato-modal').classList.add('open');
 }
 function fecharContrato(){g('contrato-modal').classList.remove('open');}
+// Cliente do contrato vem SEMPRE da base de clientes (fonte única). Contrato antigo com
+// cliente fora do cadastro é preservado como opção "(fora do cadastro)" para não perder o dado.
+function _ctFillClientes(cur){
+  var s=g('ct-cliente'); if(!s)return;
+  var cmap=_mapClientesAll(), cnomes=Object.keys(cmap).map(function(k){return cmap[k].nome;}).filter(Boolean).sort(function(a,b){return a.localeCompare(b);});
+  s.innerHTML='<option value="">— selecionar cliente —</option>'+cnomes.map(function(n){return '<option value="'+esca(n)+'">'+esca(n)+'</option>';}).join('');
+  if(cur){ if(cnomes.indexOf(cur)>=0)s.value=cur; else { var o=document.createElement('option'); o.value=cur; o.textContent=cur+' (fora do cadastro)'; s.appendChild(o); s.value=cur; } }
+  else s.value='';
+}
+function ctNovoCliente(){ window._retornoContrato=true; g('cliente-modal').style.zIndex='150'; abrirCliente(); }
 function salvarContrato(){
   var arr=lContratos(),id=g('ct-id').value?Number(g('ct-id').value):null;
   var cliente=(g('ct-cliente').value||'').trim();
-  if(!cliente){toast('⚠️ Informe o cliente');return;}
+  if(!cliente){toast('⚠️ Selecione o cliente (use "+ Novo cliente" se não estiver na lista)');return;}
   var obj={id:id||Date.now(),cliente:cliente,valor:Number(g('ct-valor').value)||0,periodicidade:g('ct-period').value,inicio:g('ct-inicio').value||'',duracao:Number(g('ct-duracao').value)||0,reajusteIndice:g('ct-indice').value,reajustePercent:Number(g('ct-reajuste').value)||0,kmMes:Number(g('ct-kmmes').value)||0,obs:(g('ct-obs').value||'').trim()};
   if(id){arr=arr.map(function(x){return x.id===id?obj:x;});}else{arr.push(obj);}
   sContratos(arr);fecharContrato();renderContratos();toast('✅ Contrato salvo');
