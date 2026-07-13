@@ -1192,10 +1192,16 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
             <select class="inp sel" id="rec-transp" onchange="recTranspChange()"></select>
             <input class="inp" type="text" id="rec-transp-txt" placeholder="Nome do transportador" style="display:none;margin-top:8px" oninput="recProjUpdate()">
           </div>
-          <div class="field"><label class="flabel">Veículo (opcional)</label><input class="inp" type="text" id="rec-veiculo" placeholder="Furgão, Baú..."></div>
+          <div class="field"><label class="flabel">Veículo (opcional)</label>
+            <select class="inp sel" id="rec-veiculo-sel" onchange="recVeicChange()" style="display:none"></select>
+            <input class="inp" type="text" id="rec-veiculo" placeholder="Furgão, Baú..." oninput="recProjUpdate()">
+          </div>
         </div>
         <div class="g2">
-          <div class="field"><label class="flabel">Destinador (opcional)</label><input class="inp" type="text" id="rec-destinador" placeholder="Para onde vai"></div>
+          <div class="field"><label class="flabel">Destinador (opcional)</label>
+            <select class="inp sel" id="rec-destinador-sel" onchange="recDestChange()"></select>
+            <input class="inp" type="text" id="rec-destinador" placeholder="Para onde vai" style="display:none;margin-top:8px" oninput="recProjUpdate()">
+          </div>
           <div class="field"><label class="flabel">Resíduo (opcional)</label><input class="inp" type="text" id="rec-residuo" placeholder="Descrição curta"></div>
         </div>
         <div class="field"><label class="flabel">Frequência</label>
@@ -3506,7 +3512,27 @@ function _recFillTransp(cur){
   if(cur){ if(arr.some(function(p){return p.nome===cur;}))s.value=cur; else s.value='__m__'; } else s.value='';
   recTranspChange();
 }
-function recTranspChange(){ var man=g('rec-transp').value==='__m__'; g('rec-transp-txt').style.display=man?'block':'none'; recProjUpdate(); }
+function recTranspChange(){
+  var v=g('rec-transp').value, man=(v==='__m__');
+  g('rec-transp-txt').style.display=man?'block':'none';
+  var nome=man?(g('rec-transp-txt').value||'').trim():v;
+  var p=nome?lParceiros().find(function(x){return x.nome===nome;}):null;
+  var vsel=g('rec-veiculo-sel'), vtxt=g('rec-veiculo');
+  if(p&&p.veiculos&&p.veiculos.length){ // fornecedor cadastrado com frota → puxa os veículos dele
+    vsel.innerHTML='<option value="">— selecionar veículo —</option>'+p.veiculos.map(function(vv){return '<option value="'+esca(vv.nome||'Veículo')+'">'+esca(vv.nome||'Veículo')+'</option>';}).join('')+'<option value="__m__">✏️ Outro</option>';
+    vsel.style.display='block'; vtxt.style.display='none';
+  }else{ vsel.style.display='none'; vtxt.style.display='block'; }
+  recProjUpdate();
+}
+function recVeicChange(){ g('rec-veiculo').style.display=(g('rec-veiculo-sel').value==='__m__')?'block':'none'; recProjUpdate(); }
+function _recFillDest(cur){
+  var s=g('rec-destinador-sel'); if(!s)return;
+  var arr=lParceiros().filter(function(p){return p.destinador;}).sort(function(a,b){return (a.nome||'').localeCompare(b.nome||'');});
+  s.innerHTML='<option value="">— selecionar —</option>'+arr.map(function(p){return '<option value="'+esca(p.nome)+'">'+esca(p.nome)+'</option>';}).join('')+'<option value="__m__">✏️ Outro (digitar)</option>';
+  if(cur){ if(arr.some(function(p){return p.nome===cur;}))s.value=cur; else s.value='__m__'; } else s.value='';
+  recDestChange();
+}
+function recDestChange(){ g('rec-destinador').style.display=(g('rec-destinador-sel').value==='__m__')?'block':'none'; recProjUpdate(); }
 function _recFillGerador(cur){
   var s=g('rec-gerador-sel'); if(!s)return;
   var cmap=_mapClientesAll(), cnomes=Object.keys(cmap).map(function(k){return cmap[k].nome;}).filter(Boolean).sort(function(a,b){return a.localeCompare(b);});
@@ -3523,8 +3549,15 @@ function _recFillForm(r){
   g('rec-gerador').value=(g('rec-gerador-sel').value===COL_MANUAL)?(r?r.gerador||'':''):'';
   _recFillTransp(r?r.transportador:'');
   g('rec-transp-txt').value=(r&&g('rec-transp').value==='__m__')?(r.transportador||''):'';
-  g('rec-veiculo').value=r?r.veiculo||'':'';
-  g('rec-destinador').value=r?r.destinador||'':'';
+  recTranspChange(); // reprocessa a cascata de veículos com o transportador definido
+  var vsel=g('rec-veiculo-sel'), vn=r?r.veiculo||'':'';
+  if(vsel.style.display!=='none'){
+    if(vn&&Array.prototype.some.call(vsel.options,function(o){return o.value===vn;})){ vsel.value=vn; g('rec-veiculo').value=''; g('rec-veiculo').style.display='none'; }
+    else if(vn){ vsel.value='__m__'; g('rec-veiculo').value=vn; g('rec-veiculo').style.display='block'; }
+    else { vsel.value=''; g('rec-veiculo').value=''; g('rec-veiculo').style.display='none'; }
+  }else{ g('rec-veiculo').value=vn; }
+  _recFillDest(r?r.destinador:'');
+  g('rec-destinador').value=(g('rec-destinador-sel').value==='__m__')?(r?r.destinador||'':''):'';
   g('rec-residuo').value=r?r.residuo||'':'';
   g('rec-tipo').value=r?r.tipo||'diasMes':'diasMes';
   g('rec-dias').value=(r&&r.dias)?r.dias.join(', '):'';
@@ -3539,8 +3572,12 @@ function _recFillForm(r){
 function _recFormObj(){
   var transp=g('rec-transp').value; if(transp==='__m__')transp=(g('rec-transp-txt').value||'').trim();
   var ger=g('rec-gerador-sel').value; if(ger===COL_MANUAL)ger=(g('rec-gerador').value||'').trim();
+  var vsel=g('rec-veiculo-sel'), veic;
+  if(vsel.style.display!=='none'){ veic=(vsel.value==='__m__')?(g('rec-veiculo').value||'').trim():vsel.value; }
+  else{ veic=(g('rec-veiculo').value||'').trim(); }
+  var dest=g('rec-destinador-sel').value; if(dest==='__m__')dest=(g('rec-destinador').value||'').trim();
   var dias=(g('rec-dias').value||'').split(/[,\s]+/).map(function(x){return parseInt(x,10);}).filter(function(x){return x>=1&&x<=31;});
-  return {gerador:ger,transportador:transp,veiculo:(g('rec-veiculo').value||'').trim(),destinador:(g('rec-destinador').value||'').trim(),residuo:(g('rec-residuo').value||'').trim(),tipo:g('rec-tipo').value,dias:dias,diaSemana:+g('rec-diasemana').value,inicio:g('rec-inicio').value,fim:g('rec-fim').value,km:+g('rec-km').value||0,fat:+g('rec-fat').value||0};
+  return {gerador:ger,transportador:transp,veiculo:veic,destinador:dest,residuo:(g('rec-residuo').value||'').trim(),tipo:g('rec-tipo').value,dias:dias,diaSemana:+g('rec-diasemana').value,inicio:g('rec-inicio').value,fim:g('rec-fim').value,km:+g('rec-km').value||0,fat:+g('rec-fat').value||0};
 }
 function recProjUpdate(){
   var box=g('rec-proj'); if(!box)return;
@@ -3550,6 +3587,8 @@ function recProjUpdate(){
   var s='<b>'+p.total+'</b> coletas no período · ~<b>'+p.porMes.toFixed(1).replace('.',',')+'</b>/mês';
   if(p.proprio&&p.kmMes>0)s+='<br>Furgão: ~'+Math.round(p.kmMes)+' km/mês · custo ~'+brl(p.custoMes)+'/mês (a '+brl(p.custoKm)+'/km)';
   if(p.fatMes>0)s+='<br>Faturamento previsto: ~'+brl(p.fatMes)+'/mês';
+  var hoje=new Date().toISOString().slice(0,10), prox=recDatas(r).filter(function(d){return d>=hoje;})[0];
+  if(prox)s+='<br>Próxima coleta: <b>'+brData(prox)+'</b>';
   box.innerHTML=s;
 }
 function salvarRecorrencia(){
