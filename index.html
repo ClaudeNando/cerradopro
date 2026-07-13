@@ -1183,7 +1183,10 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
         <div id="rec-list"></div>
       </div>
       <div id="rec-form" style="display:none">
-        <div class="field"><label class="flabel">Gerador (cliente)</label><input class="inp" type="text" id="rec-gerador" placeholder="Ex.: Argo, Mosaic..."></div>
+        <div class="field"><label class="flabel">Gerador (cliente)</label>
+          <select class="inp sel" id="rec-gerador-sel" onchange="recGeradorChange()"></select>
+          <input class="inp" type="text" id="rec-gerador" placeholder="Nome do cliente" style="display:none;margin-top:8px" oninput="recProjUpdate()">
+        </div>
         <div class="g2">
           <div class="field"><label class="flabel">Transportador</label>
             <select class="inp sel" id="rec-transp" onchange="recTranspChange()"></select>
@@ -3504,11 +3507,20 @@ function _recFillTransp(cur){
   recTranspChange();
 }
 function recTranspChange(){ var man=g('rec-transp').value==='__m__'; g('rec-transp-txt').style.display=man?'block':'none'; recProjUpdate(); }
+function _recFillGerador(cur){
+  var s=g('rec-gerador-sel'); if(!s)return;
+  var cmap=_mapClientesAll(), cnomes=Object.keys(cmap).map(function(k){return cmap[k].nome;}).filter(Boolean).sort(function(a,b){return a.localeCompare(b);});
+  s.innerHTML='<option value="">— selecionar cliente —</option>'+cnomes.map(function(n){return '<option value="'+esca(n)+'">'+esca(n)+'</option>';}).join('')+'<option value="'+COL_MANUAL+'">✏️ Cliente não cadastrado</option>';
+  if(cur){ if(cnomes.indexOf(cur)>=0)s.value=cur; else s.value=COL_MANUAL; } else s.value='';
+  recGeradorChange();
+}
+function recGeradorChange(){ g('rec-gerador').style.display=(g('rec-gerador-sel').value===COL_MANUAL)?'block':'none'; recProjUpdate(); }
 function recTipoChange(){ var t=g('rec-tipo').value; g('rec-dias-wrap').style.display=(t==='diasMes')?'block':'none'; g('rec-semana-wrap').style.display=(t==='semanal')?'block':'none'; recProjUpdate(); }
 function recNova(){ _recEditId=null; _recFillForm(null); _recMostrarForm(); }
 function recEditar(id){ var r=lRecorrencias().find(function(x){return x.id==id;}); if(!r)return; _recEditId=r.id; _recFillForm(r); _recMostrarForm(); }
 function _recFillForm(r){
-  g('rec-gerador').value=r?r.gerador||'':'';
+  _recFillGerador(r?r.gerador:'');
+  g('rec-gerador').value=(g('rec-gerador-sel').value===COL_MANUAL)?(r?r.gerador||'':''):'';
   _recFillTransp(r?r.transportador:'');
   g('rec-transp-txt').value=(r&&g('rec-transp').value==='__m__')?(r.transportador||''):'';
   g('rec-veiculo').value=r?r.veiculo||'':'';
@@ -3526,8 +3538,9 @@ function _recFillForm(r){
 }
 function _recFormObj(){
   var transp=g('rec-transp').value; if(transp==='__m__')transp=(g('rec-transp-txt').value||'').trim();
+  var ger=g('rec-gerador-sel').value; if(ger===COL_MANUAL)ger=(g('rec-gerador').value||'').trim();
   var dias=(g('rec-dias').value||'').split(/[,\s]+/).map(function(x){return parseInt(x,10);}).filter(function(x){return x>=1&&x<=31;});
-  return {gerador:(g('rec-gerador').value||'').trim(),transportador:transp,veiculo:(g('rec-veiculo').value||'').trim(),destinador:(g('rec-destinador').value||'').trim(),residuo:(g('rec-residuo').value||'').trim(),tipo:g('rec-tipo').value,dias:dias,diaSemana:+g('rec-diasemana').value,inicio:g('rec-inicio').value,fim:g('rec-fim').value,km:+g('rec-km').value||0,fat:+g('rec-fat').value||0};
+  return {gerador:ger,transportador:transp,veiculo:(g('rec-veiculo').value||'').trim(),destinador:(g('rec-destinador').value||'').trim(),residuo:(g('rec-residuo').value||'').trim(),tipo:g('rec-tipo').value,dias:dias,diaSemana:+g('rec-diasemana').value,inicio:g('rec-inicio').value,fim:g('rec-fim').value,km:+g('rec-km').value||0,fat:+g('rec-fat').value||0};
 }
 function recProjUpdate(){
   var box=g('rec-proj'); if(!box)return;
