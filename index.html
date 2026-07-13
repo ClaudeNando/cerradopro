@@ -3288,11 +3288,14 @@ function setColetaEstado(id,estado,ev){
   if(ev&&ev.stopPropagation)ev.stopPropagation();
   var arr=lColetas(),i=arr.findIndex(function(c){return c.id==id;});
   if(i<0)return;
+  var tinhaViagem=arr[i].furgaoViagemId;
   arr[i].estado=estado;
   arr[i].executada=(estado==='executada');
   arr[i].dataExecucao=(estado==='executada')?(arr[i].dataExecucao||new Date().toISOString().slice(0,10)):'';
+  // Saiu de executada e tinha viagem lançada → remove do furgão e desvincula (permite relançar se reexecutar)
+  if(estado!=='executada'&&tinhaViagem){ try{_removerViagemFurgao(arr[i].id);}catch(e){} arr[i].furgaoViagemId=null; }
   sColetas(arr); renderColetas();
-  toast(estado==='executada'?'✅ Executada':estado==='vencida'?'⚠️ Vencida':'↩️ A fazer');
+  toast(estado==='executada'?'✅ Executada':(estado==='vencida'?'⚠️ Vencida':'↩️ A fazer')+(tinhaViagem?' · viagem removida do furgão':''));
   // Fase 2: coleta de frota própria executada → oferece lançar a viagem no FurgãoPRO (uma vez).
   if(estado==='executada'){ var c=arr[i]; if(_coletaEhFurgao(c)&&!c.furgaoViagemId){ try{abrirFViagem(c.id);}catch(e){} } }
 }
@@ -3514,9 +3517,27 @@ function salvarColeta(){
   else{obj.id=Date.now();arr.push(obj);if(obj.dataColeta)_diaSel=obj.dataColeta;}
   sColetas(arr);fecharColeta();renderColetas();toast('✅ Coleta salva');
 }
+// Remove a viagem vinculada (coletaId) de furgaopro/fp2_viagens via transação. Evita viagem órfã no furgão.
+function _removerViagemFurgao(coletaId,cb){
+  var fb=_fb(),u=_fbUser();
+  if(!fb||!fb.firestore||!u){ if(cb)cb(false); return; }
+  var ref=fb.firestore().collection('furgaopro').doc('fp2_viagens');
+  fb.firestore().runTransaction(function(tx){
+    return tx.get(ref).then(function(doc){
+      if(!doc.exists)return;
+      var lista=[]; try{lista=JSON.parse((doc.data()||{}).value||'[]');}catch(e){lista=[];}
+      if(!Array.isArray(lista))return;
+      var nova=lista.filter(function(v){return !(v&&v.coletaId===coletaId);});
+      if(nova.length===lista.length)return; // nada a remover
+      tx.set(ref,{value:JSON.stringify(nova),ts:Date.now(),by:(u.email||'')});
+    });
+  }).then(function(){ if(cb)cb(true); }).catch(function(){ if(cb)cb(false); });
+}
 function excluirColeta(){
   var id=g('col-id').value;if(!id)return;
-  if(!confirm('Excluir esta coleta?'))return;
+  var c=lColetas().find(function(x){return String(x.id)===String(id);});
+  if(!confirm('Excluir esta coleta?'+((c&&c.furgaoViagemId)?'\nA viagem lançada no FurgãoPRO também será removida.':'')))return;
+  if(c&&c.furgaoViagemId){ try{_removerViagemFurgao(c.id);}catch(e){} }
   sColetas(lColetas().filter(function(c){return c.id!=id;}));
   fecharColeta();renderColetas();toast('🗑️ Coleta excluída');
 }
