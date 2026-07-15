@@ -154,12 +154,12 @@ textarea.inp{resize:none;min-height:80px;line-height:1.6}
 .col-tabs{display:flex;gap:6px;margin-bottom:12px;overflow-x:auto;-webkit-overflow-scrolling:touch}
 .col-tab{flex-shrink:0;padding:8px 14px;border-radius:20px;font-size:13px;font-weight:700;color:var(--text2);background:var(--bg2);border:1.5px solid transparent;cursor:pointer}
 .col-tab.active{background:var(--accent-dim);color:var(--accent);border-color:var(--border)}
-.col-card{background:var(--card);border:1px solid var(--border2);border-radius:16px;padding:14px;margin-bottom:11px;cursor:pointer;box-shadow:var(--shadow-sm);transition:transform .15s,box-shadow .15s,border-color .15s}
+.col-card{background:var(--card);border:1px solid var(--border2);border-radius:16px;padding:16px;margin-bottom:11px;cursor:pointer;box-shadow:var(--shadow-sm);transition:transform .15s,box-shadow .15s,border-color .15s}
 .col-card:active{border-color:var(--accent)}
 .col-card.venc{border-color:rgba(176,48,32,0.4)}
 .col-card.exec{border-color:rgba(42,122,64,0.45);background:#f3faf4}
 .col-sum-exec .col-sum-n{color:#1a6030}
-.col-state{display:flex;justify-content:flex-end;margin-top:12px;width:100%}
+.col-state{display:flex;justify-content:flex-start;margin-top:12px;width:100%}
 .col-state-group{display:inline-flex;gap:2px;background:#f1ede4;padding:4px;border-radius:20px}
 .col-state-btn{padding:6px 14px;font-size:12.5px;font-weight:600;font-family:inherit;border:none;border-radius:16px;text-align:center;cursor:pointer;background:transparent;color:#706b64;transition:all .2s ease;white-space:nowrap}
 .col-state-btn:active{transform:scale(.97)}
@@ -167,9 +167,9 @@ textarea.inp{resize:none;min-height:80px;line-height:1.6}
 .col-state-venc.on{background:#f7d9d2;color:#9a2414;box-shadow:0 2px 4px rgba(0,0,0,0.08)}
 .col-state-exec.on{background:#e2f0d9;color:#2e7d32;box-shadow:0 2px 4px rgba(0,0,0,0.08)}
 .col-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px}
-.col-ger{font-size:16px;font-weight:700}
-.col-mtr{font-size:12px;color:var(--text3);font-family:'DM Mono',monospace;margin-top:2px}
-.col-row{font-size:12px;color:var(--text2);margin-top:3px}
+.col-ger{font-size:17px;font-weight:700;line-height:1.3}
+.col-mtr{font-size:13px;color:var(--text3);font-family:'DM Mono',monospace;margin-top:3px}
+.col-row{font-size:13.5px;color:var(--text2);margin-top:5px;line-height:1.45}
 .ag-mes-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
 .ag-nav-btn{width:40px;height:40px;border-radius:11px;background:var(--accent-dim);border:1.5px solid var(--border);color:var(--accent);font-size:22px;font-weight:800;cursor:pointer}
 .ag-mes-label{font-size:16px;font-weight:800;text-transform:capitalize}
@@ -695,11 +695,14 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
       <div class="col-sum-i col-sum-venc" onclick="coletaSumClick('vencida')" title="Ver vencidas"><div class="col-sum-n" id="col-n-venc">0</div><div class="col-sum-l">Vencidas</div></div>
       <div class="col-sum-i" onclick="coletaSumClick('afazer')" title="Ver a fazer"><div class="col-sum-n" id="col-n-afazer">0</div><div class="col-sum-l">A Fazer</div></div>
     </div>
-    <div class="col-tabs" style="margin-bottom:12px">
-      <div class="col-tab" id="vtab-lista" onclick="setVista('lista',this)">📋 Lista</div>
-      <div class="col-tab active" id="vtab-mes" onclick="setVista('mes',this)">📅 Mês</div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+      <div class="col-tabs" style="margin-bottom:0">
+        <div class="col-tab" id="vtab-lista" onclick="setVista('lista',this)">📋 Lista</div>
+        <div class="col-tab active" id="vtab-mes" onclick="setVista('mes',this)">📅 Mês</div>
+      </div>
+      <div style="flex:1"></div>
+      <button class="btn btn-ghost btn-sm" onclick="abrirRecorrencias()" style="width:auto;flex-shrink:0">🔁 Recorrências</button>
     </div>
-    <div style="margin-bottom:12px"><button class="btn btn-ghost btn-sm" onclick="abrirRecorrencias()" style="width:auto">🔁 Recorrências</button></div>
 
     <div id="ag-lista" style="display:none">
       <div class="col-tabs">
