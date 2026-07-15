@@ -449,6 +449,8 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
 .chk{ display:inline-flex; align-items:center; gap:8px; font-size:13.5px; color:var(--text); cursor:pointer; }
 .chk input{ width:17px; height:17px; flex-shrink:0; }
 .role-badge{ display:inline-block; font-size:11px; font-weight:600; padding:3px 9px; border-radius:12px; background:rgba(219,106,29,0.10); color:var(--accent); }
+.role-badge.role-transp{ background:#e7f0fb; color:#1e40af; }
+.role-badge.role-dest{ background:#efe3d7; color:#6b4423; }
 .pa-vehicles{ margin-top:20px; border-top:1px solid var(--border); padding-top:16px; }
 .pa-vh-head{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:8px; }
 .pa-vh-item{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 12px; border:1px solid var(--border); border-radius:8px; background:#fcfaf5; margin-bottom:8px; }
@@ -695,13 +697,11 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
       <div class="col-sum-i col-sum-venc" onclick="coletaSumClick('vencida')" title="Ver vencidas"><div class="col-sum-n" id="col-n-venc">0</div><div class="col-sum-l">Vencidas</div></div>
       <div class="col-sum-i" onclick="coletaSumClick('afazer')" title="Ver a fazer"><div class="col-sum-n" id="col-n-afazer">0</div><div class="col-sum-l">A Fazer</div></div>
     </div>
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-      <div class="col-tabs" style="margin-bottom:0">
-        <div class="col-tab" id="vtab-lista" onclick="setVista('lista',this)">📋 Lista</div>
-        <div class="col-tab active" id="vtab-mes" onclick="setVista('mes',this)">📅 Mês</div>
-      </div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+      <button class="btn btn-ghost btn-sm" id="vtab-lista" onclick="setVista('lista',this)">📋 Lista</button>
+      <button class="btn btn-primary btn-sm" id="vtab-mes" onclick="setVista('mes',this)">📅 Mês</button>
       <div style="flex:1"></div>
-      <button class="btn btn-ghost btn-sm" onclick="abrirRecorrencias()" style="width:auto;flex-shrink:0">🔁 Recorrências</button>
+      <button class="btn btn-ghost btn-sm" onclick="abrirRecorrencias()" style="flex-shrink:0">🔁 Recorrências</button>
     </div>
 
     <div id="ag-lista" style="display:none">
@@ -2803,7 +2803,7 @@ function renderParceiros(){
     list.innerHTML='<div class="empty"><div class="empty-ico">🚚</div><div class="empty-t">Nenhum parceiro</div><div class="empty-s">Cadastre transportadores e destinadores, com a base operacional e os veículos.</div></div>';
   }else{
     list.innerHTML=arr.slice().sort(function(a,b){return (a.nome||'').localeCompare(b.nome||'');}).map(function(p){
-      var papeis=_paPapeis(p).map(function(t){return '<span class="role-badge">'+t+'</span>';}).join('');
+      var papeis=_paPapeis(p).map(function(t){return '<span class="role-badge '+(t==='Transportador'?'role-transp':'role-dest')+'">'+t+'</span>';}).join('');
       var nv=(p.veiculos||[]).length, nd=(p.destinacoes||[]).length, info=[];
       if(p.transportador)info.push(nv+' veículo'+(nv!==1?'s':''));
       if(p.destinador)info.push(nd+' destinaç'+(nd!==1?'ões':'ão'));
@@ -3345,7 +3345,9 @@ function lancarFViagem(){
     toast('⚠️ Não foi possível lançar agora. Tente de novo em instantes.');
   });
 }
-function setVista(v,el){_vista=v;document.querySelectorAll('#vtab-lista,#vtab-mes').forEach(function(t){t.classList.remove('active');});el.classList.add('active');g('ag-lista').style.display=v==='lista'?'block':'none';g('ag-mes').style.display=v==='mes'?'block':'none';renderColetas();}
+// Alterna Lista/Mês no padrão de botão da plataforma: ativo = btn-primary, inativo = btn-ghost.
+function _vistaBtns(el){['vtab-lista','vtab-mes'].forEach(function(id){var b=g(id);if(!b)return;b.classList.remove('btn-primary');b.classList.add('btn-ghost');});if(el){el.classList.remove('btn-ghost');el.classList.add('btn-primary');}}
+function setVista(v,el){_vista=v;_vistaBtns(el);g('ag-lista').style.display=v==='lista'?'block':'none';g('ag-mes').style.display=v==='mes'?'block':'none';renderColetas();}
 // Ordenação da lista: '' = automático (Executadas → mais recentes; demais → mais antigas)
 function _colSortDir(){ if(_colSort)return _colSort; return _filtroColeta==='executada'?'desc':'asc'; }
 function toggleColSort(){ _colSort=(_colSortDir()==='desc')?'asc':'desc'; renderColetas(); }
@@ -3353,8 +3355,7 @@ function setFiltroColeta(f,el){_filtroColeta=f;el.parentNode.querySelectorAll('.
 // Card-resumo clicável: abre a Lista já filtrada pelo status clicado.
 function coletaSumClick(f){
   _vista='lista';
-  document.querySelectorAll('#vtab-lista,#vtab-mes').forEach(function(t){t.classList.remove('active');});
-  var vt=g('vtab-lista'); if(vt)vt.classList.add('active');
+  _vistaBtns(g('vtab-lista'));
   var al=g('ag-lista'), am=g('ag-mes'); if(al)al.style.display='block'; if(am)am.style.display='none';
   _filtroColeta=f;
   if(al)al.querySelectorAll('.col-tabs .col-tab').forEach(function(t){t.classList.remove('active');});
