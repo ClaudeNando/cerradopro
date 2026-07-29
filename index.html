@@ -662,6 +662,7 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
     </div>
 
 <button class="btn btn-primary" onclick="goResultado()"><span>Calcular Orçamento</span><span style="font-size:18px">→</span></button>
+    <div style="display:flex;justify-content:center;margin-top:8px"><button class="btn btn-ghost btn-sm" onclick="novoOrcamento()">🆕 Novo orçamento</button></div>
   </div>
 
   <div id="screen-resultado" class="screen">
@@ -1268,7 +1269,7 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
     <div class="modal-handle-wrap"><div class="modal-handle"></div></div>
     <div class="modal-head"><div class="modal-title">🔗 Rota Compartilhada</div><button class="modal-close-btn" onclick="fecharRota()">×</button></div>
     <div class="modal-body">
-      <div style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.45">Para quando uma viagem atende vários clientes. Informe o KM total da rota (ida+volta) e, se houver, o desvio exclusivo de cada cliente. O tronco comum é dividido igual entre todos; o desvio fica inteiro com quem o gerou.</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.45">Para quando uma viagem atende vários clientes. Informe o KM total (ida+volta). Marque o <b>cliente âncora</b> — aquele por quem a viagem existe: ele fica com o tronco inteiro, e os demais pagam só o <b>km desvio</b> (o extra que geram). Sem âncora marcada, o tronco é dividido igual entre todos.</div>
       <div class="field"><label class="flabel">KM total da rota (ida + volta)</label><input class="inp inp-mono" type="number" id="rota-total" placeholder="0" inputmode="decimal" oninput="rotaCalc()"></div>
       <span class="slabel">Clientes na rota</span>
       <div id="rota-linhas" style="margin:6px 0"></div>
@@ -1560,7 +1561,21 @@ function calcular(){
   return ultimoCalculo;
 }
 
-function goResultado(){var r=calcular();if(!r.tot){toast('⚠️ Preencha o trajeto ou adicione um resíduo');return;}renderResultado(r);navTo('resultado',g('nav-resultado'));}
+function goResultado(){var r=calcular();if(!r.tot){toast('⚠️ Preencha o trajeto ou adicione um resíduo');return;}renderResultado(r);navTo('resultado',g('nav-resultado'));try{salvarHist(true);}catch(e){}}
+// Limpa o formulário e desvincula do registro atual → o próximo Calcular cria um orçamento NOVO.
+function novoOrcamento(){
+  if(!confirm('Começar um novo orçamento?\n\nO formulário será limpo. O orçamento atual já está salvo no histórico.'))return;
+  ['cli-nome','cli-cnpj','cli-contato','cli-telefone','cli-local','trajeto','acresc','pedagio','obs'].forEach(function(id){var e=g(id);if(e)e.value='';});
+  if(g('orc-transp'))g('orc-transp').value='';
+  if(g('orc-destinador'))g('orc-destinador').value='';
+  try{orcTranspChange();}catch(e){} // reconstrói os veículos e limpa os R$/km
+  residuos=[{id:nextId++,desc:'',codigo:'',perigoso:false,peso:0,dest:'',custoTon:0,cobraTon:0}];
+  renderRes();
+  editandoId=null; ultimoCalculo=null;
+  try{calcular();}catch(e){}
+  navTo('orcamento',g('nav-orcamento'));
+  toast('🆕 Novo orçamento');
+}
 // Gera um orçamento (Resultado) a partir do card "Preço sobre o fornecedor" — serviço completo já cotado
 function calcularOrcamentoForn(){
   var forn=safeEval(g('calc-forn').value);
@@ -1722,7 +1737,29 @@ function _preencherForm(x){
 var FUNIL={enviado:{l:'Enviado',c:'#c87020'},negociacao:{l:'Em negociação',c:'#2563eb'},fechado:{l:'Fechado',c:'#2a7a40'},perdido:{l:'Perdido',c:'#b03020'}};
 function funilOpts(cur){return Object.keys(FUNIL).map(function(k){return '<option value="'+k+'"'+(k===cur?' selected':'')+'>'+FUNIL[k].l+'</option>';}).join('');}
 function setStatusHist(id,val){try{var h=JSON.parse(localStorage.getItem('rpro_hist')||'[]');h=h.map(function(i){return i.id===id?Object.assign({},i,{status:val}):i;});lset('rpro_hist',JSON.stringify(h));renderHist();}catch(e){}}
-function salvarHist(){var r=ultimoCalculo;if(!r)return;try{salvarClienteDoOrcamento(r.cli);}catch(e){}try{if(r.proprio&&!r.furgaoMetricsSnap){var _s=getFurgaoMetrics();if(_s)r.furgaoMetricsSnap=_s;}}catch(e){}try{var h=JSON.parse(localStorage.getItem('rpro_hist')||'[]');if(editandoId&&h.some(function(i){return i.id===editandoId;})){h=h.map(function(i){return i.id===editandoId?Object.assign({},r,{id:editandoId,status:i.status||'enviado'}):i;});lset('rpro_hist',JSON.stringify(h));toast('✏️ Orçamento atualizado');}else{h.unshift(Object.assign({},r,{id:Date.now(),status:'enviado'}));if(h.length>50)h=h.slice(0,50);lset('rpro_hist',JSON.stringify(h));toast('💾 Salvo!');}editandoId=null;renderHist();}catch(e){}}
+// auto=true → chamado pelo "Calcular Orçamento". O vínculo (editandoId) é mantido até
+// "Novo orçamento"/"Carregar", para que recalcular ATUALIZE o mesmo registro em vez de duplicar.
+function salvarHist(auto){
+  var r=ultimoCalculo;if(!r)return;
+  try{salvarClienteDoOrcamento(r.cli);}catch(e){}
+  try{if(r.proprio&&!r.furgaoMetricsSnap){var _s=getFurgaoMetrics();if(_s)r.furgaoMetricsSnap=_s;}}catch(e){}
+  try{
+    var h=JSON.parse(localStorage.getItem('rpro_hist')||'[]');
+    if(editandoId&&h.some(function(i){return i.id===editandoId;})){
+      h=h.map(function(i){return i.id===editandoId?Object.assign({},r,{id:editandoId,status:i.status||'enviado'}):i;});
+      lset('rpro_hist',JSON.stringify(h));
+      toast(auto?'💾 Histórico atualizado':'✏️ Orçamento atualizado');
+    }else{
+      var novoId=Date.now();
+      h.unshift(Object.assign({},r,{id:novoId,status:'enviado'}));
+      if(h.length>50)h=h.slice(0,50);
+      lset('rpro_hist',JSON.stringify(h));
+      editandoId=novoId;
+      toast(auto?'💾 Salvo no histórico':'💾 Salvo!');
+    }
+    renderHist();
+  }catch(e){}
+}
 
 var _histFiltro='todas';
 function setHistFiltro(k){_histFiltro=k;renderHist();}
@@ -2633,6 +2670,7 @@ function abrirRota(){
   g('rota-total').value='';
   g('rota-linhas').innerHTML='';
   rotaAddLinha(); rotaAddLinha();
+  var first=document.querySelector('#rota-linhas .rota-anc'); if(first) first.checked=true; // âncora padrão = 1º cliente
   g('rota-resultado').innerHTML='';
   g('rota-modal').classList.add('open');
 }
@@ -2640,34 +2678,56 @@ function fecharRota(){ g('rota-modal').classList.remove('open'); }
 function rotaAddLinha(){
   var row=document.createElement('div');
   row.className='rota-linha';
-  row.style.cssText='display:grid;grid-template-columns:1fr 96px 28px;gap:6px;align-items:center;margin-bottom:6px';
+  row.style.cssText='display:grid;grid-template-columns:auto 1fr 92px 28px;gap:6px;align-items:center;margin-bottom:6px';
   row.innerHTML=
+    '<label style="display:flex;flex-direction:column;align-items:center;font-size:9px;color:var(--text3);cursor:pointer" title="Cliente âncora: fica com o tronco inteiro (a viagem existe por ele)"><input type="radio" name="rota-anc" class="rota-anc" onchange="rotaCalc()" style="margin:0 0 2px 0">âncora</label>'+
     '<input class="inp rota-nome" type="text" placeholder="Cliente" style="font-size:13px">'+
     '<input class="inp inp-mono rota-excl" type="number" placeholder="km desvio" inputmode="decimal" oninput="rotaCalc()" style="font-size:13px">'+
     '<button class="btn btn-ghost" onclick="this.parentNode.remove();rotaCalc()" style="padding:0;height:38px">×</button>';
   g('rota-linhas').appendChild(row);
 }
 function rotaLinhas(){ return Array.prototype.slice.call(document.querySelectorAll('#rota-linhas .rota-linha')); }
+function _rotaLinhaHtml(nome,km,total,prefixo){
+  var pct=total>0?(km/total*100):0;
+  return '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-top:1px solid var(--border)">'+
+    '<span>'+(prefixo||'')+nome+' <span style="color:var(--text3)">('+pct.toFixed(0)+'%)</span></span>'+
+    '<span style="display:flex;gap:8px;align-items:center"><b style="font-family:monospace">'+fmt(km)+' km</b>'+
+    '<button class="btn btn-ghost btn-sm" onclick="usarRotaKm('+km+',\''+nome.replace(/'/g,"")+'\')" style="padding:2px 8px">usar</button></span></div>';
+}
 function rotaCalc(){
   var total=+g('rota-total').value||0, linhas=rotaLinhas();
   var n=linhas.length;
   if(!total||!n){ g('rota-resultado').innerHTML=''; return; }
-  var somaExcl=0;
-  linhas.forEach(function(r){ somaExcl+=(+r.querySelector('.rota-excl').value||0); });
-  var tronco=total-somaExcl;
-  if(tronco<0){ g('rota-resultado').innerHTML='<div style="color:var(--danger);font-size:12px">⚠️ A soma dos desvios ('+fmt(somaExcl)+' km) passou do total da rota.</div>'; return; }
-  var trechoComum=tronco/n;
+  var ancoraRow=null;
+  linhas.forEach(function(r){ var a=r.querySelector('.rota-anc'); if(a&&a.checked) ancoraRow=r; });
   var html='<div style="background:rgba(0,0,0,.15);border-radius:12px;padding:12px;font-size:13px">';
-  html+='<div style="color:var(--text2);margin-bottom:8px">Tronco comum '+fmt(tronco)+' km ÷ '+n+' = '+fmt(trechoComum)+' km por cliente</div>';
-  linhas.forEach(function(r){
-    var nome=r.querySelector('.rota-nome').value||'Cliente', excl=+r.querySelector('.rota-excl').value||0;
-    var km=Math.round(excl+trechoComum);
-    var pct=total>0?(km/total*100):0;
-    html+='<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-top:1px solid var(--border)">'+
-      '<span>'+nome+' <span style="color:var(--text3)">('+pct.toFixed(0)+'%)</span></span>'+
-      '<span style="display:flex;gap:8px;align-items:center"><b style="font-family:monospace">'+fmt(km)+' km</b>'+
-      '<button class="btn btn-ghost btn-sm" onclick="usarRotaKm('+km+',\''+nome.replace(/'/g,"")+'\')" style="padding:2px 8px">usar</button></span></div>';
-  });
+
+  if(ancoraRow){
+    // MODO ÂNCORA (marginal): âncora fica com o tronco inteiro; secundários pagam só o desvio.
+    var somaExclSec=0;
+    linhas.forEach(function(r){ if(r!==ancoraRow) somaExclSec+=(+r.querySelector('.rota-excl').value||0); });
+    var kmAncora=total-somaExclSec;
+    linhas.forEach(function(r){ r.querySelector('.rota-excl').disabled=(r===ancoraRow); }); // âncora não usa desvio
+    if(kmAncora<0){ g('rota-resultado').innerHTML='<div style="color:var(--danger);font-size:12px">⚠️ A soma dos desvios ('+fmt(somaExclSec)+' km) passou do total da rota.</div>'; return; }
+    html+='<div style="color:var(--text2);margin-bottom:8px">Âncora fica com o tronco inteiro ('+fmt(kmAncora)+' km); secundários pagam só o desvio.</div>';
+    linhas.forEach(function(r){
+      var nome=r.querySelector('.rota-nome').value||'Cliente', isAnc=(r===ancoraRow);
+      var km=isAnc?kmAncora:Math.round(+r.querySelector('.rota-excl').value||0);
+      html+=_rotaLinhaHtml(nome,km,total,isAnc?'⚓ ':'');
+    });
+  } else {
+    // MODO RATEIO IGUAL: tronco dividido igual + desvio de cada um.
+    var somaExcl=0;
+    linhas.forEach(function(r){ r.querySelector('.rota-excl').disabled=false; somaExcl+=(+r.querySelector('.rota-excl').value||0); });
+    var tronco=total-somaExcl;
+    if(tronco<0){ g('rota-resultado').innerHTML='<div style="color:var(--danger);font-size:12px">⚠️ A soma dos desvios ('+fmt(somaExcl)+' km) passou do total da rota.</div>'; return; }
+    var trechoComum=tronco/n;
+    html+='<div style="color:var(--text2);margin-bottom:8px">Tronco comum '+fmt(tronco)+' km ÷ '+n+' = '+fmt(trechoComum)+' km por cliente</div>';
+    linhas.forEach(function(r){
+      var nome=r.querySelector('.rota-nome').value||'Cliente', excl=+r.querySelector('.rota-excl').value||0;
+      html+=_rotaLinhaHtml(nome,Math.round(excl+trechoComum),total,'');
+    });
+  }
   html+='</div>';
   g('rota-resultado').innerHTML=html;
 }
