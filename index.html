@@ -411,9 +411,10 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
 :root{ --bg-alert:rgba(220,38,38,0.05); --text-alert:#DC2626; }
 .rrow{ border-bottom:1px dashed var(--border); }
 /* KPI de margem: trilho fino + marcador de meta */
-.mtrack{ position:relative; height:6px; background:var(--border); border-radius:3px; margin-top:14px; }
-.mtrack-fill{ height:100%; background:var(--accent); border-radius:3px; }
-.mtrack-goal{ position:absolute; top:-3px; width:2px; height:12px; background:var(--text-muted); border-radius:1px; }
+.mtrack{ position:relative; height:8px; background:var(--border); border-radius:4px; margin-top:18px; overflow:visible; }
+.mtrack-fill{ height:100%; background:var(--accent); border-radius:4px; }
+.mtrack-goal{ position:absolute; top:-6px; width:3px; height:20px; background:var(--text); border-radius:2px; box-shadow:0 0 0 2px var(--card); }
+.mtrack-goal::before{ content:''; position:absolute; top:-7px; left:50%; transform:translateX(-50%); width:10px; height:10px; border-radius:50%; background:var(--text); box-shadow:0 0 0 2px var(--card); }
 /* tabela de simulação de cenários */
 .sim-table{ width:100%; border-collapse:collapse; font-size:13px; margin-top:2px; }
 .sim-table th{ text-align:right; font-size:11px; font-weight:600; color:var(--text-muted); padding:6px 8px; border-bottom:1px solid var(--border); }
