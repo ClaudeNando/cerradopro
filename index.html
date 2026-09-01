@@ -1653,12 +1653,14 @@ function pisoMarginalHTML(r){
   if(!p||p.precoMinimo==null)return '';
   var margemPct=p.margemProposta!=null?(p.margemProposta*100).toFixed(1)+'%':'—';
   var sobraMarg=(p.margemProposta!=null&&p.precoProposto!=null)?(p.margemProposta*p.precoProposto):null; // R$ que sobra na base marginal (proposta atual)
+  var sobraRec=(p.margemResultante!=null&&p.precoMinimo!=null)?(p.margemResultante*p.precoMinimo):null; // R$ que sobra no preço recomendado (margem-alvo)
   return '<div class="rbox-light"><div class="card-head" style="margin-bottom:8px"><div class="card-icon">🚐</div><div class="card-lbl">Piso marginal do furgão</div></div>'+
     '<div style="font-size:11px;color:var(--text2);margin-bottom:10px;line-height:1.45">Para encaixar uma viagem avulsa na ociosidade <b>quando o custo fixo já está coberto por contratos</b>. Considera só o custo variável ('+brl(custoVarKm)+'/km), sem ratear o fixo. Não use como preço padrão.</div>'+
     '<div class="rrow"><div class="rl">Preço marginal mínimo <span style="font-size:11px;color:var(--text3)">(break-even)</span></div><div class="rv neg" style="font-weight:700">'+brl(p.precoBreakEven)+'</div></div>'+
     '<div class="rrow"><div class="rl">Preço recomendado <span style="font-size:11px;color:var(--text3)">('+(cfg.margemMin||30)+'%)</span></div><div class="rv acc" style="font-weight:700">'+brl(p.precoMinimo)+'</div></div>'+
     '<div class="rrow"><div class="rl">Margem da proposta atual <span style="font-size:11px;color:var(--text3)">(base marginal)</span></div><div class="rv" style="font-weight:700">'+margemPct+'</div></div>'+
     (sobraMarg!=null?'<div class="rrow" style="border-top:1px solid var(--border2);margin-top:6px;padding-top:10px"><div class="rl" style="font-weight:700;color:var(--text)">Sobra líquida <span style="font-size:11px;color:var(--text3)">(proposta atual)</span></div><div class="rv '+(sobraMarg>=0?'acc':'neg')+'" style="font-weight:700;font-size:16px">'+brl(sobraMarg)+'</div></div>':'')+
+    (sobraRec!=null?'<div class="rrow"><div class="rl" style="font-weight:700;color:var(--text)">Sobra líquida <span style="font-size:11px;color:var(--text3)">(recomendado '+(cfg.margemMin||30)+'%)</span></div><div class="rv '+(sobraRec>=0?'acc':'neg')+'" style="font-weight:700;font-size:16px">'+brl(sobraRec)+'</div></div>':'')+
     '<div style="font-size:11px;color:var(--text3);margin-top:8px">Por km: mínimo '+brl(p.breakEvenKm)+'/km · recomendado '+brl(p.pisoMarginalKm)+'/km</div>'+
   '</div>';
 }
