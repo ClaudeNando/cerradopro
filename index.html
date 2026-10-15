@@ -2239,25 +2239,30 @@ function buscaCNPJ(val){
       if(status) status.innerHTML='<span style="color:var(--success)">✓ '+info+'</span>';
     }
 
-    // Fonte 2 (reserva): ReceitaWS
-    function tentaReceitaWS(){
-      fetch('https://receitaws.com.br/v1/cnpj/'+cnpj)
-        .then(function(r){ return r.ok ? r.json() : null; })
-        .then(function(d){
-          if(d && d.nome) aplica(d.nome, d.municipio, d.uf);
-          else if(status) status.innerHTML='<span style="color:var(--danger)">CNPJ não encontrado</span>';
-        })
-        .catch(function(){ if(status) status.innerHTML='<span style="color:var(--danger)">Sem conexão para consultar o CNPJ</span>'; });
+    // Fontes em cascata (todas com CORS liberado). ReceitaWS removida: não envia CORS e falhava sempre no navegador.
+    var fontes = [
+      { url:'https://brasilapi.com.br/api/cnpj/v1/'+cnpj,
+        le:function(d){ return d && d.razao_social ? [d.razao_social, d.municipio, d.uf] : null; } },
+      { url:'https://open.cnpja.com/office/'+cnpj,
+        le:function(d){ return d && d.company && d.company.name ? [d.company.name, d.address&&d.address.city, d.address&&d.address.state] : null; } },
+      { url:'https://publica.cnpj.ws/cnpj/'+cnpj,
+        le:function(d){ var e=d&&d.estabelecimento; return d && d.razao_social ? [d.razao_social, e&&e.cidade&&e.cidade.nome, e&&e.estado&&e.estado.sigla] : null; } }
+    ];
+    var algumaRespondeu = false;
+    function tenta(i){
+      if(i >= fontes.length){
+        if(status) status.innerHTML = (algumaRespondeu || navigator.onLine)
+          ? '<span style="color:var(--danger)">CNPJ não encontrado (ou serviços de consulta indisponíveis) — preencha manualmente</span>'
+          : '<span style="color:var(--danger)">Sem conexão para consultar o CNPJ</span>';
+        return;
+      }
+      var f = fontes[i];
+      fetch(f.url)
+        .then(function(r){ algumaRespondeu = true; if(!r.ok) throw new Error('http '+r.status); return r.json(); })
+        .then(function(d){ var v = f.le(d); if(v) aplica(v[0], v[1], v[2]); else tenta(i+1); })
+        .catch(function(){ tenta(i+1); });
     }
-
-    // Fonte 1 (principal): BrasilAPI
-    fetch('https://brasilapi.com.br/api/cnpj/v1/'+cnpj)
-      .then(function(r){ if(!r.ok) throw new Error('http'); return r.json(); })
-      .then(function(d){
-        if(d && d.razao_social) aplica(d.razao_social, d.municipio, d.uf);
-        else tentaReceitaWS();
-      })
-      .catch(function(){ tentaReceitaWS(); });
+    tenta(0);
   }, 600);
 }
 
