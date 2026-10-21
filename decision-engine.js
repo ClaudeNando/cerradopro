@@ -564,10 +564,110 @@
     };
   }
 
+  /* ==========================================================================
+   * CAIXA DO MÊS DO FURGÃO (TASK-038)
+   * --------------------------------------------------------------------------
+   * O custo fixo é do MÊS, não de uma viagem: a ordem das viagens não muda o
+   * lucro. Lucro do mês = Σ(fat − imposto − custo direto) − fixo − gastos avulsos.
+   * "Custo direto" = custo real lançado (diesel + pedágio + gastos da viagem);
+   * sem ele, estima por km (custo operacional real/km se a amostra for confiável,
+   * senão o variável da config).
+   * ========================================================================== */
+
+  /* custoOperacionalReal(viagens) → custo direto/km a partir das viagens com custo lançado. */
+  function custoOperacionalReal(viagens) {
+    var com = (viagens || []).filter(function (v) { return v && Number(v.km) > 0 && v.custo != null && Number(v.custo) > 0; });
+    if (!com.length) return null;
+    var km = com.reduce(function (s, v) { return s + Number(v.km); }, 0);
+    var custo = com.reduce(function (s, v) { return s + Number(v.custo); }, 0);
+    return { custoKm: km > 0 ? custo / km : 0, totalKm: km, totalCusto: custo, nViagens: com.length,
+             confiavel: com.length >= 3 && km >= 100 };
+  }
+
+  /* custoDiretoViagem({km, custo, varKmCfg, op}) → custo direto da viagem (sem fixo). */
+  function custoDiretoViagem(p) {
+    p = p || {};
+    if (p.custo != null && p.custo !== '') return Number(p.custo) || 0;
+    var op = p.op;
+    var k = (op && op.confiavel && op.custoKm > 0) ? op.custoKm : (Number(p.varKmCfg) || 0);
+    return (Number(p.km) || 0) * k;
+  }
+
+  /* caixaMes({viagens:[{fat, custoDireto}], fixoMes, avulsos, imposto}) → resultado do mês. */
+  function caixaMes(p) {
+    p = p || {};
+    var imposto = _frac(p.imposto, DEFAULTS.imposto);
+    var fixo = p.fixoMes != null ? Number(p.fixoMes) || 0 : DEFAULTS.furgao.fixoMes;
+    var avulsos = Number(p.avulsos) || 0;
+    var vs = p.viagens || [];
+    var fat = 0, direto = 0;
+    vs.forEach(function (v) { fat += Number(v.fat) || 0; direto += Number(v.custoDireto) || 0; });
+    var imp = fat * imposto;
+    var contribuicao = fat - imp - direto;                 // o que as viagens deixam p/ pagar fixo + lucro
+    var aPagar = fixo + avulsos;
+    var lucro = contribuicao - aPagar;
+    return {
+      nViagens: vs.length, faturamento: fat, imposto: imp, custoDireto: direto,
+      contribuicao: contribuicao, fixo: fixo, avulsos: avulsos, lucro: lucro,
+      margem: fat > 0 ? lucro / fat : null,
+      coberturaFixo: aPagar > 0 ? contribuicao / aPagar : null, // 1 = fixo + avulsos pagos
+      faltaFixo: Math.max(0, aPagar - contribuicao)
+    };
+  }
+
+  /* precoMinimoMes({custoViagem, caixa, imposto, margemAlvo, precoProposto?})
+   * Preço mínimo de UMA viagem nova para o MÊS fechar na margem-alvo, dado o caixa
+   * REALIZADO (projeção não entra: não pode baixar o piso). Nunca abaixo do
+   * break-even da própria viagem (nenhuma viagem dá prejuízo sozinha).
+   *   margem do mês com a viagem = (lucro + p(1−t) − c) / (fat + p) ≥ a
+   *   ⇒ p ≥ (c + a·fat − lucro) / (1 − t − a) */
+  function precoMinimoMes(p) {
+    p = p || {};
+    var t = _frac(p.imposto, DEFAULTS.imposto);
+    var a = _frac(p.margemAlvo, DEFAULTS.margemMin);
+    var c = Number(p.custoViagem) || 0;
+    var cx = p.caixa || caixaMes({});
+    var den = 1 - t - a;
+    var breakEven = (1 - t) > 0 ? c / (1 - t) : null;
+    var isolado = den > 0 ? c / den : null;                  // alvo aplicado só à viagem
+    var pMes = den > 0 ? (c + a * cx.faturamento - cx.lucro) / den : null;
+    var precoMinimo = (pMes == null || breakEven == null) ? null : Math.max(breakEven, pMes);
+    var r = {
+      precoBreakEven: breakEven, precoIsolado: isolado, precoMinimo: precoMinimo,
+      limitadoPeloBreakEven: precoMinimo != null && pMes < breakEven,
+      folga: (pMes != null && isolado != null) ? (pMes < isolado ? 'folgado' : (pMes > isolado ? 'apertado' : 'neutro')) : null,
+      margemMesAtual: cx.margem, precoProposto: null, margemViagem: null, margemMesCom: null
+    };
+    if (p.precoProposto != null && Number(p.precoProposto) > 0) {
+      var pp = Number(p.precoProposto);
+      r.precoProposto = pp;
+      r.margemViagem = (pp * (1 - t) - c) / pp;
+      r.margemMesCom = (cx.lucro + pp * (1 - t) - c) / (cx.faturamento + pp);
+    }
+    return r;
+  }
+
+  /* avaliarCalibracaoVariavel({varKmCfg, op, tolerancia}) — avisa quando o variável da
+   * config está abaixo do custo direto real (o real inclui pedágio, então é natural
+   * ficar um pouco acima; acima da tolerância o piso fica otimista). */
+  function avaliarCalibracaoVariavel(p) {
+    p = p || {};
+    var op = p.op, cfgKm = Number(p.varKmCfg) || 0;
+    var tol = p.tolerancia != null ? _frac(p.tolerancia, 0.15) : 0.15;
+    if (!op || !op.confiavel || !(op.custoKm > 0)) return { status: 'sem-dados', diferenca: null, realKm: op ? op.custoKm : null, cfgKm: cfgKm };
+    var dif = (op.custoKm - cfgKm) / op.custoKm;             // fração do real que a config não enxerga
+    return { status: dif > tol ? 'abaixo' : 'ok', diferenca: dif, realKm: op.custoKm, cfgKm: cfgKm };
+  }
+
   /* Exposição pública (sem efeito colateral, sem chamadas automáticas). */
   global.DecisionEngine = {
-    _version: '0.7.0',
+    _version: '0.8.0',
     DEFAULTS: DEFAULTS,
+    custoOperacionalReal: custoOperacionalReal,
+    custoDiretoViagem: custoDiretoViagem,
+    caixaMes: caixaMes,
+    precoMinimoMes: precoMinimoMes,
+    avaliarCalibracaoVariavel: avaliarCalibracaoVariavel,
     calcularAnaliseNegociacao: calcularAnaliseNegociacao,
     calcularCustoMotoristaViagem: calcularCustoMotoristaViagem,
     calcularCapacidadeTransbordo: calcularCapacidadeTransbordo,

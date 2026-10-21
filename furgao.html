@@ -210,6 +210,11 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
   <div id="screen-dash" class="screen active">
     <div class="shdr"><div class="shdr-title">Dashboard</div><div id="dash-sub" style="font-size:11px;color:var(--text4);font-family:monospace"></div></div>
     <div class="kpi-grid" id="kpi-area"></div>
+    <div class="card" id="mes-card">
+      <div class="card-head"><div class="card-icon"><i data-lucide="calendar-check"></i></div><div class="card-lbl" id="mes-titulo">Caixa do mês</div>
+        <button class="btn btn-ghost btn-sm" onclick="openGasto()" style="margin-left:auto">+ Gasto avulso</button></div>
+      <div id="mes-detalhe"></div>
+    </div>
     <div class="card" id="custo-card">
       <div class="card-head"><div class="card-icon"><i data-lucide="gauge"></i></div><div class="card-lbl">Custo por km</div></div>
       <div id="custo-detalhe"></div>
@@ -291,15 +296,33 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
         <div class="field"><label class="flabel">KM rodado</label><input class="inp inp-mono" id="v-km" type="number" placeholder="0" inputmode="decimal" oninput="calcViagemModal()"></div>
       </div>
       <div class="g2">
-        <div class="field"><label class="flabel">Faturado (R$)</label><input class="inp inp-mono" id="v-fat" type="number" placeholder="0" inputmode="decimal" oninput="calcViagemModal()"></div>
+        <div class="field"><label class="flabel">Faturado do transporte (R$)</label><input class="inp inp-mono" id="v-fat" type="number" placeholder="0" inputmode="decimal" oninput="calcViagemModal()"></div>
         <div class="field"><label class="flabel">Custo real (R$) — diesel + pedágio + gastos</label><input class="inp inp-mono" id="v-custo" type="number" placeholder="0" inputmode="decimal" oninput="calcViagemModal()"></div>
       </div>
+      <div style="font-size:11px;color:var(--text3);margin:-4px 0 6px;line-height:1.4">Se o valor cobrado do cliente inclui <b>destinação</b>, lance aqui só a parte do transporte — ou some o que foi pago ao destinador no custo.</div>
       <div id="v-preview" style="margin:8px 0;min-height:32px"></div>
       <div class="field"><label class="flabel">Observação</label><input class="inp" id="v-obs" type="text" placeholder="Opcional" autocomplete="off"></div>
       <div style="height:8px"></div>
       <button class="btn btn-primary" onclick="salvarViagem()">✓ Salvar Viagem</button>
       <div style="height:8px"></div>
       <button class="btn btn-danger" id="v-excluir-btn" onclick="excluirViagem()" style="display:none">🗑 Excluir</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: GASTO AVULSO (TASK-038) -->
+<div class="overlay" id="gasto-modal" onclick="if(event.target===this)closeModal('gasto-modal')">
+  <div class="modal">
+    <div class="modal-handle-wrap"><div class="modal-handle"></div></div>
+    <div class="modal-head"><div class="modal-title">🔧 Gasto avulso</div><button class="modal-close" onclick="closeModal('gasto-modal')">×</button></div>
+    <div class="modal-body">
+      <div style="font-size:12px;color:var(--text3);margin-bottom:10px;line-height:1.45">Gastos fora da rotina que não são de uma viagem: pneu estourado, manutenção corretiva, multa, guincho, lavagem… Saem do lucro do mês.</div>
+      <div class="g2">
+        <div class="field"><label class="flabel">Data</label><input class="inp inp-mono" id="ga-data" type="date"></div>
+        <div class="field"><label class="flabel">Valor (R$)</label><input class="inp inp-mono" id="ga-valor" type="number" placeholder="0" inputmode="decimal"></div>
+      </div>
+      <div class="field"><label class="flabel">Descrição</label><input class="inp" id="ga-desc" type="text" placeholder="Ex.: troca de pneu" autocomplete="off"></div>
+      <button class="btn btn-primary" onclick="salvarGasto()">✓ Salvar gasto</button>
     </div>
   </div>
 </div>
@@ -442,6 +465,7 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
 
 <!-- Camada compartilhada de login/sincronização/backup -->
 <script src="cloud-sync.js"></script>
+<script src="decision-engine.js"></script>
 
 <script>
 var DEF_CFG={consumo:10,diesel:6.80,parcela:4202.39,kmMes:2400,ipva:4570,seguro:7265,licen:308,motorista:5000,oleoCusto:1000,oleoKm:10000,pneuCusto:3000,pneuKm:50000,manutCusto:3000,manutKm:50000,imposto:15.45,margem:30,backupDias:7,extras:[]};
@@ -523,6 +547,10 @@ function lClientes(){try{var s=localStorage.getItem('fp2_clientes');return s?JSO
 function sClientes(){lset('fp2_clientes',JSON.stringify(clientes));}
 function lViagens(){try{var s=localStorage.getItem('fp2_viagens');return s?JSON.parse(s):JSON.parse(JSON.stringify(DEF_VIAGENS));}catch(e){return JSON.parse(JSON.stringify(DEF_VIAGENS));}}
 function sViagens(){lset('fp2_viagens',JSON.stringify(viagens)); try{pushFurgaoMetrics();}catch(e){}}
+// Gastos avulsos do mês (TASK-038): [{id,data,desc,valor}] — saem do lucro do mês, não de uma viagem.
+function lGastos(){try{var a=JSON.parse(localStorage.getItem('fp2_gastos')||'[]');return Array.isArray(a)?a:[];}catch(e){return [];}}
+function sGastos(){lset('fp2_gastos',JSON.stringify(gastos));}
+var gastos=lGastos();
 
 // ── CUSTO POR KM ─────────────────────────────────────────
 function calcMeses(){
@@ -538,16 +566,14 @@ function _sdiv(a,b,fb){b=Number(b);if(!b||!isFinite(b))return (fb===undefined?0:
 
 // Custo OPERACIONAL por km (apenas desembolso direto das viagens)
 function calcCustoOperacional(){
-  var comCusto=viagens.filter(function(v){return v.km>0&&v.custo!=null&&v.custo>0;});
-  if(!comCusto.length) return null;
-  var totKm=comCusto.reduce(function(s,v){return s+v.km;},0);
-  var totCusto=comCusto.reduce(function(s,v){return s+v.custo;},0);
+  var r=DecisionEngine.custoOperacionalReal(viagens); // regra no engine (TASK-038)
+  if(!r) return null;
   return {
-    custoKm: _sdiv(totCusto,totKm,0),
-    totalKm: totKm,
-    totalCusto: totCusto,
-    nViagens: comCusto.length,
-    confiavel: (comCusto.length>=3 && totKm>=100),
+    custoKm: r.custoKm,
+    totalKm: r.totalKm,
+    totalCusto: r.totalCusto,
+    nViagens: r.nViagens,
+    confiavel: r.confiavel,
     itens: [
       {label:'Combustível estimado', val: cfg.diesel/cfg.consumo},
       {label:'Óleo + pneus + manutenção', val: (cfg.oleoCusto/cfg.oleoKm)+(cfg.pneuCusto/cfg.pneuKm)+(cfg.manutCusto/cfg.manutKm)},
@@ -623,11 +649,64 @@ function calcCustoEstimado(){ return calcCustoTotal(); }
 // Sem custo real: estima o variável pelo custo operacional real/km (amostra confiável) ou pela config.
 function custoViagem(v,tot,op){
   var km=+v.km||0;
-  var varKmEst=(op&&op.confiavel)?op.custoKm:tot.varKm;
   var real=(v.custo!=null);
-  var variavel=real?+v.custo:km*varKmEst;
+  var variavel=DecisionEngine.custoDiretoViagem({km:km,custo:v.custo,varKmCfg:tot.varKm,op:op});
   var fixo=km*tot.fixoKm;
   return {variavel:variavel, fixo:fixo, cheio:variavel+fixo, real:real};
+}
+
+// ── CAIXA DO MÊS (TASK-038) ──────────────────────────────
+// O fixo é do MÊS, não de uma viagem: a ordem das viagens não muda o lucro.
+// Realizado = viagens com data até hoje (o que está agendado não entra).
+function _mesAtual(){ return new Date().toISOString().slice(0,7); }
+function avulsosDoMes(m){ return gastos.filter(function(x){return String(x.data||'').slice(0,7)===m;}).reduce(function(s,x){return s+(+x.valor||0);},0); }
+function caixaDoMes(m,tot,op){
+  var hoje=new Date().toISOString().slice(0,10);
+  var vs=viagens.filter(function(v){return v.data&&String(v.data).slice(0,7)===m&&v.data<=hoje;})
+    .map(function(v){return {fat:v.fat||0, custoDireto:custoViagem(v,tot,op).variavel};});
+  return DecisionEngine.caixaMes({viagens:vs,fixoMes:tot.fixoMensal,avulsos:avulsosDoMes(m),imposto:cfg.imposto});
+}
+function renderMes(tot,op){
+  var m=_mesAtual(), cx=caixaDoMes(m,tot,op);
+  var mesLbl=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+  g('mes-titulo').textContent='Caixa de '+mesLbl[+m.slice(5,7)-1]+'/'+m.slice(0,4);
+  var alvo=cfg.margem/100, cob=cx.coberturaFixo||0, w=Math.min(100,Math.max(0,cob*100)).toFixed(0);
+  var mc=cx.margem===null?'':cx.margem>=alvo?'ok':cx.margem>=alvo*0.7?'warn':'bad';
+  var row=function(l,v,st){return '<div class="ctrow"><span class="ct-label"'+(st?' style="'+st+'"':'')+'>'+l+'</span><span class="ct-val"'+(st?' style="'+st+'"':'')+'>'+v+'</span></div>';};
+  var dirKm=(op&&op.confiavel)?op.custoKm:tot.varKm;
+  var den=1-(cfg.imposto/100)-alvo;
+  var cal=DecisionEngine.avaliarCalibracaoVariavel({varKmCfg:tot.varKm,op:op});
+  var calBox=cal.status==='abaixo'?'<div style="background:rgba(176,112,16,0.08);border:1px solid rgba(176,112,16,0.3);border-radius:10px;padding:10px;margin-bottom:10px;font-size:12px;color:var(--warning);line-height:1.45">⚠️ O custo variável da configuração (R$ '+cal.cfgKm.toFixed(2).replace('.',',')+'/km) está '+pct(cal.diferenca)+' abaixo do custo direto real das viagens (R$ '+cal.realKm.toFixed(2).replace('.',',')+'/km). O piso do orçamento usa a configuração e pode estar <b>otimista</b> — revise diesel/consumo/manutenção em ⚙️.</div>':'';
+  var gm=gastos.filter(function(x){return String(x.data||'').slice(0,7)===m;}).sort(function(a,b){return (a.data||'').localeCompare(b.data||'');});
+  var gLista=gm.map(function(x){return '<div class="ctrow"><span class="ct-label" style="color:var(--text3)">'+fmtData(x.data)+' · '+(x.desc||'Gasto')+'</span><span class="ct-val">'+brl(+x.valor||0)+' <button onclick="excluirGasto('+x.id+')" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:14px">×</button></span></div>';}).join('');
+  g('mes-detalhe').innerHTML=calBox+
+    row('Faturado ('+cx.nViagens+' viagem(ns) realizadas)',brl(cx.faturamento))+
+    row('− Imposto + custo direto das viagens',brl(cx.imposto+cx.custoDireto))+
+    row('= Sobra das viagens',brl(cx.contribuicao),'font-weight:700')+
+    row('Fixo do mês'+(cx.avulsos>0?' + gastos avulsos':''),brl(cx.fixo+cx.avulsos))+
+    '<div style="background:var(--bg);border-radius:4px;height:8px;overflow:hidden;margin:8px 0 4px"><div style="width:'+w+'%;height:100%;background:'+(cob>=1?'var(--success)':'var(--accent)')+'"></div></div>'+
+    '<div style="font-size:12px;color:'+(cob>=1?'var(--success)':'var(--text2)')+';margin-bottom:8px">'+(cob>=1?'✅ Fixo do mês pago — o que entrar agora (acima do custo direto e do imposto) é lucro.':'Fixo '+w+'% pago · faltam '+brl(cx.faltaFixo))+'</div>'+
+    '<div class="ctrow"><span class="ct-label" style="font-weight:700;color:var(--text)">Lucro do mês</span><span class="ct-val big" style="color:'+(cx.lucro>=0?'var(--success)':'var(--danger)')+'">'+brl(cx.lucro)+'</span></div>'+
+    '<div class="ctrow"><span class="ct-label" style="font-weight:700">Margem do mês <span style="font-size:10px;color:var(--text4)">(meta '+cfg.margem+'%)</span></span><span class="ct-val big kpi-value '+mc+'" style="font-size:16px">'+(cx.margem===null?'—':pct(cx.margem))+'</span></div>'+
+    '<div style="font-size:11px;color:var(--text3);margin-top:6px;line-height:1.45">Referência de encaixe (custo direto R$ '+dirKm.toFixed(2).replace('.',',')+'/km): empate <b>R$ '+(dirKm/(1-cfg.imposto/100)).toFixed(2).replace('.',',')+'/km</b> · '+cfg.margem+'% na viagem <b>R$ '+(den>0?(dirKm/den).toFixed(2).replace('.',','):'—')+'/km</b>. O orçamento do CerradoPRO calcula o preço mínimo para o mês fechar em '+cfg.margem+'%.</div>'+
+    (gLista?'<div class="card-lbl" style="margin:12px 0 6px">Gastos avulsos do mês</div>'+gLista:'');
+}
+function openGasto(){
+  g('ga-data').value=new Date().toISOString().slice(0,10); g('ga-valor').value=''; g('ga-desc').value='';
+  openModal('gasto-modal');
+}
+function salvarGasto(){
+  var v=+g('ga-valor').value||0, d=g('ga-data').value;
+  if(!v||v<=0){toast('⚠️ Informe o valor');return;}
+  if(!d){toast('⚠️ Informe a data');return;}
+  gastos.push({id:Date.now(),data:d,desc:g('ga-desc').value.trim()||'Gasto avulso',valor:v});
+  sGastos(); closeModal('gasto-modal'); renderDash(); renderRegistros();
+  toast('✅ Gasto lançado');
+}
+function excluirGasto(id){
+  if(!confirm('Excluir este gasto?')) return;
+  gastos=gastos.filter(function(x){return x.id!=id;});
+  sGastos(); renderDash(); renderRegistros();
 }
 
 // ── MÉTRICAS DA FROTA → CerradoPRO (fonte única, TASK-035) ──────────────
@@ -669,7 +748,9 @@ function renderDash(){
 
   var totFat  = viagens.reduce(function(s,v){return s+(v.fat||0);},0);
   var totKm   = viagens.reduce(function(s,v){return s+(v.km||0);},0);
-  var totCusto= viagens.reduce(function(s,v){return s+custoViagem(v,tot,op).cheio;},0);
+  var totCusto= viagens.reduce(function(s,v){return s+custoViagem(v,tot,op).cheio;},0)
+              + gastos.reduce(function(s,x){return s+(+x.valor||0);},0); // gastos avulsos (TASK-038)
+  renderMes(tot,op);
   var impTotal= totFat*(cfg.imposto/100);
   var sobra   = totFat - totCusto - impTotal;
   var margem  = totFat>0?sobra/totFat:0;
@@ -840,7 +921,7 @@ function renderRegistros(){
     var linhasMes=vis.map(function(m){
       var d=porMes[m], mm=m.split('-');
       var rot=(mesLbl[(+mm[1]-1)]||m)+'/'+mm[0];
-      var lucro=d.fat-d.custo-(d.fat*(cfg.imposto/100))-fixoMes;
+      var lucro=d.fat-d.custo-(d.fat*(cfg.imposto/100))-fixoMes-avulsosDoMes(m);
       var cor=lucro>=0?'var(--success)':'var(--danger)';
       return '<div class="ctrow" style="align-items:center">'+
         '<span class="ct-label">'+rot+' <span style="color:var(--text4);font-size:11px">('+d.n+'×)</span></span>'+
@@ -862,7 +943,7 @@ function renderRegistros(){
   var html='';
   sorted.forEach(function(v){
     var imp=(v.fat||0)*(cfg.imposto/100);
-    var custoUsado=custoViagem(v,est,real).cheio;
+    var custoUsado=custoViagem(v,est,real).variavel; // contribuição: o fixo é do mês (TASK-038)
     var sobra=(v.fat||0)-custoUsado-imp;
     var margem=v.fat>0?sobra/v.fat:null;
     var mc=margem===null?'':margem>=cfg.margem/100?'ok':margem>=(cfg.margem/100)*0.7?'warn':'bad';
@@ -878,7 +959,7 @@ function renderRegistros(){
         '<div class="rnum"><div class="rnum-lbl">Custo real</div><div class="rnum-val '+(v.custo!=null?'':'')+'">'+
           (v.custo!=null?brl(v.custo):'<span style="color:var(--text4)">—</span>')+
         '</div></div>'+
-        '<div class="rnum"><div class="rnum-lbl">Margem</div><div class="rnum-val '+mc+'">'+(margem!==null?pct(margem):'—')+'</div></div>'+
+        '<div class="rnum"><div class="rnum-lbl" title="Margem de contribuição: sem o fixo, que é do mês">Contrib.</div><div class="rnum-val '+mc+'">'+(margem!==null?pct(margem):'—')+'</div></div>'+
       '</div>'+
       (custoKmR!==null?'<div style="font-size:11px;color:var(--text3);margin-top:6px;font-family:\'DM Mono\',monospace">Custo real: R$ '+custoKmR.toFixed(2).replace('.',',')+'/km · <span class="tag-real">real</span></div>':
         '<div style="font-size:11px;color:var(--text4);margin-top:6px">Custo real não informado</div>')+
@@ -902,7 +983,7 @@ function renderClientes(){
     if(!porCliente[v.clienteId]){porCliente[v.clienteId]={fat:0,km:0,custo:0,n:0};}
     porCliente[v.clienteId].fat+=(v.fat||0);
     porCliente[v.clienteId].km+=(v.km||0);
-    porCliente[v.clienteId].custo+=custoViagem(v,est2,op2).cheio;
+    porCliente[v.clienteId].custo+=custoViagem(v,est2,op2).variavel; // contribuição (TASK-038)
     porCliente[v.clienteId].n++;
   });
   function _cliMargem(c){
@@ -940,7 +1021,7 @@ function renderClientes(){
       '<div class="ccard-nums">'+
         '<div class="cnum"><div class="cnum-lbl">Fat. total</div><div class="cnum-val">'+(stats.fat?brl(stats.fat):'—')+'</div></div>'+
         '<div class="cnum"><div class="cnum-lbl">KM típico</div><div class="cnum-val">'+fmt(c.km)+' km</div></div>'+
-        '<div class="cnum"><div class="cnum-lbl">Margem</div><div class="cnum-val '+mc+'">'+(margem!==null?pct(margem):'—')+'</div></div>'+
+        '<div class="cnum"><div class="cnum-lbl" title="Margem de contribuição: sem o fixo, que é do mês">Contrib.</div><div class="cnum-val '+mc+'">'+(margem!==null?pct(margem):'—')+'</div></div>'+
       '</div>'+
       (margem!==null?'<div class="mbar"><div class="mfill" style="width:'+bw+'%;background:'+bcolor+'"></div></div>':'')+
     '</div>';
@@ -985,14 +1066,14 @@ function calcViagemModal(){
   if(!km||!fat){g('v-preview').innerHTML='';return;}
   var est=calcCustoEstimado();
   var real=calcCustoOperacional();
-  var custoUsado=custoViagem({km:km,custo:custo>0?custo:null},est,real).cheio;
+  var custoUsado=custoViagem({km:km,custo:custo>0?custo:null},est,real).variavel; // contribuição (TASK-038)
   var imp=fat*(cfg.imposto/100);
   var sobra=fat-custoUsado-imp;
   var margem=fat>0?sobra/fat:0;
   var ok=margem>=cfg.margem/100;
   var color=ok?'var(--success)':margem>=(cfg.margem/100)*0.7?'var(--warning)':'var(--danger)';
   g('v-preview').innerHTML='<div style="background:var(--bg);border-radius:10px;padding:10px;display:flex;justify-content:space-between;align-items:center">'+
-    '<span style="font-size:13px;color:var(--text2)">Margem estimada</span>'+
+    '<span style="font-size:13px;color:var(--text2)">Margem de contribuição (sem fixo)</span>'+
     '<span style="font-size:16px;font-weight:800;color:'+color+';font-family:\'DM Mono\',monospace">'+pct(margem)+'</span>'+
   '</div>';
 }
@@ -1352,7 +1433,7 @@ function salvarRotaCompartilhada(){
 }
 
 function exportarBackup(){
-  var dados={app:'FurgaoPRO',versao:1,exportadoEm:new Date().toISOString(),cfg:cfg,clientes:clientes,viagens:viagens};
+  var dados={app:'FurgaoPRO',versao:1,exportadoEm:new Date().toISOString(),cfg:cfg,clientes:clientes,viagens:viagens,gastos:gastos};
   CloudSync.exportBackup('furgaopro-backup', dados, '⬇️ Backup exportado ('+viagens.length+' viagens)');
   try{localStorage.setItem('fp2_lastbackup',new Date().toISOString());_backupSnooze=false;checkBackupLembrete();}catch(e){}
 }
@@ -1381,6 +1462,7 @@ function importarBackup(input){
     if(d.cfg) cfg=d.cfg;
     clientes=Array.isArray(d.clientes)?d.clientes:[];
     viagens=d.viagens;
+    if(Array.isArray(d.gastos)){ gastos=d.gastos; sGastos(); } // backups antigos não têm gastos: mantém os atuais
     nextVId=Math.max(0,...viagens.map(function(v){return v.id||0;}))+1;
     nextCId=Math.max(0,...clientes.map(function(c){return c.id||0;}))+1;
     sCfg(cfg); sClientes(); sViagens();
@@ -1398,9 +1480,9 @@ if(_recuperados>0){ renderClientes(); toast('✅ '+_recuperados+' cliente(s) rec
 if(window.CloudSync){
   CloudSync.initSync({
     collection:'furgaopro',
-    syncKeys:['fp2_cfg','fp2_clientes','fp2_viagens'],
+    syncKeys:['fp2_cfg','fp2_clientes','fp2_viagens','fp2_gastos'],
     onRemote:function(k){
-      cfg=lCfg(); clientes=lClientes(); viagens=lViagens();
+      cfg=lCfg(); clientes=lClientes(); viagens=lViagens(); gastos=lGastos();
       nextVId=Math.max(0,...viagens.map(function(v){return v.id||0;}))+1;
       nextCId=Math.max(0,...clientes.map(function(c){return c.id||0;}))+1;
       renderDash(); renderRegistros(); renderClientes();

@@ -1255,7 +1255,7 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
         <div class="field"><label class="flabel">Km ida+volta</label><input class="inp inp-mono" type="number" id="fv-km" placeholder="0" inputmode="decimal"></div>
       </div>
       <div class="g2">
-        <div class="field"><label class="flabel">Faturamento (R$)</label><input class="inp inp-mono" type="number" id="fv-fat" placeholder="0" inputmode="decimal"></div>
+        <div class="field"><label class="flabel">Faturamento do transporte (R$) — sem destinação</label><input class="inp inp-mono" type="number" id="fv-fat" placeholder="0" inputmode="decimal"></div>
         <div class="field"><label class="flabel">Custo desembolsado (opc.)</label><input class="inp inp-mono" type="number" id="fv-custo" placeholder="0" inputmode="decimal"></div>
       </div>
       <button class="btn btn-primary" id="fv-btn" onclick="lancarFViagem()">🚐 Lançar no furgão</button>
@@ -1649,19 +1649,45 @@ function pisoMarginalHTML(r){
   var custoVarKm=(_fm&&+_fm.variableCostKm)?+_fm.variableCostKm:((DecisionEngine.DEFAULTS&&DecisionEngine.DEFAULTS.furgao)?DecisionEngine.DEFAULTS.furgao.custoVariavelKm:1.39);
   var ped=Number(r.ped)||0;
   var cmotCusto=(r.cmot&&r.cmot.custoTotal)||0;
-  var p;try{p=DecisionEngine.calcularPrecoMinimo({custoTotal:km*custoVarKm+ped+cmotCusto,km:km,imposto:cfg.imposto,margemAlvo:cfg.margemMin,precoProposto:r.tot,modo:'marginal'});}catch(e){return '';}
+  // A nota (r.tot) inclui a destinação → o custo da destinação (cdf) entra no custo, senão a margem sai inflada (TASK-038).
+  var p;try{p=DecisionEngine.calcularPrecoMinimo({custoTotal:km*custoVarKm+ped+cmotCusto+(Number(r.cdf)||0),km:km,imposto:cfg.imposto,margemAlvo:cfg.margemMin,precoProposto:r.tot,modo:'marginal'});}catch(e){return '';}
   if(!p||p.precoMinimo==null)return '';
   var margemPct=p.margemProposta!=null?(p.margemProposta*100).toFixed(1)+'%':'—';
   var sobraMarg=(p.margemProposta!=null&&p.precoProposto!=null)?(p.margemProposta*p.precoProposto):null; // R$ que sobra na base marginal (proposta atual)
   var sobraRec=(p.margemResultante!=null&&p.precoMinimo!=null)?(p.margemResultante*p.precoMinimo):null; // R$ que sobra no preço recomendado (margem-alvo)
   return '<div class="rbox-light"><div class="card-head" style="margin-bottom:8px"><div class="card-icon">🚐</div><div class="card-lbl">Piso marginal do furgão</div></div>'+
-    '<div style="font-size:11px;color:var(--text2);margin-bottom:10px;line-height:1.45">Para encaixar uma viagem avulsa na ociosidade <b>quando o custo fixo já está coberto por contratos</b>. Considera só o custo variável ('+brl(custoVarKm)+'/km), sem ratear o fixo. Não use como preço padrão.</div>'+
+    '<div style="font-size:11px;color:var(--text2);margin-bottom:10px;line-height:1.45">Para encaixar uma viagem avulsa na ociosidade <b>quando o fixo do mês já está pago</b> (veja o caixa do mês abaixo). Considera só o custo variável ('+brl(custoVarKm)+'/km), sem ratear o fixo. Não use como preço padrão.</div>'+
     '<div class="rrow"><div class="rl">Preço marginal mínimo <span style="font-size:11px;color:var(--text3)">(break-even)</span></div><div class="rv neg" style="font-weight:700">'+brl(p.precoBreakEven)+'</div></div>'+
     '<div class="rrow"><div class="rl">Preço recomendado <span style="font-size:11px;color:var(--text3)">('+(cfg.margemMin||30)+'%)</span></div><div class="rv acc" style="font-weight:700">'+brl(p.precoMinimo)+'</div></div>'+
     '<div class="rrow"><div class="rl">Margem da proposta atual <span style="font-size:11px;color:var(--text3)">(base marginal)</span></div><div class="rv" style="font-weight:700">'+margemPct+'</div></div>'+
     (sobraMarg!=null?'<div class="rrow" style="border-top:1px solid var(--border2);margin-top:6px;padding-top:10px"><div class="rl" style="font-weight:700;color:var(--text)">Sobra líquida <span style="font-size:11px;color:var(--text3)">(proposta atual)</span></div><div class="rv '+(sobraMarg>=0?'acc':'neg')+'" style="font-weight:700;font-size:16px">'+brl(sobraMarg)+'</div></div>':'')+
     (sobraRec!=null?'<div class="rrow"><div class="rl" style="font-weight:700;color:var(--text)">Sobra líquida <span style="font-size:11px;color:var(--text3)">(recomendado '+(cfg.margemMin||30)+'%)</span></div><div class="rv '+(sobraRec>=0?'acc':'neg')+'" style="font-weight:700;font-size:16px">'+brl(sobraRec)+'</div></div>':'')+
     '<div style="font-size:11px;color:var(--text3);margin-top:8px">Por km: mínimo '+brl(p.breakEvenKm)+'/km · recomendado '+brl(p.pisoMarginalKm)+'/km</div>'+
+    caixaMesFurgaoHTML(r,km,custoVarKm,ped,cmotCusto)+
+  '</div>';
+}
+// Caixa do mês do furgão no orçamento (TASK-038): o fixo é do mês, não da viagem.
+// Mostra o mês realizado e o preço mínimo do TRANSPORTE para o mês fechar na margem-alvo.
+// Orçamento salvo (snapshot) não mostra: o caixa do mês é informação do momento da decisão.
+function caixaMesFurgaoHTML(r,km,custoVarKm,ped,cmotCusto){
+  if(r.furgaoMetricsSnap||!DecisionEngine.precoMinimoMes) return '';
+  var m=new Date().toISOString().slice(0,7), cx=caixaFurgaoMes(m);
+  if(!cx) return '<div style="font-size:11px;color:var(--text3);margin-top:10px;border-top:1px solid var(--border2);padding-top:10px">Caixa do mês do furgão indisponível (sem métricas/sync do FurgãoPRO).</div>';
+  var alvo=cfg.margemMin||30, c=km*custoVarKm+ped+cmotCusto, precoTransp=(Number(r.ptc)||0)+(Number(r.ac)||0);
+  var pm; try{ pm=DecisionEngine.precoMinimoMes({custoViagem:c,caixa:cx,imposto:cfg.imposto,margemAlvo:alvo,precoProposto:precoTransp>0?precoTransp:null}); }catch(e){ return ''; }
+  var pj=projecaoFurgaoMes(m), cob=Math.round((cx.coberturaFixo||0)*100);
+  var pc=function(x){return x==null?'—':(x*100).toFixed(1).replace('.',',')+'%';};
+  var cor=function(x){return x==null?'':(x>=alvo/100?'acc':'neg');};
+  var cal=cx.calibracao&&cx.calibracao.status==='abaixo'?'<div style="font-size:11px;color:#8a6d00;background:#fbf6e3;border:1px solid #e0b000;border-radius:8px;padding:8px;margin:8px 0;line-height:1.45">⚠️ O custo variável usado no piso ('+brl(cx.calibracao.cfgKm)+'/km) está '+pc(cx.calibracao.diferenca)+' abaixo do custo direto real das viagens ('+brl(cx.calibracao.realKm)+'/km). O piso pode estar <b>otimista</b> — revise a configuração do FurgãoPRO.</div>':'';
+  return '<div style="border-top:1px solid var(--border2);margin-top:10px;padding-top:10px">'+
+    '<div class="card-lbl" style="margin-bottom:6px">Caixa do mês do furgão (realizado)</div>'+cal+
+    '<div class="rrow"><div class="rl">Faturado no mês <span style="font-size:11px;color:var(--text3)">('+cx.nViagens+' viagens)</span></div><div class="rv">'+brl(cx.faturamento)+'</div></div>'+
+    '<div class="rrow"><div class="rl">Fixo do mês pago</div><div class="rv '+(cob>=100?'acc':'')+'" style="font-weight:700">'+cob+'%'+(cx.faltaFixo>0?' <span style="font-size:11px;color:var(--text3)">(faltam '+brl(cx.faltaFixo)+')</span>':' ✅')+'</div></div>'+
+    '<div class="rrow"><div class="rl">Lucro / margem do mês até agora</div><div class="rv '+cor(cx.margem)+'">'+brl(cx.lucro)+' · '+pc(cx.margem)+'</div></div>'+
+    '<div class="rrow" style="border-top:1px solid var(--border2);margin-top:6px;padding-top:10px"><div class="rl" style="font-weight:700;color:var(--text)">Transporte mínimo p/ o mês fechar em '+alvo+'%</div><div class="rv acc" style="font-weight:700;font-size:16px">'+brl(pm.precoMinimo)+'</div></div>'+
+    '<div style="font-size:11px;color:var(--text3);margin:2px 0 6px">'+brl(pm.precoMinimo/km)+'/km · '+(pm.limitadoPeloBreakEven?'mês folgado — travado no empate da viagem (nunca abaixo)':(pm.folga==='folgado'?'mês folgado: abaixo do '+alvo+'% isolado ('+brl(pm.precoIsolado)+')':'mês apertado — uma viagem sozinha não fecha a meta; com '+alvo+'% na própria viagem ('+brl(pm.precoIsolado)+') ela puxa o mês para cima'))+'</div>'+
+    (pm.precoProposto!=null?'<div class="rrow"><div class="rl">Com o transporte desta proposta ('+brl(pm.precoProposto)+')</div><div class="rv '+cor(pm.margemMesCom)+'" style="font-weight:700">mês em '+pc(pm.margemMesCom)+'</div></div>':'')+
+    (pj.n?'<div style="font-size:11px;color:var(--text3);margin-top:6px">Agendado no mês (frota própria): '+pj.n+' coleta(s)'+(pj.fat>0?' · '+brl(pj.fat)+' previstos':'')+(pj.semValor?' · '+pj.semValor+' sem valor':'')+'. Só informativo — não reduz o preço mínimo.</div>':'')+
   '</div>';
 }
 
@@ -3019,8 +3045,43 @@ function iniciarFurgaoMetrics(){
     if(m&&+m.totalCostKm){ try{localStorage.setItem('rpro_furgao_metrics',JSON.stringify(m));}catch(e){} }
     try{renderContratos();}catch(e){} // a cobertura do custo fixo depende das métricas
   },function(){});
+  // Caixa do mês do furgão (TASK-038): lê (só leitura) as viagens e gastos avulsos do FurgãoPRO.
+  // Cache local de exibição — não sincronizado; a verdade continua em furgaopro/*.
+  _furgDocsUnsub=['fp2_viagens','fp2_gastos'].map(function(k){
+    return fb.firestore().collection('furgaopro').doc(k).onSnapshot(function(doc){
+      var v=(doc.exists?(doc.data()||{}):{}).value;
+      if(typeof v==='string'){ try{localStorage.setItem('rpro_furgao_'+k.slice(4),v);}catch(e){} }
+    },function(){});
+  });
 }
-function pararFurgaoMetrics(){ if(_furgUnsub){try{_furgUnsub();}catch(e){} _furgUnsub=null;} }
+var _furgDocsUnsub=[];
+function pararFurgaoMetrics(){ if(_furgUnsub){try{_furgUnsub();}catch(e){} _furgUnsub=null;} _furgDocsUnsub.forEach(function(u){try{u();}catch(e){}}); _furgDocsUnsub=[]; }
+function _furgLista(k){ try{var a=JSON.parse(localStorage.getItem('rpro_furgao_'+k)||'[]');return Array.isArray(a)?a:[];}catch(e){return [];} }
+// Caixa do mês REALIZADO do furgão (viagens até hoje + gastos avulsos do mês). Regra no DecisionEngine.
+function caixaFurgaoMes(m){
+  if(!window.DecisionEngine||!DecisionEngine.caixaMes) return null;
+  var fm=getFurgaoMetrics(); if(!fm||!(+fm.fixedMonthlyCost)) return null;
+  var hoje=new Date().toISOString().slice(0,10);
+  var vs=_furgLista('viagens'), op=DecisionEngine.custoOperacionalReal(vs);
+  var doMes=vs.filter(function(v){return v&&v.data&&String(v.data).slice(0,7)===m&&v.data<=hoje;}).map(function(v){
+    return {fat:+v.fat||0, custoDireto:DecisionEngine.custoDiretoViagem({km:v.km,custo:v.custo,varKmCfg:+fm.variableCostKm||0,op:op})};
+  });
+  var avulsos=_furgLista('gastos').filter(function(x){return String(x.data||'').slice(0,7)===m;}).reduce(function(s,x){return s+(+x.valor||0);},0);
+  var cx=DecisionEngine.caixaMes({viagens:doMes,fixoMes:+fm.fixedMonthlyCost,avulsos:avulsos,imposto:cfg.imposto});
+  cx.op=op; cx.calibracao=DecisionEngine.avaliarCalibracaoVariavel({varKmCfg:+fm.variableCostKm||0,op:op});
+  return cx;
+}
+// Projeção (só informativa — nunca baixa o piso): coletas de frota própria do mês ainda não executadas.
+function projecaoFurgaoMes(m){
+  var n=0,semValor=0,fat=0,recs=[];
+  try{recs=lRecorrencias();}catch(e){}
+  try{ lColetas().forEach(function(c){
+    if(!c||c.estado==='executada'||String(c.dataColeta||'').slice(0,7)!==m||!_coletaEhFurgao(c)) return;
+    n++; var r=c.recorrenciaId?recs.find(function(x){return x.id===c.recorrenciaId;}):null;
+    if(r&&+r.fat>0) fat+=+r.fat; else semValor++;
+  }); }catch(e){}
+  return {n:n,fat:fat,semValor:semValor};
+}
 
 function iniciarDocumentos(){
   var fb=_fb(); if(!fb||!fb.firestore||!_fbUser()) return;
