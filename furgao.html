@@ -469,8 +469,6 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
 
 <script>
 var DEF_CFG={consumo:10,diesel:6.80,parcela:4202.39,kmMes:2400,ipva:4570,seguro:7265,licen:308,motorista:5000,oleoCusto:1000,oleoKm:10000,pneuCusto:3000,pneuKm:50000,manutCusto:3000,manutKm:50000,imposto:15.45,margem:30,backupDias:7,extras:[]};
-// Custo cheio de referência do furgão (R$/km) — mesmo valor usado no orçamento do ResíduosPRO (DEF.transp.forn.FURGAO).
-var REF_CUSTO_CHEIO_KM=6.46;
 
 var DEF_CLIENTES=[
   {id:1,nome:'Terral',local:'Cidade de Goiás',uf:'GO',km:70,fatEsperado:5800},
@@ -763,7 +761,7 @@ function renderDash(){
     kpi('KM total', fmt(totKm)+' km', 'rodados', '') +
     kpi('Margem geral', pct(margem), '', mc) +
     kpi('Custo oper./km', op ? 'R$ '+op.custoKm.toFixed(2).replace('.',',') : 'Sem dados', op?(op.confiavel?'desembolso direto':'amostra pequena'):'desembolso direto', '') +
-    kpi('Custo cheio/km (ref.)', 'R$ '+REF_CUSTO_CHEIO_KM.toFixed(2).replace('.',','), 'referência do orçamento', '');
+    kpi('Preço sugerido/km', 'R$ '+tot.preco.toFixed(2).replace('.',','), 'custo total + imposto + '+cfg.margem+'%', '');
 
   // ── CARD CUSTO DETALHADO ───────────────────────────────
   var opBox = '';
@@ -826,11 +824,9 @@ function renderDash(){
       '<span class="ct-val big">R$ '+tot.fixoKm.toFixed(2).replace('.',',')+'</span></div>'+
     '<div class="ctrow"><span class="ct-label" style="font-weight:700;color:var(--text)">Custo TOTAL/km</span>'+
       '<span class="ct-val big" style="font-size:17px">R$ '+tot.total.toFixed(2).replace('.',',')+'</span></div>'+
-    '<div class="ctrow"><span class="ct-label" style="color:var(--text2)">Custo cheio de referência/km <span style="font-size:10px;color:var(--text4)">(orçamento)</span></span>'+
-      '<span class="ct-val" style="font-family:monospace">R$ '+REF_CUSTO_CHEIO_KM.toFixed(2).replace('.',',')+'</span></div>'+
-    '<div style="font-size:10px;color:var(--text4);text-align:right;margin:-2px 0 6px">real '+(tot.total>=REF_CUSTO_CHEIO_KM?'acima':'abaixo')+' da referência em R$ '+Math.abs(tot.total-REF_CUSTO_CHEIO_KM).toFixed(2).replace('.',',')+'/km</div>'+
-    '<div class="ctrow" style="padding:10px 0"><span class="ct-label" style="font-weight:700;color:var(--accent)">Preço sugerido/km</span>'+
-      '<span class="ct-val big" style="color:var(--accent);font-size:20px">R$ '+tot.preco.toFixed(2).replace('.',',')+'</span></div>';
+    '<div class="ctrow" style="padding:10px 0 2px"><span class="ct-label" style="font-weight:700;color:var(--accent)">Preço sugerido/km</span>'+
+      '<span class="ct-val big" style="color:var(--accent);font-size:20px">R$ '+tot.preco.toFixed(2).replace('.',',')+'</span></div>'+
+    '<div style="font-size:10px;color:var(--text4);text-align:right;margin-bottom:6px">R$ '+tot.total.toFixed(2).replace('.',',')+' ÷ (1 − '+String(cfg.imposto).replace('.',',')+'% imposto − '+cfg.margem+'% margem) · recalcula a cada viagem/config</div>';
 
   // Barras por cliente
   var porClienteDash={};
