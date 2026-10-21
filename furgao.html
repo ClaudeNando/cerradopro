@@ -423,6 +423,14 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
         <div class="field"><label class="flabel">Imposto (%)</label><input class="inp inp-mono" id="cfg-imposto" type="number" step="0.01"></div>
         <div class="field"><label class="flabel">Margem mínima (%)</label><input class="inp inp-mono" id="cfg-margem" type="number" step="1"></div>
       </div>
+      <div class="field"><label class="flabel">Base do custo/km (km médio p/ diluir o fixo)</label>
+        <select class="inp sel" id="cfg-janela">
+          <option value="3">Últimos 3 meses fechados</option>
+          <option value="6">Últimos 6 meses fechados (recomendado)</option>
+          <option value="12">Últimos 12 meses fechados</option>
+          <option value="0">Série inteira (desde a 1ª viagem)</option>
+        </select>
+      </div>
       <div style="height:8px"></div>
       <button class="btn btn-primary" onclick="salvarCfg()">✓ Salvar</button>
       <div style="height:8px"></div>
@@ -468,7 +476,7 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
 <script src="decision-engine.js"></script>
 
 <script>
-var DEF_CFG={consumo:10,diesel:6.80,parcela:4202.39,kmMes:2400,ipva:4570,seguro:7265,licen:308,motorista:5000,oleoCusto:1000,oleoKm:10000,pneuCusto:3000,pneuKm:50000,manutCusto:3000,manutKm:50000,imposto:15.45,margem:30,backupDias:7,extras:[]};
+var DEF_CFG={consumo:10,diesel:6.80,parcela:4202.39,kmMes:2400,ipva:4570,seguro:7265,licen:308,motorista:5000,oleoCusto:1000,oleoKm:10000,pneuCusto:3000,pneuKm:50000,manutCusto:3000,manutKm:50000,imposto:15.45,margem:30,backupDias:7,extras:[],janelaMeses:6};
 
 var DEF_CLIENTES=[
   {id:1,nome:'Terral',local:'Cidade de Goiás',uf:'GO',km:70,fatEsperado:5800},
@@ -551,14 +559,6 @@ function sGastos(){lset('fp2_gastos',JSON.stringify(gastos));}
 var gastos=lGastos();
 
 // ── CUSTO POR KM ─────────────────────────────────────────
-function calcMeses(){
-  var datas=viagens.filter(function(v){return v.data;}).map(function(v){return new Date(v.data);});
-  if(!datas.length) return 1;
-  var minData=new Date(Math.min.apply(null,datas));
-  var hoje=new Date();
-  var m=(hoje.getFullYear()-minData.getFullYear())*12+(hoje.getMonth()-minData.getMonth())+1;
-  return Math.max(1,m);
-}
 // Divisão segura: evita divisão por zero / NaN / Infinity
 function _sdiv(a,b,fb){b=Number(b);if(!b||!isFinite(b))return (fb===undefined?0:fb);var r=Number(a)/b;return isFinite(r)?r:(fb===undefined?0:fb);}
 
@@ -589,18 +589,21 @@ function calcCustoTotal(){
   var extras = (cfg.extras||[]).reduce(function(s,e){return s+(+e.v||0);},0);
   var fixoMensal = cfg.parcela + cfg.motorista + (cfg.ipva/12) + (cfg.seguro/12) + (cfg.licen/12) + extras;
 
-  var totFat = viagens.reduce(function(s,v){return s+(v.fat||0);},0);
-  var totKm  = viagens.reduce(function(s,v){return s+(v.km||0);},0);
-  var meses  = calcMeses();
-  var fatMedio = totFat/meses;
-  var kmMedio  = totKm/meses;
+  // Base do fixo/km (TASK-039): últimos N meses fechados (cfg.janelaMeses; 0 = série inteira). Regra no engine.
+  var base = DecisionEngine.mediasMensaisFurgao({viagens:viagens, janelaMeses:cfg.janelaMeses});
+  var serie = DecisionEngine.mediasMensaisFurgao({viagens:viagens, janelaMeses:0});
+  if(!(base.km>0) && serie.km>0) base = serie; // janela sem viagens → usa o histórico real, não a estimativa
+  var meses  = base.meses;
+  var fatMedio = base.fatMedio;
+  var kmMedio  = base.kmMedio;
+  var mesLbl=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+  var _ym=function(ym){return ym?mesLbl[+ym.slice(5,7)-1]+'/'+ym.slice(2,4):'';};
 
   var fixoKm, metodo, pctFixo;
-  if(totFat>0 && totKm>0){
-    var receitaKm = totFat/totKm;
+  if(base.fat>0 && base.km>0){
     pctFixo = fixoMensal/fatMedio;
-    fixoKm  = receitaKm * pctFixo;
-    metodo  = meses+' meses · '+fmt(Math.round(kmMedio))+' km/mês · '+brl(fatMedio)+'/mês';
+    fixoKm  = fixoMensal/kmMedio;
+    metodo  = (base.janela?'últimos '+meses+' meses fechados':'série inteira, '+meses+' meses')+' ('+_ym(base.de)+'–'+_ym(base.ate)+') · '+fmt(Math.round(kmMedio))+' km/mês · '+brl(fatMedio)+'/mês';
   } else {
     var kmFb = (cfg.kmMes&&cfg.kmMes>0)?cfg.kmMes:(DEF_CFG.kmMes||2018);
     pctFixo  = _sdiv(fixoMensal,(kmFb*5),0);
@@ -623,6 +626,7 @@ function calcCustoTotal(){
     fatMedio: fatMedio,
     kmMedio:  kmMedio,
     metodo:   metodo,
+    mesesSerie: serie.meses, // margem geral: fixo × meses da série inteira (independe da janela)
     itensVar: [
       {label:'Combustível (R$/km)', val: cfg.diesel/cfg.consumo},
       {label:'Óleo', val: cfg.oleoCusto/cfg.oleoKm},
@@ -746,7 +750,8 @@ function renderDash(){
 
   var totFat  = viagens.reduce(function(s,v){return s+(v.fat||0);},0);
   var totKm   = viagens.reduce(function(s,v){return s+(v.km||0);},0);
-  var totCusto= viagens.reduce(function(s,v){return s+custoViagem(v,tot,op).cheio;},0)
+  var totCusto= viagens.reduce(function(s,v){return s+custoViagem(v,tot,op).variavel;},0)
+              + tot.fixoMensal*tot.mesesSerie                              // fixo de todo o histórico (TASK-039)
               + gastos.reduce(function(s,x){return s+(+x.valor||0);},0); // gastos avulsos (TASK-038)
   renderMes(tot,op);
   var impTotal= totFat*(cfg.imposto/100);
@@ -808,6 +813,7 @@ function renderDash(){
       '<span style="font-size:12px;color:var(--text2)">Fixo diluído por km</span>'+
       '<span style="font-size:13px;font-weight:700;font-family:monospace">R$ '+tot.fixoKm.toFixed(2).replace('.',',')+'</span>'+
     '</div>'+
+    '<div style="font-size:10px;color:var(--text4);margin-top:4px">Base: '+tot.metodo+'</div>'+
   '</div>';
 
   g('custo-detalhe').innerHTML =
@@ -1260,6 +1266,7 @@ function openCfg(){
   g('cfg-manut-c').value=cfg.manutCusto;g('cfg-manut-k').value=cfg.manutKm;
   g('cfg-imposto').value=cfg.imposto;g('cfg-margem').value=cfg.margem;
   g('cfg-backup-dias').value=cfg.backupDias||7;
+  g('cfg-janela').value=String(cfg.janelaMeses!=null?cfg.janelaMeses:6);
   _cfgExtrasRender();
   var _db=_diasDesdeBackup();g('cfg-backup-status').textContent=_db===null?'(último: nunca)':'(último: há '+_db+' dia(s))';
 }
@@ -1306,6 +1313,7 @@ function salvarCfg(){
   cfg.manutCusto=+g('cfg-manut-c').value||3000;cfg.manutKm=+g('cfg-manut-k').value||50000;
   cfg.imposto=+g('cfg-imposto').value||15.45;cfg.margem=+g('cfg-margem').value||30;
   cfg.backupDias=Math.max(1,parseInt(g('cfg-backup-dias').value)||7);
+  cfg.janelaMeses=parseInt(g('cfg-janela').value,10); if(isNaN(cfg.janelaMeses)) cfg.janelaMeses=6;
   cfg.extras=_cfgExtrasCollect();
   sCfg(cfg);closeModal('cfg-modal');
   renderDash();renderRegistros();renderClientes();

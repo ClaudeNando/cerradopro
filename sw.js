@@ -1,4 +1,4 @@
-const CACHE_NAME = 'rpro-v102';
+const CACHE_NAME = 'rpro-v103';
 const ASSETS = [
   './index.html',
   './documentos.html',

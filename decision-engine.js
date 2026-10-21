@@ -659,10 +659,37 @@
     return { status: dif > tol ? 'abaixo' : 'ok', diferenca: dif, realKm: op.custoKm, cfgKm: cfgKm };
   }
 
+  /* mediasMensaisFurgao({viagens, janelaMeses, hoje}) — km e faturamento médios por mês
+   * que diluem o fixo no custo/km (TASK-039).
+   *   janelaMeses > 0 → últimos N meses FECHADOS (o mês corrente, parcial, não entra),
+   *                     sem recuar antes da 1ª viagem; meses parados dentro da janela contam
+   *                     (o fixo é pago neles também).
+   *   janelaMeses = 0 → série inteira: da 1ª viagem até o mês corrente (comportamento antigo).
+   * Sem nenhum mês fechado ainda, cai na série inteira. */
+  function mediasMensaisFurgao(p) {
+    p = p || {};
+    var hoje = String(p.hoje || new Date().toISOString().slice(0, 10));
+    var mesAtual = hoje.slice(0, 7);
+    var vs = (p.viagens || []).filter(function (v) { return v && v.data; });
+    var N = Math.max(0, parseInt(p.janelaMeses, 10) || 0);
+    if (!vs.length) return { de: null, ate: null, meses: 1, km: 0, fat: 0, kmMedio: 0, fatMedio: 0, janela: false, janelaMeses: N };
+    function add(ym, n) { var y = +ym.slice(0, 4), m = +ym.slice(5, 7) - 1 + n; y += Math.floor(m / 12); m = ((m % 12) + 12) % 12; return y + '-' + (m < 9 ? '0' : '') + (m + 1); }
+    function dif(a, b) { return (+b.slice(0, 4) - +a.slice(0, 4)) * 12 + (+b.slice(5, 7) - +a.slice(5, 7)); }
+    var primeiro = vs.map(function (v) { return String(v.data).slice(0, 7); }).sort()[0];
+    var ultimoFechado = add(mesAtual, -1), de, ate, janela = false;
+    if (N > 0 && dif(primeiro, ultimoFechado) >= 0) {
+      ate = ultimoFechado; de = add(ate, -(N - 1)); if (dif(primeiro, de) < 0) de = primeiro; janela = true;
+    } else { de = primeiro; ate = mesAtual; }
+    var meses = Math.max(1, dif(de, ate) + 1), km = 0, fat = 0;
+    vs.forEach(function (v) { var ym = String(v.data).slice(0, 7); if (ym >= de && ym <= ate) { km += Number(v.km) || 0; fat += Number(v.fat) || 0; } });
+    return { de: de, ate: ate, meses: meses, km: km, fat: fat, kmMedio: km / meses, fatMedio: fat / meses, janela: janela, janelaMeses: N };
+  }
+
   /* Exposição pública (sem efeito colateral, sem chamadas automáticas). */
   global.DecisionEngine = {
-    _version: '0.8.0',
+    _version: '0.9.0',
     DEFAULTS: DEFAULTS,
+    mediasMensaisFurgao: mediasMensaisFurgao,
     custoOperacionalReal: custoOperacionalReal,
     custoDiretoViagem: custoDiretoViagem,
     caixaMes: caixaMes,
