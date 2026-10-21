@@ -292,7 +292,7 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
       </div>
       <div class="g2">
         <div class="field"><label class="flabel">Faturado (R$)</label><input class="inp inp-mono" id="v-fat" type="number" placeholder="0" inputmode="decimal" oninput="calcViagemModal()"></div>
-        <div class="field"><label class="flabel">Custo real (R$)</label><input class="inp inp-mono" id="v-custo" type="number" placeholder="0" inputmode="decimal" oninput="calcViagemModal()"></div>
+        <div class="field"><label class="flabel">Custo real (R$) — diesel + pedágio + gastos</label><input class="inp inp-mono" id="v-custo" type="number" placeholder="0" inputmode="decimal" oninput="calcViagemModal()"></div>
       </div>
       <div id="v-preview" style="margin:8px 0;min-height:32px"></div>
       <div class="field"><label class="flabel">Observação</label><input class="inp" id="v-obs" type="text" placeholder="Opcional" autocomplete="off"></div>
@@ -618,6 +618,18 @@ function calcCustoTotal(){
 // Alias para compatibilidade
 function calcCustoEstimado(){ return calcCustoTotal(); }
 
+// Custo de UMA viagem em base única (TASK-037). O "custo real" informado é só desembolso
+// direto (diesel, pedágio, gastos da viagem) — o fixo entra sempre à parte, por km.
+// Sem custo real: estima o variável pelo custo operacional real/km (amostra confiável) ou pela config.
+function custoViagem(v,tot,op){
+  var km=+v.km||0;
+  var varKmEst=(op&&op.confiavel)?op.custoKm:tot.varKm;
+  var real=(v.custo!=null);
+  var variavel=real?+v.custo:km*varKmEst;
+  var fixo=km*tot.fixoKm;
+  return {variavel:variavel, fixo:fixo, cheio:variavel+fixo, real:real};
+}
+
 // ── MÉTRICAS DA FROTA → CerradoPRO (fonte única, TASK-035) ──────────────
 // FurgãoPRO é o ÚNICO lugar que calcula custo de frota. Deriva de calcCustoTotal()
 // e publica em Firestore furgao_metrics/current. O CerradoPRO lê essas métricas
@@ -657,7 +669,7 @@ function renderDash(){
 
   var totFat  = viagens.reduce(function(s,v){return s+(v.fat||0);},0);
   var totKm   = viagens.reduce(function(s,v){return s+(v.km||0);},0);
-  var totCusto= viagens.filter(function(v){return v.custo!=null;}).reduce(function(s,v){return s+v.custo;},0);
+  var totCusto= viagens.reduce(function(s,v){return s+custoViagem(v,tot,op).cheio;},0);
   var impTotal= totFat*(cfg.imposto/100);
   var sobra   = totFat - totCusto - impTotal;
   var margem  = totFat>0?sobra/totFat:0;
@@ -815,7 +827,7 @@ function renderRegistros(){
     if(!porMes[m]) porMes[m]={km:0,fat:0,custo:0,n:0};
     porMes[m].km+=(v.km||0);
     porMes[m].fat+=(v.fat||0);
-    porMes[m].custo+=(v.custo!=null?v.custo:((v.km||0)*est.total));
+    porMes[m].custo+=custoViagem(v,est,real).variavel; // só variável: o fixo do mês sai uma vez abaixo
     porMes[m].n++;
   });
   var mesesK=Object.keys(porMes).sort().reverse();
@@ -850,7 +862,7 @@ function renderRegistros(){
   var html='';
   sorted.forEach(function(v){
     var imp=(v.fat||0)*(cfg.imposto/100);
-    var custoUsado=v.custo!=null?v.custo:(v.km*(est.total));
+    var custoUsado=custoViagem(v,est,real).cheio;
     var sobra=(v.fat||0)-custoUsado-imp;
     var margem=v.fat>0?sobra/v.fat:null;
     var mc=margem===null?'':margem>=cfg.margem/100?'ok':margem>=(cfg.margem/100)*0.7?'warn':'bad';
@@ -882,6 +894,7 @@ function renderClientes(){
     return;
   }
   var est2=calcCustoEstimado();
+  var op2=calcCustoOperacional();
   var precoKm=est2.preco;
   var porCliente={};
   viagens.forEach(function(v){
@@ -889,16 +902,14 @@ function renderClientes(){
     if(!porCliente[v.clienteId]){porCliente[v.clienteId]={fat:0,km:0,custo:0,n:0};}
     porCliente[v.clienteId].fat+=(v.fat||0);
     porCliente[v.clienteId].km+=(v.km||0);
-    if(v.custo!=null) porCliente[v.clienteId].custo+=v.custo;
+    porCliente[v.clienteId].custo+=custoViagem(v,est2,op2).cheio;
     porCliente[v.clienteId].n++;
   });
   function _cliMargem(c){
     var s=porCliente[c.id]||{fat:0,km:0,custo:0,n:0};
     if(!(s.fat>0)) return -Infinity;
     var imp=s.fat*(cfg.imposto/100);
-    var custoKm_est=c.km*est2.total;
-    var sobra=s.fat-Math.max(s.custo,custoKm_est*s.n)-imp;
-    return sobra/s.fat;
+    return (s.fat-s.custo-imp)/s.fat;
   }
   var q=_norm(g('cln-busca')?g('cln-busca').value:'');
   var sortMode=(g('cln-sort')?g('cln-sort').value:'az');
@@ -917,10 +928,7 @@ function renderClientes(){
   var html=lista.map(function(c){
     var stats=porCliente[c.id]||{fat:0,km:0,custo:0,n:0};
     var ideal=c.km*precoKm;
-    var imp=stats.fat*(cfg.imposto/100);
-    var custoKm_est=c.km*est2.total;
-    var sobra=stats.fat-Math.max(stats.custo,custoKm_est*stats.n)-imp;
-    var margem=stats.fat>0?sobra/stats.fat:null;
+    var margem=stats.fat>0?_cliMargem(c):null;
     var mc=margem===null?'':margem>=cfg.margem/100?'ok':margem>=(cfg.margem/100)*0.7?'warn':'bad';
     var bw=margem!==null?Math.min(100,Math.max(0,margem*100)).toFixed(1):0;
     var bcolor=margem>=cfg.margem/100?'var(--success)':margem>=(cfg.margem/100)*0.7?'var(--warning)':'var(--danger)';
@@ -977,8 +985,7 @@ function calcViagemModal(){
   if(!km||!fat){g('v-preview').innerHTML='';return;}
   var est=calcCustoEstimado();
   var real=calcCustoOperacional();
-  var custoKm=real?real.custoKm:est.total;
-  var custoUsado=custo>0?custo:km*custoKm;
+  var custoUsado=custoViagem({km:km,custo:custo>0?custo:null},est,real).cheio;
   var imp=fat*(cfg.imposto/100);
   var sobra=fat-custoUsado-imp;
   var margem=fat>0?sobra/fat:0;
