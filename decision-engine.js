@@ -685,6 +685,19 @@
     return { de: de, ate: ate, meses: meses, km: km, fat: fat, kmMedio: km / meses, fatMedio: fat / meses, janela: janela, janelaMeses: N };
   }
 
+  /* custoDesembolsadoViagem({km, consumoKmL, dieselL, cfg}) — custo direto de uma viagem do
+   * furgão (TASK-041): diesel (km ÷ km/L × R$/L) + desembolso do motorista (alimentação +
+   * hospedagem, sem a ajuda paga em folha). O IMPOSTO NÃO ENTRA: ele incide sobre o
+   * faturamento e o app já o desconta à parte (entrar aqui contaria duas vezes). */
+  function custoDesembolsadoViagem(p) {
+    p = p || {};
+    var km = Number(p.km) || 0, consumo = Number(p.consumoKmL) || 0, dieselL = Number(p.dieselL) || 0;
+    var litros = consumo > 0 ? km / consumo : 0;
+    var diesel = litros * dieselL;
+    var motorista = calcularCustoMotoristaViagem(km, p.cfg || {}).desembolso;
+    return { km: km, litros: litros, diesel: diesel, motorista: motorista, total: diesel + motorista };
+  }
+
   /* ==========================================================================
    * CARTEIRA FIXA DO FURGÃO (TASK-040)
    * Cliente marcado como fixo ({fixo:true, freqMes, km, fatEsperado}) entra SEMPRE
@@ -743,8 +756,9 @@
 
   /* Exposição pública (sem efeito colateral, sem chamadas automáticas). */
   global.DecisionEngine = {
-    _version: '0.10.0',
+    _version: '0.11.0',
     DEFAULTS: DEFAULTS,
+    custoDesembolsadoViagem: custoDesembolsadoViagem,
     carteiraFixa: carteiraFixa,
     pendentesFixosMes: pendentesFixosMes,
     mediasMensaisFurgao: mediasMensaisFurgao,
