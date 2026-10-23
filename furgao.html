@@ -387,7 +387,7 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
     <div class="modal-body">
       <input type="hidden" id="c-id">
       <div class="g2">
-        <div class="field"><label class="flabel">Empresa</label><input class="inp" id="c-nome" type="text" placeholder="Nome" autocomplete="off"></div>
+        <div class="field"><label class="flabel">Empresa</label><input class="inp" id="c-nome" type="text" placeholder="Nome" autocomplete="off" list="c-cad-lista" oninput="cadVerificar()"><datalist id="c-cad-lista"></datalist><div id="c-cad-info" style="font-size:11px;color:var(--text3);margin-top:4px"></div></div>
         <div class="field"><label class="flabel">Local</label><input class="inp" id="c-local" type="text" placeholder="Cidade" autocomplete="off"></div>
       </div>
       <div class="g2">
@@ -1084,7 +1084,7 @@ function renderClientes(){
     var fx=!!c.fixo;
     return '<div class="ccard" onclick="editarCliente('+c.id+')"'+(fx?' style="border-color:var(--accent)"':'')+'>'+
       '<div class="ccard-head">'+
-        '<div><div class="ccard-nome">'+c.nome+'</div><div class="ccard-local">'+c.local+' · '+c.uf+(fx?' · <b style="color:var(--accent)">fixo '+(c.freqMes||1)+'×/mês</b>':'')+'</div></div>'+
+        '<div><div class="ccard-nome">'+c.nome+'</div><div class="ccard-local">'+(function(){var e=_empresa(c);return e?'🏢 '+e.nome+' · ':'<span style="color:var(--warning)">sem ficha comercial</span> · ';})()+c.local+' · '+c.uf+(fx?' · <b style="color:var(--accent)">fixo '+(c.freqMes||1)+'×/mês</b>':'')+'</div></div>'+
         '<span style="display:flex;gap:6px;align-items:center"><span class="badge b-blue">'+stats.n+'× viagens</span>'+
           '<button onclick="event.stopPropagation();toggleFixo('+c.id+')" title="'+(fx?'Desmarcar cliente fixo':'Marcar como cliente fixo (considerar sempre nas contas)')+'" style="border:1px solid '+(fx?'var(--accent)':'var(--border)')+';background:'+(fx?'var(--accent)':'transparent')+';border-radius:8px;padding:3px 7px;cursor:pointer;font-size:13px;filter:'+(fx?'none':'grayscale(1)')+'">📌</button></span>'+
       '</div>'+
@@ -1464,6 +1464,31 @@ function aplicarPadrao(){
   toast('✅ '+mud+' nome(s) padronizado(s)'); renderOrganizar(); renderClientes(); renderDash(); renderRegistros();
 }
 
+// ── CADASTRO ÚNICO (TASK-048) ─────────────────────────────
+// Empresa = ficha comercial do CerradoPRO (residuospro/rpro_clientes, só leitura aqui; cache local não sincronizado).
+// Cada cliente do furgão é um LOCAL (km por município) ligado à empresa por cadastroId ou pelo nome-base.
+var _cadUnsub=null;
+function lCadastro(){ try{var a=JSON.parse(localStorage.getItem('fp2_cache_cadastro')||'[]');return Array.isArray(a)?a:[];}catch(e){return [];} }
+function ouvirCadastro(){
+  if(_cadUnsub||typeof firebase==='undefined'||!firebase.firestore) return;
+  _cadUnsub=firebase.firestore().collection('residuospro').doc('rpro_clientes').onSnapshot(function(doc){
+    var v=(doc.exists?(doc.data()||{}):{}).value;
+    if(typeof v==='string'){ try{localStorage.setItem('fp2_cache_cadastro',v);}catch(e){} try{renderClientes();}catch(e){} }
+  },function(){});
+}
+function _empresa(c){ return DecisionEngine.empresaDoLocal?DecisionEngine.empresaDoLocal(c,lCadastro()):null; }
+function cadPreencherLista(){
+  var dl=g('c-cad-lista'); if(!dl) return;
+  dl.innerHTML=lCadastro().map(function(e){return '<option value="'+String(e.nome||'').replace(/"/g,'&quot;')+'"></option>';}).join('');
+}
+function cadVerificar(){
+  var info=g('c-cad-info'); if(!info) return;
+  var cad=lCadastro(); if(!cad.length){ info.innerHTML='Cadastro do CerradoPRO indisponível neste aparelho (sincroniza ao logar).'; return; }
+  var e=_empresa({nome:g('c-nome').value});
+  info.innerHTML=e?'🏢 Ligado à ficha <b>'+e.nome+'</b>'+(e.cnpj?' · '+e.cnpj:'')+' — use "'+e.nome+' - Município/UF" para o local':
+    '⚠️ Sem ficha no CerradoPRO — escolha uma empresa da lista ou crie a ficha lá (Clientes › 🚐 Trazer do FurgãoPRO).';
+}
+
 // ── MODAL CLIENTE ─────────────────────────────────────────
 function openNovoCliente(){
   g('cliente-modal-title').textContent='🏢 Novo Cliente';
@@ -1471,6 +1496,7 @@ function openNovoCliente(){
   g('c-nome').value='';g('c-local').value='';g('c-uf').value='GO';
   g('c-km').value='';g('c-fat-esperado').value='';
   g('c-fixo').checked=false;g('c-freq').value='';
+  cadPreencherLista(); cadVerificar();
   g('c-excluir-btn').style.display='none';
   openModal('cliente-modal');
 }
@@ -1484,6 +1510,7 @@ function editarCliente(id){
   g('c-uf').value=c.uf||'GO';g('c-km').value=c.km||'';
   g('c-fat-esperado').value=c.fatEsperado||'';
   g('c-fixo').checked=!!c.fixo;g('c-freq').value=c.freqMes||'';
+  cadPreencherLista(); cadVerificar();
   g('c-excluir-btn').style.display='block';
   openModal('cliente-modal');
 }
@@ -1494,6 +1521,7 @@ function salvarCliente(){
   if(!nome){toast('⚠️ Informe o nome');return;}
   var c={nome:nome,local:g('c-local').value.trim(),uf:g('c-uf').value,km:+g('c-km').value||0,fatEsperado:g('c-fat-esperado').value?+g('c-fat-esperado').value:null,
     fixo:g('c-fixo').checked,freqMes:Math.max(1,parseInt(g('c-freq').value,10)||1)}; // cliente fixo (TASK-040)
+  var _emp=_empresa({nome:nome}); c.cadastroId=_emp?_emp.id:null; // empresa no cadastro do CerradoPRO (TASK-048)
   if(c.fixo&&!(c.km>0)){toast('⚠️ Cliente fixo precisa do KM típico');return;}
   if(editId){
     var idx=clientes.findIndex(function(x){return x.id==editId;});
@@ -1764,7 +1792,7 @@ if(window.CloudSync){
 }
 // Publica as métricas da frota assim que o usuário loga (fonte única p/ CerradoPRO, TASK-035).
 if(typeof firebase!=='undefined' && firebase.auth){
-  firebase.auth().onAuthStateChanged(function(u){ if(u){ try{pushFurgaoMetrics();}catch(e){} } });
+  firebase.auth().onAuthStateChanged(function(u){ if(u){ try{pushFurgaoMetrics();}catch(e){} try{ouvirCadastro();}catch(e){} } });
 }
 try{checkBackupLembrete();}catch(e){}
 </script>

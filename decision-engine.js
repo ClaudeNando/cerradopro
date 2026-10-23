@@ -798,6 +798,19 @@
     if ((c.aliases || []).some(function (a) { return _normNome(a) === n; })) return true;
     return _normNome(String(c.nome || '').split(' - ')[0]) === n;
   }
+  /* empresaDoLocal(local, cadastro) — TASK-048. Liga um cliente/local do FurgãoPRO à ficha da
+   * empresa no cadastro comercial do CerradoPRO: por cadastroId; senão pelo nome-base (antes de
+   * " - Município"), nome completo ou apelidos. Retorna a ficha ou null. */
+  function empresaDoLocal(local, cadastro) {
+    if (!local) return null;
+    var lista = cadastro || [];
+    if (local.cadastroId) {
+      var porId = lista.filter(function (e) { return e && String(e.id) === String(local.cadastroId); })[0];
+      if (porId) return porId;
+    }
+    var nomes = [String(local.nome || '').split(' - ')[0], local.nome].concat(local.aliases || []).map(_normNome).filter(Boolean);
+    return lista.filter(function (e) { return e && nomes.indexOf(_normNome(e.nome)) >= 0; })[0] || null;
+  }
   function _viagemDoCliente(v, c) {
     if (!v || !c) return false;
     if (v.clienteId != null && v.clienteId !== '') return String(v.clienteId) === String(c.id);
@@ -851,8 +864,9 @@
 
   /* Exposição pública (sem efeito colateral, sem chamadas automáticas). */
   global.DecisionEngine = {
-    _version: '0.15.0',
+    _version: '0.16.0',
     DEFAULTS: DEFAULTS,
+    empresaDoLocal: empresaDoLocal,
     motoristaPorKm: motoristaPorKm,
     simularContratoFurgao: simularContratoFurgao,
     pisoFurgaoMes: pisoFurgaoMes,

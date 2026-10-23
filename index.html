@@ -769,7 +769,7 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
     </div>
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;color:var(--text3);line-height:1.5;margin-bottom:10px">Base única de clientes. É alimentada sozinha pelos orçamentos, mas você pode adicionar, editar e excluir aqui. Traga os que só existem em orçamentos/contratos com o botão abaixo.</div>
-      <button class="btn res-btn-sec" style="width:auto" onclick="importarClientes()">⬇️ Importar de orçamentos e contratos</button>
+      <button class="btn res-btn-sec" style="width:auto" onclick="importarClientes()">⬇️ Importar de orçamentos e contratos</button> <button class="btn res-btn-sec" style="width:auto" onclick="abrirTrazerFurgao()">🚐 Trazer do FurgãoPRO</button>
     </div>
     <div class="field" style="margin-bottom:12px"><input class="inp" type="text" id="cliente-busca" placeholder="🔎 Buscar por nome, CNPJ, contato..." oninput="renderClientes()"></div>
     <div id="clientes-list"></div>
@@ -997,6 +997,12 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
 </div>
 
 <!-- MODAL CLIENTE (cadastro comercial) -->
+<div class="overlay" id="furgimp-modal" onclick="if(event.target===this)g('furgimp-modal').classList.remove('open')">
+  <div class="modal">
+    <div class="modal-head"><div class="modal-title">🚐 Trazer clientes do FurgãoPRO</div><button class="modal-close-btn" onclick="g('furgimp-modal').classList.remove('open')">×</button></div>
+    <div class="modal-body"><div id="furgimp-body"></div></div>
+  </div>
+</div>
 <div class="overlay" id="cliente-modal" onclick="if(event.target===this)fecharCliente()">
   <div class="modal">
     <div class="modal-head"><div class="modal-title" id="cliente-titulo">Novo cliente</div><button class="modal-close-btn" onclick="fecharCliente()">×</button></div>
@@ -1874,14 +1880,57 @@ function renderClientes(){
   var arr=lClientes().slice().sort(function(a,b){return (a.nome||'').localeCompare(b.nome||'');});
   if(q)arr=arr.filter(function(c){return [c.nome,c.cnpj,c.contato,c.telefone,c.local].join(' ').toLowerCase().indexOf(q)>=0;});
   if(!arr.length){el.innerHTML='<div class="empty"><div class="empty-ico">👤</div><div class="empty-t">'+(q?'Nada encontrado':'Nenhum cliente')+'</div><div class="empty-s">Adicione um cliente ou importe de orçamentos/contratos.</div></div>';return;}
+  var locaisPorEmpresa=_locaisFurgaoPorEmpresa(); // TASK-048: locais do furgão ligados a cada ficha
   el.innerHTML=arr.map(function(c){
     var sub=[c.cnpj||(c.semCnpj?'sem CNPJ':''),c.contato,c.telefone].filter(Boolean).join(' · ');
+    var locs=locaisPorEmpresa[c.id]||[];
     return '<div class="hist-card" onclick="abrirCliente(\''+esca(c.id)+'\')">'+
       '<div class="hist-top"><div class="hist-name">'+esca(c.nome||'(sem nome)')+'</div></div>'+
       (sub?'<div class="hist-sub">'+esca(sub)+'</div>':'')+
       (c.local?'<div class="hist-sub">📍 '+esca(c.local)+'</div>':'')+
+      (locs.length?'<div class="hist-sub" title="'+esca(locs.map(function(l){return l.nome;}).join(' | '))+'">🚐 Furgão: '+locs.length+' local(is)'+(locs.some(function(l){return l.fixo;})?' · 📌 fixo':'')+'</div>':'')+
     '</div>';
   }).join('');
+}
+// ── CADASTRO ÚNICO: empresa (rpro_clientes) ↔ locais do furgão (fp2_clientes) — TASK-048 ──
+// CerradoPRO é o cadastro principal (dados comerciais); os locais do furgão (km por município) se ligam à empresa.
+function _locaisFurgaoPorEmpresa(){
+  var cad=lClientes(), mapa={};
+  if(!window.DecisionEngine||!DecisionEngine.empresaDoLocal) return mapa;
+  _furgLista('clientes').forEach(function(l){ var e=DecisionEngine.empresaDoLocal(l,cad); if(e) (mapa[e.id]=mapa[e.id]||[]).push(l); });
+  return mapa;
+}
+function _baseNomeLocal(n){ return String(n||'').split(' - ')[0].trim(); }
+function abrirTrazerFurgao(){
+  var cad=lClientes(), locs=_furgLista('clientes'), grupos={};
+  locs.forEach(function(l){
+    if(!l||!l.nome||DecisionEngine.empresaDoLocal(l,cad)) return;          // já tem ficha comercial
+    var k=_normNome(_baseNomeLocal(l.nome)); if(!k) return;
+    (grupos[k]=grupos[k]||{nome:_baseNomeLocal(l.nome),locais:[]}).locais.push(l);
+  });
+  var ks=Object.keys(grupos).sort();
+  var h='<div style="font-size:12px;color:var(--text3);line-height:1.5;margin-bottom:10px">Clientes que existem no FurgãoPRO e ainda não têm ficha no cadastro comercial. Cada empresa vira <b>uma</b> ficha (vários municípios do furgão ficam ligados a ela). Depois complete CNPJ e contato na ficha.</div>';
+  if(!locs.length) h+='<div class="empty" style="padding:12px 0"><div class="empty-t">Sem dados do FurgãoPRO</div><div class="empty-s">Abra o FurgãoPRO logado uma vez para sincronizar.</div></div>';
+  else if(!ks.length) h+='<div class="empty" style="padding:12px 0"><div class="empty-t">Tudo unificado ✅</div><div class="empty-s">Todos os clientes do furgão já têm ficha comercial.</div></div>';
+  else h+=ks.map(function(k,i){ var gr=grupos[k], l0=gr.locais[0];
+      var loc=gr.locais.length>1?'':(l0.local?(l0.local+(l0.uf?'/'+l0.uf:'')):((l0.nome.split(' - ')[1])||'')); // vários municípios: local da ficha em branco
+      return '<div style="border:1px solid var(--border);border-radius:10px;padding:10px;margin-bottom:8px;display:grid;grid-template-columns:22px 1fr;gap:8px;align-items:start">'+
+        '<input type="checkbox" class="fi-chk" data-i="'+i+'" checked style="margin-top:10px">'+
+        '<div><input class="inp fi-nome" data-i="'+i+'" value="'+esca(gr.nome)+'" style="font-size:13px;padding:8px 10px;margin-bottom:4px">'+
+        '<input type="hidden" class="fi-local" data-i="'+i+'" value="'+esca(loc)+'">'+
+        '<div style="font-size:11px;color:var(--text3)">🚐 '+gr.locais.map(function(l){return esca(l.nome)+(l.fixo?' 📌':'');}).join(' · ')+'</div></div></div>';
+    }).join('')+'<button class="btn btn-primary" onclick="importarDoFurgao()" style="width:auto">⬇️ Criar fichas selecionadas</button>';
+  g('furgimp-body').innerHTML=h; g('furgimp-modal').classList.add('open');
+}
+function importarDoFurgao(){
+  var n=0;
+  Array.prototype.forEach.call(document.querySelectorAll('.fi-chk'),function(chk){
+    if(!chk.checked) return; var i=chk.getAttribute('data-i');
+    var nome=(document.querySelector('.fi-nome[data-i="'+i+'"]').value||'').trim(), local=(document.querySelector('.fi-local[data-i="'+i+'"]').value||'').trim();
+    if(nome&&upsertCliente({nome:nome,local:local})) n++;
+  });
+  g('furgimp-modal').classList.remove('open'); renderClientes();
+  toast(n?'✅ '+n+' ficha(s) criada(s) — complete CNPJ e contato':'Nada importado');
 }
 function abrirCliente(id){
   var c=id?lClientes().find(function(x){return String(x.id)===String(id);}):null;
