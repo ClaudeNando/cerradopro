@@ -1654,21 +1654,38 @@ function pisoMarginalHTML(r){
   // A nota (r.tot) inclui a destinação → o custo da destinação (cdf) entra no custo, senão a margem sai inflada (TASK-038).
   var p;try{p=DecisionEngine.calcularPrecoMinimo({custoTotal:km*custoVarKm+ped+cmotCusto+(Number(r.cdf)||0),km:km,imposto:cfg.imposto,margemAlvo:cfg.margemMin,precoProposto:r.tot,modo:'marginal'});}catch(e){return '';}
   if(!p||p.precoMinimo==null)return '';
-  // Card enxuto (TASK-044): faturado do furgão no mês · empate · proposta (destacada) · recomendado · 2 sobras líquidas.
-  var mes=new Date().toISOString().slice(0,7), mesLbl=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'][+mes.slice(5,7)-1]+'/'+mes.slice(0,4);
-  var vs=_furgLista('viagens'), fatMes=vs.filter(function(v){return v&&String(v.data||'').slice(0,7)===mes;}).reduce(function(s,v){return s+(+v.fat||0);},0);
-  var prop=Number(r.tot)||0, rec=p.precoMinimo, emp=p.precoBreakEven;
-  var sobraMarg=(p.margemProposta!=null&&p.precoProposto!=null)?(p.margemProposta*p.precoProposto):null; // R$ que sobra na proposta atual (base marginal)
-  var sobraRec=(p.margemResultante!=null&&p.precoMinimo!=null)?(p.margemResultante*p.precoMinimo):null; // R$ que sobra no recomendado
+  // Card enxuto (TASK-044/045): faturado do mês até hoje · empate considerando o fixo do mês (realizado + clientes fixos)
+  // · proposta em destaque · recomendado · 2 sobras líquidas. Regra no DecisionEngine (pisoFurgaoMes).
+  var hoje=new Date().toISOString().slice(0,10), mes=hoje.slice(0,7), mesLbl=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'][+mes.slice(5,7)-1]+'/'+mes.slice(0,4);
+  var vs=_furgLista('viagens'), fatHoje=vs.filter(function(v){return v&&String(v.data||'').slice(0,7)===mes&&String(v.data)<=hoje;}).reduce(function(s,v){return s+(+v.fat||0);},0);
+  var custoViagem=km*custoVarKm+ped+cmotCusto+(Number(r.cdf)||0), lucroMes=lucroFurgaoMes(mes,hoje);
+  var pf=DecisionEngine.pisoFurgaoMes?DecisionEngine.pisoFurgaoMes({custoViagem:custoViagem,lucroMes:lucroMes==null?0:lucroMes,imposto:cfg.imposto,margemAlvo:cfg.margemMin,precoProposto:r.tot}):null;
+  var emp=pf?pf.empate:p.precoBreakEven, rec=pf?pf.recomendado:p.precoMinimo, prop=Number(r.tot)||0;
+  var sobraMarg=pf?pf.sobraProposta:null, sobraRec=pf?pf.sobraRecomendado:null;
+  var notaEmp=lucroMes==null?'só a viagem (sem dados do mês)':(pf&&pf.faltaFixo>0?'inclui '+brl(pf.faltaFixo)+' do fixo do mês ainda descoberto':'fixo do mês já pago (realizado + clientes fixos) — só o custo da viagem');
   var cor=prop>=rec?['#1a7a40','rgba(26,122,64,0.10)','acima do recomendado']:(prop>=emp?['#b07010','rgba(176,112,16,0.12)','entre o empate e o recomendado']:['#b03020','rgba(176,48,32,0.10)','abaixo do empate — prejuízo']);
   return '<div class="rbox-light"><div class="card-head" style="margin-bottom:8px"><div class="card-icon">🚐</div><div class="card-lbl">Piso marginal do furgão</div></div>'+
-    '<div class="rrow"><div class="rl">Faturado até hoje no furgão <span style="font-size:11px;color:var(--text3)">('+mesLbl+')</span></div><div class="rv" style="font-weight:700">'+(vs.length?brl(fatMes):'—')+'</div></div>'+
-    '<div class="rrow"><div class="rl">Valor de empate <span style="font-size:11px;color:var(--text3)">(marginal mínimo)</span></div><div class="rv neg" style="font-weight:700">'+brl(emp)+'</div></div>'+
+    '<div class="rrow"><div class="rl">Faturado até hoje no furgão <span style="font-size:11px;color:var(--text3)">('+mesLbl+')</span></div><div class="rv" style="font-weight:700">'+(vs.length?brl(fatHoje):'—')+'</div></div>'+
+    '<div class="rrow"><div class="rl">Valor de empate<div style="font-size:11px;color:var(--text3)">'+notaEmp+'</div></div><div class="rv neg" style="font-weight:700;white-space:nowrap">'+brl(emp)+'</div></div>'+
     '<div class="rrow" style="background:'+cor[1]+';border-radius:10px;padding:10px 12px;margin:6px 0"><div class="rl" style="font-weight:700;color:'+cor[0]+'">Proposta atual<div style="font-size:11px;font-weight:400">transporte + destinação · '+cor[2]+'</div></div><div class="rv" style="font-weight:800;font-size:18px;white-space:nowrap;color:'+cor[0]+'">'+brl(prop)+'</div></div>'+
-    '<div class="rrow"><div class="rl">Preço recomendado <span style="font-size:11px;color:var(--text3)">('+(cfg.margemMin||30)+'%)</span></div><div class="rv acc" style="font-weight:700">'+brl(rec)+'</div></div>'+
+    '<div class="rrow"><div class="rl">Preço recomendado <span style="font-size:11px;color:var(--text3)">('+(cfg.margemMin||30)+'%)</span></div><div class="rv acc" style="font-weight:700;white-space:nowrap">'+brl(rec)+'</div></div>'+
     (sobraMarg!=null?'<div class="rrow" style="border-top:1px solid var(--border2);margin-top:6px;padding-top:10px"><div class="rl" style="font-weight:700;color:var(--text)">Sobra líquida <span style="font-size:11px;color:var(--text3)">(proposta atual)</span></div><div class="rv '+(sobraMarg>=0?'acc':'neg')+'" style="font-weight:700;font-size:16px">'+brl(sobraMarg)+'</div></div>':'')+
     (sobraRec!=null?'<div class="rrow"><div class="rl" style="font-weight:700;color:var(--text)">Sobra líquida <span style="font-size:11px;color:var(--text3)">(recomendado '+(cfg.margemMin||30)+'%)</span></div><div class="rv '+(sobraRec>=0?'acc':'neg')+'" style="font-weight:700;font-size:16px">'+brl(sobraRec)+'</div></div>':'')+
   '</div>';
+}
+// Lucro do mês do furgão para o empate (TASK-045): viagens realizadas até hoje + clientes fixos 📌 ainda
+// não rodados (previstos) − fixo do mês − gastos avulsos. null = sem métricas/dados do FurgãoPRO.
+function lucroFurgaoMes(mes,hoje){
+  if(!window.DecisionEngine||!DecisionEngine.caixaMes) return null;
+  var fm=getFurgaoMetrics(); if(!fm||!(+fm.fixedMonthlyCost)) return null;
+  var vs=_furgLista('viagens'), op=DecisionEngine.custoOperacionalReal(vs), vk=+fm.variableCostKm||0;
+  var lst=vs.filter(function(v){return v&&String(v.data||'').slice(0,7)===mes&&String(v.data)<=hoje;})
+    .map(function(v){return {fat:+v.fat||0,custoDireto:DecisionEngine.custoDiretoViagem({km:v.km,custo:v.custo,varKmCfg:vk,op:op})};});
+  DecisionEngine.pendentesFixosMes({clientes:_furgLista('clientes'),viagens:vs,mes:mes,hoje:hoje}).forEach(function(x){
+    lst.push({fat:x.fat,custoDireto:DecisionEngine.custoDiretoViagem({km:x.km,custo:null,varKmCfg:vk,op:op})});
+  });
+  var avulsos=_furgLista('gastos').filter(function(x){return String(x.data||'').slice(0,7)===mes;}).reduce(function(s,x){return s+(+x.valor||0);},0);
+  return DecisionEngine.caixaMes({viagens:lst,fixoMes:+fm.fixedMonthlyCost,avulsos:avulsos,imposto:cfg.imposto}).lucro;
 }
 function desembolsoMotoristaHTML(r){
   if(!r||!r.proprio)return '';

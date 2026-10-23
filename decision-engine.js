@@ -647,6 +647,26 @@
     return r;
   }
 
+  /* pisoFurgaoMes({custoViagem, lucroMes, imposto, margemAlvo, precoProposto}) — TASK-045.
+   * Empate e recomendado de UMA viagem considerando o fixo do mês. lucroMes vem do caixa do
+   * mês (realizado + clientes fixos previstos − fixo − avulsos). Se ≥ 0 o fixo já está pago e o
+   * empate é o marginal; se < 0, a viagem carrega também o fixo que falta:
+   *   custoEfetivo = custoViagem + max(0, −lucroMes)
+   *   empate = custoEfetivo ÷ (1 − imposto) · recomendado = custoEfetivo ÷ (1 − imposto − margem) */
+  function pisoFurgaoMes(p) {
+    p = p || {};
+    var t = _frac(p.imposto, DEFAULTS.imposto), a = _frac(p.margemAlvo, DEFAULTS.margemMin);
+    var c = Number(p.custoViagem) || 0, lucro = Number(p.lucroMes) || 0;
+    var falta = Math.max(0, -lucro), ce = c + falta;
+    var r = { faltaFixo: falta, custoEfetivo: ce,
+              empate: (1 - t) > 0 ? ce / (1 - t) : null,
+              recomendado: (1 - t - a) > 0 ? ce / (1 - t - a) : null,
+              sobraProposta: null, sobraRecomendado: null };
+    if (r.recomendado != null) r.sobraRecomendado = r.recomendado * (1 - t) - ce;
+    if (p.precoProposto != null && Number(p.precoProposto) > 0) r.sobraProposta = Number(p.precoProposto) * (1 - t) - ce;
+    return r;
+  }
+
   /* avaliarCalibracaoVariavel({varKmCfg, op, tolerancia}) — avisa quando o variável da
    * config está abaixo do custo direto real (o real inclui pedágio, então é natural
    * ficar um pouco acima; acima da tolerância o piso fica otimista). */
@@ -767,8 +787,9 @@
 
   /* Exposição pública (sem efeito colateral, sem chamadas automáticas). */
   global.DecisionEngine = {
-    _version: '0.12.0',
+    _version: '0.13.0',
     DEFAULTS: DEFAULTS,
+    pisoFurgaoMes: pisoFurgaoMes,
     clienteConfereNome: clienteConfereNome,
     custoDesembolsadoViagem: custoDesembolsadoViagem,
     carteiraFixa: carteiraFixa,
