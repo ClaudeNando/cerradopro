@@ -705,10 +705,19 @@
    * Cliente marcado como fixo ({fixo:true, freqMes, km, fatEsperado}) entra SEMPRE
    * na conta, realizado ou não: dilui o fixo no custo/km e conta no caixa do mês.
    * ========================================================================== */
+  function _normNome(s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim(); }
+  /* clienteConfereNome(c, nome) — o nome corresponde ao cliente? Nome completo, apelidos de
+   * nomes mesclados/antigos (c.aliases) ou o nome-base antes de " - Município" (TASK-042). */
+  function clienteConfereNome(c, nome) {
+    var n = _normNome(nome); if (!c || !n) return false;
+    if (n === _normNome(c.nome)) return true;
+    if ((c.aliases || []).some(function (a) { return _normNome(a) === n; })) return true;
+    return _normNome(String(c.nome || '').split(' - ')[0]) === n;
+  }
   function _viagemDoCliente(v, c) {
     if (!v || !c) return false;
     if (v.clienteId != null && v.clienteId !== '') return String(v.clienteId) === String(c.id);
-    return String(v.nome || '').trim().toLowerCase() === String(c.nome || '').trim().toLowerCase();
+    return clienteConfereNome(c, v.nome);
   }
   function _fixos(clientes) {
     return (clientes || []).filter(function (c) { return c && c.fixo && (Number(c.km) > 0 || Number(c.fatEsperado) > 0); });
@@ -758,8 +767,9 @@
 
   /* Exposição pública (sem efeito colateral, sem chamadas automáticas). */
   global.DecisionEngine = {
-    _version: '0.11.0',
+    _version: '0.12.0',
     DEFAULTS: DEFAULTS,
+    clienteConfereNome: clienteConfereNome,
     custoDesembolsadoViagem: custoDesembolsadoViagem,
     carteiraFixa: carteiraFixa,
     pendentesFixosMes: pendentesFixosMes,

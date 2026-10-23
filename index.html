@@ -1250,6 +1250,7 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
       <input type="hidden" id="fv-coleta-id">
       <div style="font-size:12px;color:var(--text3);margin-bottom:10px;line-height:1.5">Esta coleta é da <b>frota própria</b>. Confirme os dados para lançar a viagem no FurgãoPRO (entra no custo/rentabilidade do furgão). Deixe como está se preferir lançar depois.</div>
       <div class="field"><label class="flabel">Cliente</label><input class="inp" type="text" id="fv-cliente" readonly></div>
+      <div class="field" id="fv-fcli-wrap" style="display:none"><label class="flabel">Local no FurgãoPRO</label><select class="inp sel" id="fv-fcli" onchange="fvEscolheCli()"></select><div id="fv-fcli-info" style="font-size:11px;color:var(--text3);margin-top:4px"></div></div>
       <div class="g2">
         <div class="field"><label class="flabel">Data</label><input class="inp inp-mono" type="date" id="fv-data"></div>
         <div class="field"><label class="flabel">Km ida+volta</label><input class="inp inp-mono" type="number" id="fv-km" placeholder="0" inputmode="decimal" oninput="fvCalc()"></div>
@@ -3082,10 +3083,10 @@ function projecaoFurgaoMes(m){
   var n=0,semValor=0,fat=0,recs=[];
   try{recs=lRecorrencias();}catch(e){}
   // clientes fixos já entram no caixa como previstos → não repetir na projeção
-  var fixos={}; _furgLista('clientes').forEach(function(c){ if(c&&c.fixo) fixos[String(c.nome||'').trim().toLowerCase()]=1; });
+  var fixos=_furgLista('clientes').filter(function(c){return c&&c.fixo;});
   try{ lColetas().forEach(function(c){
     if(!c||c.estado==='executada'||String(c.dataColeta||'').slice(0,7)!==m||!_coletaEhFurgao(c)) return;
-    if(fixos[String(c.gerador||'').trim().toLowerCase()]) return;
+    if(fixos.some(function(f){return DecisionEngine.clienteConfereNome(f,c.gerador);})) return; // nome, apelido ou nome-base
     n++; var r=c.recorrenciaId?recs.find(function(x){return x.id===c.recorrenciaId;}):null;
     if(r&&+r.fat>0) fat+=+r.fat; else semValor++;
   }); }catch(e){}
@@ -3451,7 +3452,7 @@ function abrirFViagem(coletaId){
   var km='',fat=''; // pré-preenche da recorrência, se a coleta veio de uma
   if(c.recorrenciaId){ try{ var r=lRecorrencias().find(function(x){return x.id===c.recorrenciaId;}); if(r){ km=r.km||''; fat=r.fat||''; } }catch(e){} }
   g('fv-km').value=km||''; g('fv-fat').value=fat||''; g('fv-custo').value='';
-  _fvCustoManual=false; fvCalc();
+  _fvCustoManual=false; fvMontaClientes(c.gerador); fvCalc();
   g('fviagem-modal').classList.add('open');
 }
 function fecharFViagem(){ g('fviagem-modal').classList.remove('open'); }
@@ -3472,14 +3473,41 @@ function fvCalc(){
     (fat>0?'<br>🧾 Imposto ('+String(cfg.imposto!=null?cfg.imposto:15.45).replace('.',',')+'%): '+brl(imp)+' — descontado à parte, não entra no custo'+
       '<br>= Sobra da viagem: <b>'+brl(fat-imp-custo)+'</b> ('+(fat>0?((fat-imp-custo)/fat*100).toFixed(1).replace('.',','):'—')+'%) · sem pedágio — se houver, some no custo':'');
 }
+// Cliente do FurgãoPRO para a viagem (TASK-043): mesmo cliente em vários municípios (ex.: Biotrop)
+// → o operador escolhe o local; a viagem já entra no cadastro certo (clienteId) e puxa km/faturamento típicos.
+var _fvCli=null;
+function fvMontaClientes(gerador){
+  var wrap=g('fv-fcli-wrap'), sel=g('fv-fcli'); _fvCli=null; if(!wrap||!sel) return;
+  var cs=_furgLista('clientes').filter(function(x){return DecisionEngine.clienteConfereNome&&DecisionEngine.clienteConfereNome(x,gerador);});
+  if(!cs.length){ wrap.style.display='none'; return; }
+  wrap.style.display='block';
+  if(cs.length===1){
+    sel.innerHTML='<option value="'+cs[0].id+'">'+cs[0].nome+'</option>'; sel.disabled=true;
+  } else {
+    sel.disabled=false;
+    sel.innerHTML='<option value="">— escolha o local ('+cs.length+' cadastros) —</option>'+cs.map(function(x){
+      return '<option value="'+x.id+'">'+x.nome+(x.local&&x.nome.indexOf(' - ')<0?' ('+x.local+(x.uf?'/'+x.uf:'')+')':'')+(+x.km>0?' · '+fmt(x.km)+' km':'')+'</option>';}).join('');
+  }
+  fvEscolheCli();
+}
+function fvEscolheCli(){
+  var sel=g('fv-fcli'), info=g('fv-fcli-info'); if(!sel) return;
+  var id=sel.value; _fvCli=_furgLista('clientes').find(function(x){return String(x.id)===String(id);})||null;
+  if(!_fvCli){ info.innerHTML=sel.options.length>1?'⚠️ Escolha o local para a viagem entrar no cadastro certo.':''; return; }
+  if(!(+g('fv-km').value)&&+_fvCli.km>0) g('fv-km').value=_fvCli.km;            // só preenche o que está vazio
+  if(!(+g('fv-fat').value)&&+_fvCli.fatEsperado>0) g('fv-fat').value=_fvCli.fatEsperado;
+  info.innerHTML='Km típico '+(+_fvCli.km>0?fmt(_fvCli.km)+' km':'—')+' · faturamento esperado '+(+_fvCli.fatEsperado>0?brl(+_fvCli.fatEsperado):'—')+(_fvCli.fixo?' · 📌 fixo':'');
+  fvCalc();
+}
 // Escreve a viagem em furgaopro/fp2_viagens via TRANSAÇÃO (atômico, sem perda) e idempotente por coletaId.
 function lancarFViagem(){
   var cid=g('fv-coleta-id').value, c=lColetas().find(function(x){return String(x.id)===String(cid);});
   if(!c){toast('⚠️ Coleta não encontrada');return;}
   var km=+g('fv-km').value||0; if(!km){toast('⚠️ Informe o KM (ida+volta)');return;}
+  var _sel=g('fv-fcli'); if(_sel&&g('fv-fcli-wrap').style.display!=='none'&&_sel.options.length>1&&!_fvCli){toast('⚠️ Escolha o local do cliente');return;}
   var fb=_fb(),u=_fbUser();
   if(!fb||!fb.firestore||!u){toast('⚠️ Sem conexão — lance a viagem no FurgãoPRO manualmente');return;}
-  var viagem={ id:Date.now(), coletaId:c.id, nome:c.gerador||'', clienteId:null,
+  var viagem={ id:Date.now(), coletaId:c.id, nome:(_fvCli?_fvCli.nome:(c.gerador||'')), clienteId:(_fvCli?_fvCli.id:null),
     data:g('fv-data').value||c.dataExecucao||new Date().toISOString().slice(0,10),
     km:km, fat:(g('fv-fat').value?+g('fv-fat').value:null), custo:(g('fv-custo').value?+g('fv-custo').value:null),
     obs:'Coleta '+(c.mtr?('MTR '+c.mtr):('#'+c.id))+' (CerradoPRO)' };

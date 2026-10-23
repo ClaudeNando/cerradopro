@@ -251,7 +251,8 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
   <div id="screen-clientes" class="screen">
     <div class="shdr">
       <div class="shdr-title">Clientes</div>
-      <button class="btn btn-ghost btn-sm" onclick="openNovoCliente()">+ Novo</button>
+      <span style="display:flex;gap:6px"><button class="btn btn-outline btn-sm" onclick="openOrganizar()">🧹 Organizar</button>
+      <button class="btn btn-ghost btn-sm" onclick="openNovoCliente()">+ Novo</button></span>
     </div>
     <div class="fbar">
       <input class="inp" id="cln-busca" type="text" placeholder="🔎 Buscar por nome, cidade ou UF…" autocomplete="off" oninput="renderClientes()">
@@ -307,6 +308,15 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
       <div style="height:8px"></div>
       <button class="btn btn-danger" id="v-excluir-btn" onclick="excluirViagem()" style="display:none">🗑 Excluir</button>
     </div>
+  </div>
+</div>
+
+<!-- MODAL: ORGANIZAR CLIENTES (TASK-042) -->
+<div class="overlay" id="org-modal" onclick="if(event.target===this)closeModal('org-modal')">
+  <div class="modal">
+    <div class="modal-handle-wrap"><div class="modal-handle"></div></div>
+    <div class="modal-head"><div class="modal-title">🧹 Organizar clientes</div><button class="modal-close" onclick="closeModal('org-modal')">×</button></div>
+    <div class="modal-body"><div id="org-body"></div></div>
   </div>
 </div>
 
@@ -1166,7 +1176,7 @@ function salvarViagem(){
     nome=g('v-nome').value.trim();
     if(!nome){toast('⚠️ Informe o nome');return;}
     // Auto-cadastrar como cliente se ainda não existir
-    var existente=clientes.find(function(x){return x.nome.toLowerCase()===nome.toLowerCase();});
+    var existente=_acharCliente(nome);
     if(existente){
       clienteId=existente.id;
     } else {
@@ -1216,7 +1226,7 @@ function corrigirAvulsos(){
   viagens.forEach(function(v){
     if(!v.nome) return;
     if(v.clienteId && clientes.some(function(x){return x.id==v.clienteId;})) return;
-    var c=clientes.find(function(x){return x.nome.toLowerCase()===v.nome.toLowerCase();});
+    var c=_acharCliente(v.nome); // nome completo, apelido de mesclado ou nome-base (TASK-042)
     if(c){
       v.clienteId=c.id;
     } else {
@@ -1240,6 +1250,131 @@ function excluirViagem(){
   renderDash();
   renderClientes();
   toast('🗑 Excluída');
+}
+
+// ── ORGANIZAR CLIENTES (TASK-042) ────────────────────────
+// Mescla duplicados (viagens passam ao cliente mantido; nomes antigos viram apelidos p/ casar
+// lançamentos futuros) e padroniza nomes como "Nome - Município/UF".
+function _baseNome(n){ return String(n||'').split(' - ')[0].trim(); }
+function _chaveNome(n){ return _norm(_baseNome(n)).replace(/[^a-z0-9]/g,''); }
+function _lev(a,b){ var m=a.length,n=b.length,d=[],i,j; for(i=0;i<=m;i++){d[i]=[i];} for(j=1;j<=n;j++)d[0][j]=j;
+  for(i=1;i<=m;i++)for(j=1;j<=n;j++)d[i][j]=Math.min(d[i-1][j]+1,d[i][j-1]+1,d[i-1][j-1]+(a[i-1]===b[j-1]?0:1)); return d[m][n]; }
+function _parecidos(a,b){
+  var ka=_chaveNome(a.nome), kb=_chaveNome(b.nome); if(!ka||!kb) return false;
+  var la=_norm(a.local), lb=_norm(b.local); if(la&&lb&&la!==lb) return false; // municípios diferentes = clientes diferentes
+  if(ka===kb) return true;
+  var m=Math.min(ka.length,kb.length); if(m<5) return false;
+  var d=_lev(ka,kb);
+  if(d<=(m>=8?2:1)) return true;
+  return d<=2 && ka.slice(0,4)===kb.slice(0,4); // mesmo início (ex.: "real jg" × "real rj")
+}
+function _gruposDuplicados(){
+  var pai={}; clientes.forEach(function(c){pai[c.id]=c.id;});
+  function raiz(x){ while(pai[x]!=x) x=pai[x]; return x; }
+  for(var i=0;i<clientes.length;i++) for(var j=i+1;j<clientes.length;j++)
+    if(_parecidos(clientes[i],clientes[j])) pai[raiz(clientes[j].id)]=raiz(clientes[i].id);
+  var g={}; clientes.forEach(function(c){ var r=raiz(c.id); (g[r]=g[r]||[]).push(c); });
+  return Object.keys(g).map(function(k){return g[k];}).filter(function(x){return x.length>1;});
+}
+function _titulo(s){
+  return String(s||'').trim().split(/\s+/).map(function(w,i){
+    var lw=w.toLowerCase();
+    if(i>0&&['de','da','do','das','dos','e'].indexOf(lw)>=0) return lw;
+    if(w.length<=3&&(/[A-Z]/.test(w.slice(1))||(w.length>1&&w===w.toUpperCase()&&/[A-Z]/.test(w)))) return w.toUpperCase(); // siglas: rJ→RJ, GO, UEG (não "Do")
+    return lw.charAt(0).toUpperCase()+lw.slice(1);
+  }).join(' ');
+}
+function nomePadrao(c){
+  var b=_titulo(_baseNome(c.nome)), loc=String(c.local||'').trim();
+  return loc?b+' - '+_titulo(loc)+(c.uf?'/'+String(c.uf).toUpperCase():''):b;
+}
+function _nViagens(id){ return viagens.filter(function(v){return String(v.clienteId)===String(id);}).length; }
+function _acharCliente(nome){ // nome completo/apelido primeiro; depois nome-base (se houver mais de um município, o 1º — igual ao comportamento antigo)
+  var n=_norm(nome); if(!n) return null;
+  var c=clientes.find(function(x){return _norm(x.nome)===n||(x.aliases||[]).some(function(a){return _norm(a)===n;});});
+  if(c) return c;
+  return clientes.find(function(x){return _norm(_baseNome(x.nome))===n;})||null;
+}
+function openOrganizar(){ renderOrganizar(); openModal('org-modal'); }
+function renderOrganizar(){
+  var grupos=_gruposDuplicados();
+  var opt=function(sel){return clientes.slice().sort(function(a,b){return _norm(a.nome).localeCompare(_norm(b.nome));}).map(function(c){return '<option value="'+c.id+'"'+(sel==c.id?' selected':'')+'>'+c.nome+(c.local?' ('+c.local+')':'')+' · '+_nViagens(c.id)+' viag.</option>';}).join('');};
+  var h='<div style="font-size:12px;color:var(--text3);line-height:1.45;margin-bottom:10px">Mesclar e renomear altera clientes e viagens (sincroniza com a nuvem). <button class="btn btn-ghost btn-sm" onclick="exportarBackup()" style="width:auto;padding:4px 10px">💾 Exportar backup antes</button></div>';
+  h+='<div class="card-lbl" style="margin:6px 0 8px">1 · Duplicados sugeridos</div>';
+  if(!grupos.length) h+='<div style="font-size:12px;color:var(--text4);margin-bottom:10px">Nenhum duplicado provável encontrado. Use a mescla manual abaixo se precisar.</div>';
+  grupos.forEach(function(gr,gi){
+    var keep=gr.slice().sort(function(a,b){return _nViagens(b.id)-_nViagens(a.id);})[0].id;
+    h+='<div style="border:1px solid var(--border);border-radius:10px;padding:10px;margin-bottom:8px">'+
+      gr.map(function(c){return '<label style="display:flex;gap:8px;align-items:center;font-size:13px;padding:3px 0;cursor:pointer"><input type="radio" name="org-g'+gi+'" value="'+c.id+'"'+(c.id==keep?' checked':'')+'> <span><b>'+c.nome+'</b> <span style="color:var(--text3)">'+(c.local||'sem município')+(c.uf?'/'+c.uf:'')+' · '+_nViagens(c.id)+' viagem(ns)</span></span></label>';}).join('')+
+      '<div style="font-size:11px;color:var(--text4);margin:4px 0 6px">Marque o cliente que <b>fica</b>; os outros são mesclados nele.</div>'+
+      '<button class="btn btn-primary btn-sm" onclick="mesclarGrupo('+gi+')" style="width:auto">Mesclar grupo</button></div>';
+  });
+  h+='<div class="card-lbl" style="margin:12px 0 8px">2 · Mesclar manualmente</div>'+
+    '<div style="display:grid;grid-template-columns:1fr auto 1fr;gap:6px;align-items:center;margin-bottom:6px"><select class="inp sel" id="org-de" style="font-size:12px">'+opt()+'</select><span style="font-size:12px;color:var(--text3)">em</span><select class="inp sel" id="org-para" style="font-size:12px">'+opt()+'</select></div>'+
+    '<button class="btn btn-outline btn-sm" onclick="mesclarManual()" style="width:auto;margin-bottom:6px">Mesclar</button>';
+  var lista=clientes.map(function(c){return {c:c,novo:nomePadrao(c)};}).filter(function(x){return x.novo!==x.c.nome;});
+  h+='<div class="card-lbl" style="margin:12px 0 8px">3 · Padronizar nomes ("Nome - Município/UF")</div>';
+  if(!lista.length) h+='<div style="font-size:12px;color:var(--text4)">Todos os nomes já estão no padrão.</div>';
+  else h+=lista.map(function(x){return '<div style="display:grid;grid-template-columns:20px 1fr;gap:6px;align-items:center;margin-bottom:6px"><input type="checkbox" class="org-pad-chk" data-id="'+x.c.id+'" checked>'+
+      '<div><div style="font-size:11px;color:var(--text3)">'+x.c.nome+(x.c.local?'':' · <b style="color:var(--warning)">sem município — edite</b>')+'</div><input class="inp org-pad-inp" data-id="'+x.c.id+'" value="'+x.novo.replace(/"/g,'&quot;')+'" style="font-size:13px;padding:8px 10px"></div></div>';}).join('')+
+    '<button class="btn btn-primary btn-sm" onclick="aplicarPadrao()" style="width:auto;margin-top:4px">Aplicar nomes selecionados</button>';
+  g('org-body').innerHTML=h;
+  window._orgGrupos=grupos;
+}
+function _mesclar(keepId, outrosIds){
+  var K=clientes.find(function(c){return c.id==keepId;}); if(!K) return 0;
+  var ids=outrosIds.map(String).filter(function(id){return id!==String(keepId);});
+  var outros=clientes.filter(function(c){return ids.indexOf(String(c.id))>=0;}); if(!outros.length) return 0;
+  var nomes=[];
+  outros.forEach(function(o){
+    nomes.push(o.nome); (o.aliases||[]).forEach(function(a){nomes.push(a);});
+    if(!K.local&&o.local) K.local=o.local;
+    if(!K.uf&&o.uf) K.uf=o.uf;
+    if(!(+K.km>0)&&+o.km>0) K.km=o.km;
+    if(!(+K.fatEsperado>0)&&+o.fatEsperado>0) K.fatEsperado=o.fatEsperado;
+    if(o.fixo){ K.fixo=true; K.freqMes=Math.max(+K.freqMes||1,+o.freqMes||1); }
+  });
+  var vistos={}; K.aliases=(K.aliases||[]).concat(nomes).filter(function(a){var k=_norm(a); if(!k||k===_norm(K.nome)||vistos[k]) return false; vistos[k]=1; return true;});
+  var n=0;
+  viagens.forEach(function(v){
+    var doOutro=ids.indexOf(String(v.clienteId))>=0 || (!v.clienteId && nomes.some(function(x){return _norm(x)===_norm(v.nome);}));
+    if(doOutro){ v.clienteId=K.id; v.nome=K.nome; n++; }
+  });
+  clientes=clientes.filter(function(c){return ids.indexOf(String(c.id))<0;});
+  sClientes(); sViagens();
+  return n;
+}
+function mesclarGrupo(gi){
+  var gr=(window._orgGrupos||[])[gi]; if(!gr) return;
+  var r=document.querySelector('input[name="org-g'+gi+'"]:checked'); if(!r) return;
+  var K=clientes.find(function(c){return c.id==r.value;});
+  if(!confirm('Mesclar '+(gr.length-1)+' cliente(s) em "'+K.nome+'"? As viagens passam para ele.')) return;
+  var n=_mesclar(r.value, gr.map(function(c){return c.id;}));
+  toast('✅ Mesclado · '+n+' viagem(ns) movida(s)'); renderOrganizar(); renderClientes(); renderDash(); renderRegistros();
+}
+function mesclarManual(){
+  var de=g('org-de').value, para=g('org-para').value;
+  if(!de||!para||de===para){ toast('⚠️ Escolha dois clientes diferentes'); return; }
+  var A=clientes.find(function(c){return c.id==de;}), B=clientes.find(function(c){return c.id==para;});
+  if(!confirm('Mesclar "'+A.nome+'" em "'+B.nome+'"? "'+A.nome+'" deixa de existir e as viagens passam para "'+B.nome+'".')) return;
+  var n=_mesclar(para,[de]);
+  toast('✅ Mesclado · '+n+' viagem(ns) movida(s)'); renderOrganizar(); renderClientes(); renderDash(); renderRegistros();
+}
+function aplicarPadrao(){
+  var mud=0;
+  Array.prototype.forEach.call(document.querySelectorAll('.org-pad-chk'),function(chk){
+    if(!chk.checked) return;
+    var id=chk.getAttribute('data-id'), inp=document.querySelector('.org-pad-inp[data-id="'+id+'"]');
+    var novo=(inp&&inp.value||'').trim(), c=clientes.find(function(x){return String(x.id)===id;});
+    if(!c||!novo||novo===c.nome) return;
+    c.aliases=(c.aliases||[]); if(c.aliases.every(function(a){return _norm(a)!==_norm(c.nome);})) c.aliases.push(c.nome);
+    c.nome=novo;
+    viagens.forEach(function(v){ if(String(v.clienteId)===id) v.nome=novo; });
+    mud++;
+  });
+  if(!mud){ toast('Nada para aplicar'); return; }
+  sClientes(); sViagens();
+  toast('✅ '+mud+' nome(s) padronizado(s)'); renderOrganizar(); renderClientes(); renderDash(); renderRegistros();
 }
 
 // ── MODAL CLIENTE ─────────────────────────────────────────
@@ -1275,7 +1410,7 @@ function salvarCliente(){
   if(c.fixo&&!(c.km>0)){toast('⚠️ Cliente fixo precisa do KM típico');return;}
   if(editId){
     var idx=clientes.findIndex(function(x){return x.id==editId;});
-    if(idx>=0) clientes[idx]=Object.assign({id:+editId},c);
+    if(idx>=0) clientes[idx]=Object.assign({},clientes[idx],{id:+editId},c); // preserva campos extras (ex.: aliases)
   } else {
     c.id=nextCId++;
     clientes.push(c);
