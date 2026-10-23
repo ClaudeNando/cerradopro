@@ -667,6 +667,53 @@
     return r;
   }
 
+  /* simularContratoFurgao({base, contrato, imposto, margemAlvo}) — TASK-046.
+   * Viabilidade de um contrato NOVO que soma km ao mês do furgão.
+   *   base     = {kmMes, fatMes, fixoMes, varKm}   (operação atual: km/fat médios, fixo, custo variável/km)
+   *   contrato = {valorMes, kmMes, motoristaMes, pedagioMes}
+   * Custo direto do contrato = km × varKm + motorista + pedágio. O fixo NÃO muda; o km sobe → fixo/km cai.
+   * Preços do contrato (mensais): empate (só o custo direto), 30% marginal (fixo já pago pelos atuais)
+   * e 30% cheio (contrato paga a parte do fixo proporcional ao km dele no mês novo). */
+  function simularContratoFurgao(p) {
+    p = p || {};
+    var t = _frac(p.imposto, DEFAULTS.imposto), a = _frac(p.margemAlvo, DEFAULTS.margemMin);
+    var b = p.base || {}, c = p.contrato || {};
+    var kmA = Number(b.kmMes) || 0, fatA = Number(b.fatMes) || 0, fixo = Number(b.fixoMes) || 0, vk = Number(b.varKm) || 0;
+    var kmC = Number(c.kmMes) || 0, valor = Number(c.valorMes) || 0;
+    var direto = kmC * vk + (Number(c.motoristaMes) || 0) + (Number(c.pedagioMes) || 0);
+    var kmD = kmA + kmC;
+    function lado(km, fat, dir) {
+      var fixoKm = km > 0 ? fixo / km : null, total = fixoKm != null ? fixoKm + vk : null;
+      return { kmMes: km, fatMes: fat, fixoKm: fixoKm, custoTotalKm: total,
+               precoSugeridoKm: (total != null && (1 - t - a) > 0) ? total / (1 - t - a) : null,
+               lucroMes: fat * (1 - t) - dir - fixo };
+    }
+    var antes = lado(kmA, fatA, kmA * vk), depois = lado(kmD, fatA + valor, kmA * vk + direto);
+    depois.margemMes = depois.fatMes > 0 ? depois.lucroMes / depois.fatMes : null;
+    antes.margemMes = antes.fatMes > 0 ? antes.lucroMes / antes.fatMes : null;
+    var fixoRateado = kmD > 0 ? fixo * kmC / kmD : 0;
+    var contrib = valor * (1 - t) - direto;
+    var r = {
+      antes: antes, depois: depois,
+      reducaoFixoKm: (antes.fixoKm != null && depois.fixoKm != null) ? antes.fixoKm - depois.fixoKm : null,
+      reducaoFixoKmPct: (antes.fixoKm > 0 && depois.fixoKm != null) ? 1 - depois.fixoKm / antes.fixoKm : null,
+      contrato: {
+        custoDireto: direto, imposto: valor * t, contribuicao: contrib,
+        margemContribuicao: valor > 0 ? contrib / valor : null,
+        fixoRateado: fixoRateado, lucroCheio: contrib - fixoRateado,
+        margemCheia: valor > 0 ? (contrib - fixoRateado) / valor : null,
+        precoEmpate: (1 - t) > 0 ? direto / (1 - t) : null,
+        precoMarginal: (1 - t - a) > 0 ? direto / (1 - t - a) : null,
+        precoCheio: (1 - t - a) > 0 ? (direto + fixoRateado) / (1 - t - a) : null
+      },
+      ganhoLucroMes: depois.lucroMes - antes.lucroMes
+    };
+    var pc = r.contrato;
+    pc.porKm = kmC > 0 ? { empate: pc.precoEmpate / kmC, marginal: pc.precoMarginal / kmC, cheio: pc.precoCheio / kmC, proposto: valor / kmC } : null;
+    pc.situacao = !(valor > 0) ? null : (valor >= pc.precoCheio ? 'cheio' : valor >= pc.precoMarginal ? 'marginal' : valor >= pc.precoEmpate ? 'empate' : 'prejuizo');
+    return r;
+  }
+
   /* avaliarCalibracaoVariavel({varKmCfg, op, tolerancia}) — avisa quando o variável da
    * config está abaixo do custo direto real (o real inclui pedágio, então é natural
    * ficar um pouco acima; acima da tolerância o piso fica otimista). */
@@ -787,8 +834,9 @@
 
   /* Exposição pública (sem efeito colateral, sem chamadas automáticas). */
   global.DecisionEngine = {
-    _version: '0.13.0',
+    _version: '0.14.0',
     DEFAULTS: DEFAULTS,
+    simularContratoFurgao: simularContratoFurgao,
     pisoFurgaoMes: pisoFurgaoMes,
     clienteConfereNome: clienteConfereNome,
     custoDesembolsadoViagem: custoDesembolsadoViagem,

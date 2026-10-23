@@ -266,12 +266,31 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
     <div id="clientes-list"></div>
   </div>
 
+  <!-- SIMULADOR DE CONTRATO (TASK-046) -->
+  <div id="screen-sim" class="screen">
+    <div class="shdr"><div class="shdr-title">Simular contrato</div></div>
+    <div class="card">
+      <div style="font-size:12px;color:var(--text3);line-height:1.45;margin-bottom:10px">Contrato <b>novo</b> que soma km ao mês do furgão. O custo fixo não muda: o km sobe e o fixo por km cai. Base = operação atual (custo/km do painel).</div>
+      <div class="field"><label class="flabel">Cliente / contrato (opcional)</label><input class="inp" id="sim-nome" type="text" placeholder="Ex.: Novo Cliente - Rio Verde/GO" autocomplete="off"></div>
+      <div class="g2">
+        <div class="field"><label class="flabel">Valor mensal (R$)</label><input class="inp inp-mono" id="sim-valor" type="number" placeholder="0" inputmode="decimal" oninput="renderSim()"></div>
+        <div class="field"><label class="flabel">Km por mês (ida+volta, total)</label><input class="inp inp-mono" id="sim-km" type="number" placeholder="0" inputmode="decimal" oninput="renderSim()"></div>
+      </div>
+      <div class="g2">
+        <div class="field"><label class="flabel">Coletas por mês</label><input class="inp inp-mono" id="sim-coletas" type="number" min="1" step="1" value="1" inputmode="numeric" oninput="renderSim()"></div>
+        <div class="field"><label class="flabel">Pedágio por mês (R$)</label><input class="inp inp-mono" id="sim-ped" type="number" placeholder="0" inputmode="decimal" oninput="renderSim()"></div>
+      </div>
+    </div>
+    <div id="sim-res"></div>
+  </div>
+
 </div>
 <nav class="nav">
   <div class="nav-brand"><div class="bm">F</div><div><div class="bn">FurgãoPRO</div><div class="bs">Cerrado Ambiental</div></div></div>
   <div class="nav-item active" id="nav-dash" onclick="navTo('dash',this)"><div class="nav-icon"><i data-lucide="layout-dashboard"></i></div><div class="nav-label">Dashboard</div></div>
   <div class="nav-item" id="nav-registros" onclick="navTo('registros',this)"><div class="nav-icon"><i data-lucide="route"></i></div><div class="nav-label">Viagens</div></div>
   <div class="nav-item" id="nav-clientes" onclick="navTo('clientes',this)"><div class="nav-icon"><i data-lucide="building-2"></i></div><div class="nav-label">Clientes</div></div>
+  <div class="nav-item" id="nav-sim" onclick="navTo('sim',this)"><div class="nav-icon"><i data-lucide="calculator"></i></div><div class="nav-label">Simular</div></div>
   <div class="nav-footer">
     <button class="side-btn" onclick="window.location.href='index.html'" title="CerradoPRO"><i data-lucide="recycle"></i></button>
     <button class="side-btn" onclick="openModal('cfg-modal')" title="Configurações"><i data-lucide="settings"></i></button>
@@ -1252,6 +1271,61 @@ function excluirViagem(){
   toast('🗑 Excluída');
 }
 
+// ── SIMULADOR DE CONTRATO (TASK-046) ─────────────────────
+// Contrato novo que soma km ao mês: o fixo não muda, o fixo/km cai. Regra no engine (simularContratoFurgao).
+function _cfgMotoristaRpro(){ try{var c=JSON.parse(localStorage.getItem('rpro_cfg')||'null');return (c&&c.motorista&&typeof c.motorista==='object')?{motorista:c.motorista}:{};}catch(e){return {};} }
+function _simVals(){ return {nome:(g('sim-nome').value||'').trim(), valor:+g('sim-valor').value||0, km:+g('sim-km').value||0, coletas:Math.max(1,parseInt(g('sim-coletas').value,10)||1), ped:+g('sim-ped').value||0}; }
+function renderSim(){
+  var el=g('sim-res'); if(!el) return;
+  var tot=calcCustoTotal(), op=calcCustoOperacional(), v=_simVals();
+  var r2=function(n){return n==null?'—':'R$ '+n.toFixed(2).replace('.',',');};
+  var base='<div style="font-size:11px;color:var(--text4);margin:-4px 0 10px">Base atual: '+fmt(Math.round(tot.kmMedio))+' km/mês · '+brl(tot.fatMedio)+'/mês · fixo '+brl(tot.fixoMensal)+'/mês · variável '+r2(tot.varKm)+'/km'+(tot.carteira&&tot.carteira.kmFalta>0?' · inclui clientes fixos ainda não rodados':'')+'</div>';
+  if(!(v.km>0)){ el.innerHTML=base+'<div class="info-box">Informe o km por mês do contrato (e o valor mensal, se já tiver) para ver o impacto.</div>'; return; }
+  var mot=DecisionEngine.calcularCustoMotoristaViagem(v.km/v.coletas,_cfgMotoristaRpro()).custoTotal*v.coletas;
+  var r=DecisionEngine.simularContratoFurgao({base:{kmMes:tot.kmMedio,fatMes:tot.fatMedio,fixoMes:tot.fixoMensal,varKm:tot.varKm},
+    contrato:{valorMes:v.valor,kmMes:v.km,motoristaMes:mot,pedagioMes:v.ped},imposto:cfg.imposto,margemAlvo:cfg.margem});
+  var A=r.antes, D=r.depois, C=r.contrato, pc=function(x){return x==null?'—':pct(x);};
+  var linha=function(l,a,d,dest){return '<div class="ctrow"'+(dest?' style="font-weight:700"':'')+'><span class="ct-label" style="flex:1">'+l+'</span><span class="ct-val" style="width:96px;text-align:right">'+a+'</span><span class="ct-val" style="width:96px;text-align:right;color:var(--accent)">'+d+'</span></div>';};
+  var cal=DecisionEngine.avaliarCalibracaoVariavel({varKmCfg:tot.varKm,op:op});
+  var calTxt=cal.status==='abaixo'?'<div style="font-size:11px;color:var(--warning);margin-top:6px">⚠️ Variável da config ('+r2(cal.cfgKm)+'/km) abaixo do custo direto real ('+r2(cal.realKm)+'/km) — os preços podem sair otimistas.</div>':'';
+  var cores={cheio:['#1a7a40','rgba(26,122,64,0.10)','✅ Paga o custo direto, a parte dele no fixo e '+cfg.margem+'%'],
+    marginal:['#1a7a40','rgba(26,122,64,0.08)','✅ '+cfg.margem+'% sobre o custo direto — viável com o fixo já pago pelos contratos atuais'],
+    empate:['#b07010','rgba(176,112,16,0.12)','⚠️ Cobre o custo direto, mas abaixo de '+cfg.margem+'%'],
+    prejuizo:['#b03020','rgba(176,48,32,0.10)','❌ Abaixo do empate — o contrato dá prejuízo']};
+  var cs=C.situacao?cores[C.situacao]:null;
+  var prk=function(x){return C.porKm?' <span style="font-size:11px;color:var(--text3)">'+r2(x)+'/km</span>':'';};
+  el.innerHTML=base+
+    '<div class="card"><div class="card-head"><div class="card-icon"><i data-lucide="trending-down"></i></div><div class="card-lbl">Seu custo antes × depois</div></div>'+
+      '<div class="ctrow" style="font-size:11px;color:var(--text3)"><span style="flex:1"></span><span style="width:96px;text-align:right">Hoje</span><span style="width:96px;text-align:right">Com o contrato</span></div>'+
+      linha('Km rodado/mês',fmt(Math.round(A.kmMes)),fmt(Math.round(D.kmMes)))+
+      linha('Fixo por km',r2(A.fixoKm),r2(D.fixoKm),true)+
+      linha('Custo total/km',r2(A.custoTotalKm),r2(D.custoTotalKm))+
+      linha('Preço sugerido/km ('+cfg.margem+'%)',r2(A.precoSugeridoKm),r2(D.precoSugeridoKm))+
+      (v.valor>0?linha('Lucro do mês',brl(A.lucroMes),brl(D.lucroMes),true)+linha('Margem do mês',pc(A.margemMes),pc(D.margemMes)):'')+
+      '<div style="background:var(--accent-dim);border-radius:10px;padding:10px 12px;margin-top:8px;font-size:13px">📉 O fixo por km cai <b>'+r2(r.reducaoFixoKm)+'</b> ('+pc(r.reducaoFixoKmPct)+')'+(v.valor>0?' · lucro do mês <b>'+(r.ganhoLucroMes>=0?'+':'')+brl(r.ganhoLucroMes)+'</b>':'')+'</div>'+
+    '</div>'+
+    '<div class="card"><div class="card-head"><div class="card-icon"><i data-lucide="badge-dollar-sign"></i></div><div class="card-lbl">Quanto cobrar neste contrato (por mês)</div></div>'+
+      '<div class="ctrow"><span class="ct-label">Custo direto/mês <span style="font-size:11px;color:var(--text4)">(km × '+r2(tot.varKm)+' + motorista '+brl(mot)+(v.ped?' + pedágio '+brl(v.ped):'')+')</span></span><span class="ct-val">'+brl(C.custoDireto)+'</span></div>'+
+      '<div class="ctrow"><span class="ct-label">Empate <span style="font-size:11px;color:var(--text4)">(mínimo, sem prejuízo)</span></span><span class="ct-val" style="color:var(--danger);font-weight:700">'+brl(C.precoEmpate)+prk(C.porKm&&C.porKm.empate)+'</span></div>'+
+      '<div class="ctrow"><span class="ct-label">'+cfg.margem+'% com o fixo já pago <span style="font-size:11px;color:var(--text4)">(contratos atuais cobrem)</span></span><span class="ct-val" style="color:var(--accent);font-weight:700">'+brl(C.precoMarginal)+prk(C.porKm&&C.porKm.marginal)+'</span></div>'+
+      '<div class="ctrow"><span class="ct-label">'+cfg.margem+'% pagando a parte dele no fixo <span style="font-size:11px;color:var(--text4)">('+brl(C.fixoRateado)+'/mês, pelo km)</span></span><span class="ct-val" style="color:var(--success);font-weight:700">'+brl(C.precoCheio)+prk(C.porKm&&C.porKm.cheio)+'</span></div>'+
+      (cs?'<div style="background:'+cs[1]+';border-radius:10px;padding:10px 12px;margin-top:8px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span style="font-weight:700;color:'+cs[0]+'">Valor proposto</span><span style="font-weight:800;font-size:18px;white-space:nowrap;color:'+cs[0]+'">'+brl(v.valor)+prk(C.porKm&&C.porKm.proposto)+'</span></div>'+
+        '<div style="font-size:12px;color:'+cs[0]+';margin-top:4px">'+cs[2]+'</div>'+
+        '<div style="font-size:11px;color:var(--text3);margin-top:4px">Sobra do contrato: '+brl(C.contribuicao)+' ('+pc(C.margemContribuicao)+' sem fixo) · '+brl(C.lucroCheio)+' ('+pc(C.margemCheia)+' com a parte do fixo)</div></div>':'')+
+      calTxt+
+      (v.valor>0?'<button class="btn btn-outline btn-sm" onclick="simSalvarFixo()" style="width:auto;margin-top:10px">📌 Salvar como cliente fixo</button>':'')+
+    '</div>';
+}
+function simSalvarFixo(){
+  var v=_simVals();
+  if(!v.nome){ toast('⚠️ Informe o nome do cliente/contrato'); g('sim-nome').focus(); return; }
+  if(!(v.km>0)||!(v.valor>0)){ toast('⚠️ Informe valor e km por mês'); return; }
+  if(_acharCliente(v.nome)&&!confirm('Já existe um cliente com esse nome. Criar outro mesmo assim?')) return;
+  clientes.push({id:nextCId++,nome:v.nome,local:'',uf:'GO',km:Math.round(v.km/v.coletas),fatEsperado:Math.round(v.valor/v.coletas*100)/100,fixo:true,freqMes:v.coletas});
+  sClientes(); renderClientes(); renderDash(); try{pushFurgaoMetrics();}catch(e){}
+  toast('📌 '+v.nome+' salvo como cliente fixo'); renderSim();
+}
+
 // ── ORGANIZAR CLIENTES (TASK-042) ────────────────────────
 // Mescla duplicados (viagens passam ao cliente mantido; nomes antigos viram apelidos p/ casar
 // lançamentos futuros) e padroniza nomes como "Nome - Município/UF".
@@ -1506,6 +1580,7 @@ function navTo(id,el){
   g('screen-'+id).classList.add('active');el.classList.add('active');
   if(id==='registros') renderRegistros();
   if(id==='clientes') renderClientes();
+  if(id==='sim') renderSim();
 }
 function openModal(id){if(id==='cfg-modal')openCfg();g(id).classList.add('open');}
 function closeModal(id){g(id).classList.remove('open');}
