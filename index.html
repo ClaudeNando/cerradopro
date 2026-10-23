@@ -1680,10 +1680,11 @@ function caixaMesFurgaoHTML(r,km,custoVarKm,ped,cmotCusto){
   var cor=function(x){return x==null?'':(x>=alvo/100?'acc':'neg');};
   var cal=cx.calibracao&&cx.calibracao.status==='abaixo'?'<div style="font-size:11px;color:#8a6d00;background:#fbf6e3;border:1px solid #e0b000;border-radius:8px;padding:8px;margin:8px 0;line-height:1.45">⚠️ O custo variável usado no piso ('+brl(cx.calibracao.cfgKm)+'/km) está '+pc(cx.calibracao.diferenca)+' abaixo do custo direto real das viagens ('+brl(cx.calibracao.realKm)+'/km). O piso pode estar <b>otimista</b> — revise a configuração do FurgãoPRO.</div>':'';
   return '<div style="border-top:1px solid var(--border2);margin-top:10px;padding-top:10px">'+
-    '<div class="card-lbl" style="margin-bottom:6px">Caixa do mês do furgão (realizado)</div>'+cal+
-    '<div class="rrow"><div class="rl">Faturado no mês <span style="font-size:11px;color:var(--text3)">('+cx.nViagens+' viagens)</span></div><div class="rv">'+brl(cx.faturamento)+'</div></div>'+
+    '<div class="card-lbl" style="margin-bottom:6px">Caixa do mês do furgão (realizado'+(cx.pendentes.length?' + clientes fixos':'')+')</div>'+cal+
+    '<div class="rrow"><div class="rl">Faturado no mês <span style="font-size:11px;color:var(--text3)">('+(cx.nViagens-cx.pendentes.length)+' viagens'+(cx.pendentes.length?' + '+cx.pendentes.length+' 📌 previstas':'')+')</span></div><div class="rv">'+brl(cx.faturamento)+'</div></div>'+
+    (cx.pendentes.length?'<div style="font-size:11px;color:var(--text3);margin:-2px 0 6px">📌 Fixos ainda não rodados: '+cx.pendentes.map(function(p){return p.nome;}).join(', ')+'</div>':'')+
     '<div class="rrow"><div class="rl">Fixo do mês pago</div><div class="rv '+(cob>=100?'acc':'')+'" style="font-weight:700">'+cob+'%'+(cx.faltaFixo>0?' <span style="font-size:11px;color:var(--text3)">(faltam '+brl(cx.faltaFixo)+')</span>':' ✅')+'</div></div>'+
-    '<div class="rrow"><div class="rl">Lucro / margem do mês até agora</div><div class="rv '+cor(cx.margem)+'">'+brl(cx.lucro)+' · '+pc(cx.margem)+'</div></div>'+
+    '<div class="rrow"><div class="rl">Lucro / margem do mês '+(cx.pendentes.length?'(com fixos previstos)':'até agora')+'</div><div class="rv '+cor(cx.margem)+'">'+brl(cx.lucro)+' · '+pc(cx.margem)+'</div></div>'+
     '<div class="rrow" style="border-top:1px solid var(--border2);margin-top:6px;padding-top:10px"><div class="rl" style="font-weight:700;color:var(--text)">Transporte mínimo p/ o mês fechar em '+alvo+'%</div><div class="rv acc" style="font-weight:700;font-size:16px">'+brl(pm.precoMinimo)+'</div></div>'+
     '<div style="font-size:11px;color:var(--text3);margin:2px 0 6px">'+brl(pm.precoMinimo/km)+'/km · '+(pm.limitadoPeloBreakEven?'mês folgado — travado no empate da viagem (nunca abaixo)':(pm.folga==='folgado'?'mês folgado: abaixo do '+alvo+'% isolado ('+brl(pm.precoIsolado)+')':'mês apertado — uma viagem sozinha não fecha a meta; com '+alvo+'% na própria viagem ('+brl(pm.precoIsolado)+') ela puxa o mês para cima'))+'</div>'+
     (pm.precoProposto!=null?'<div class="rrow"><div class="rl">Com o transporte desta proposta ('+brl(pm.precoProposto)+')</div><div class="rv '+cor(pm.margemMesCom)+'" style="font-weight:700">mês em '+pc(pm.margemMesCom)+'</div></div>':'')+
@@ -3047,7 +3048,7 @@ function iniciarFurgaoMetrics(){
   },function(){});
   // Caixa do mês do furgão (TASK-038): lê (só leitura) as viagens e gastos avulsos do FurgãoPRO.
   // Cache local de exibição — não sincronizado; a verdade continua em furgaopro/*.
-  _furgDocsUnsub=['fp2_viagens','fp2_gastos'].map(function(k){
+  _furgDocsUnsub=['fp2_viagens','fp2_gastos','fp2_clientes'].map(function(k){
     return fb.firestore().collection('furgaopro').doc(k).onSnapshot(function(doc){
       var v=(doc.exists?(doc.data()||{}):{}).value;
       if(typeof v==='string'){ try{localStorage.setItem('rpro_furgao_'+k.slice(4),v);}catch(e){} }
@@ -3066,17 +3067,23 @@ function caixaFurgaoMes(m){
   var doMes=vs.filter(function(v){return v&&v.data&&String(v.data).slice(0,7)===m&&v.data<=hoje;}).map(function(v){
     return {fat:+v.fat||0, custoDireto:DecisionEngine.custoDiretoViagem({km:v.km,custo:v.custo,varKmCfg:+fm.variableCostKm||0,op:op})};
   });
+  // Clientes fixos (📌 no FurgãoPRO) que ainda não rodaram no mês contam como previstos (TASK-040).
+  var pend=DecisionEngine.pendentesFixosMes?DecisionEngine.pendentesFixosMes({clientes:_furgLista('clientes'),viagens:vs,mes:m,hoje:hoje}):[];
+  pend.forEach(function(p){ doMes.push({fat:p.fat, custoDireto:DecisionEngine.custoDiretoViagem({km:p.km,custo:null,varKmCfg:+fm.variableCostKm||0,op:op})}); });
   var avulsos=_furgLista('gastos').filter(function(x){return String(x.data||'').slice(0,7)===m;}).reduce(function(s,x){return s+(+x.valor||0);},0);
   var cx=DecisionEngine.caixaMes({viagens:doMes,fixoMes:+fm.fixedMonthlyCost,avulsos:avulsos,imposto:cfg.imposto});
-  cx.op=op; cx.calibracao=DecisionEngine.avaliarCalibracaoVariavel({varKmCfg:+fm.variableCostKm||0,op:op});
+  cx.pendentes=pend; cx.op=op; cx.calibracao=DecisionEngine.avaliarCalibracaoVariavel({varKmCfg:+fm.variableCostKm||0,op:op});
   return cx;
 }
 // Projeção (só informativa — nunca baixa o piso): coletas de frota própria do mês ainda não executadas.
 function projecaoFurgaoMes(m){
   var n=0,semValor=0,fat=0,recs=[];
   try{recs=lRecorrencias();}catch(e){}
+  // clientes fixos já entram no caixa como previstos → não repetir na projeção
+  var fixos={}; _furgLista('clientes').forEach(function(c){ if(c&&c.fixo) fixos[String(c.nome||'').trim().toLowerCase()]=1; });
   try{ lColetas().forEach(function(c){
     if(!c||c.estado==='executada'||String(c.dataColeta||'').slice(0,7)!==m||!_coletaEhFurgao(c)) return;
+    if(fixos[String(c.gerador||'').trim().toLowerCase()]) return;
     n++; var r=c.recorrenciaId?recs.find(function(x){return x.id===c.recorrenciaId;}):null;
     if(r&&+r.fat>0) fat+=+r.fat; else semValor++;
   }); }catch(e){}

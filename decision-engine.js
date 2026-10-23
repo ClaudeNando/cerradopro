@@ -685,10 +685,68 @@
     return { de: de, ate: ate, meses: meses, km: km, fat: fat, kmMedio: km / meses, fatMedio: fat / meses, janela: janela, janelaMeses: N };
   }
 
+  /* ==========================================================================
+   * CARTEIRA FIXA DO FURGÃO (TASK-040)
+   * Cliente marcado como fixo ({fixo:true, freqMes, km, fatEsperado}) entra SEMPRE
+   * na conta, realizado ou não: dilui o fixo no custo/km e conta no caixa do mês.
+   * ========================================================================== */
+  function _viagemDoCliente(v, c) {
+    if (!v || !c) return false;
+    if (v.clienteId != null && v.clienteId !== '') return String(v.clienteId) === String(c.id);
+    return String(v.nome || '').trim().toLowerCase() === String(c.nome || '').trim().toLowerCase();
+  }
+  function _fixos(clientes) {
+    return (clientes || []).filter(function (c) { return c && c.fixo && (Number(c.km) > 0 || Number(c.fatEsperado) > 0); });
+  }
+
+  /* carteiraFixa({clientes, viagens, de, ate, meses}) — por cliente fixo, o esperado/mês
+   * (km × freq, fat × freq) contra o realizado médio na janela [de, ate] (YYYY-MM).
+   * kmFalta/fatFalta = quanto o esperado excede o realizado → somar ao km/fat médio
+   * da janela (o realizado já está na média; não conta duas vezes). */
+  function carteiraFixa(p) {
+    p = p || {};
+    var meses = Math.max(1, Number(p.meses) || 1), de = p.de, ate = p.ate;
+    var out = { clientes: [], n: 0, kmMes: 0, fatMes: 0, kmFalta: 0, fatFalta: 0 };
+    _fixos(p.clientes).forEach(function (c) {
+      var f = Math.max(1, Number(c.freqMes) || 1);
+      var kmMes = (Number(c.km) || 0) * f, fatMes = (Number(c.fatEsperado) || 0) * f;
+      var kmR = 0, fatR = 0;
+      (p.viagens || []).forEach(function (v) {
+        var ym = String(v && v.data || '').slice(0, 7);
+        if (!ym || (de && ym < de) || (ate && ym > ate) || !_viagemDoCliente(v, c)) return;
+        kmR += Number(v.km) || 0; fatR += Number(v.fat) || 0;
+      });
+      var it = { id: c.id, nome: c.nome, freqMes: f, kmMes: kmMes, fatMes: fatMes, kmReal: kmR / meses, fatReal: fatR / meses };
+      it.kmFalta = Math.max(0, kmMes - it.kmReal); it.fatFalta = Math.max(0, fatMes - it.fatReal);
+      out.clientes.push(it); out.n++;
+      out.kmMes += kmMes; out.fatMes += fatMes; out.kmFalta += it.kmFalta; out.fatFalta += it.fatFalta;
+    });
+    return out;
+  }
+
+  /* pendentesFixosMes({clientes, viagens, mes, hoje}) — coletas de clientes fixos que ainda
+   * não aconteceram no mês (freq − viagens realizadas até hoje). Cada uma vira uma viagem
+   * prevista {clienteId, nome, km, fat} para entrar no caixa do mês. */
+  function pendentesFixosMes(p) {
+    p = p || {};
+    var mes = String(p.mes || ''), hoje = String(p.hoje || new Date().toISOString().slice(0, 10));
+    var lista = [];
+    _fixos(p.clientes).forEach(function (c) {
+      var f = Math.max(1, Number(c.freqMes) || 1);
+      var feitas = (p.viagens || []).filter(function (v) {
+        return v && v.data && String(v.data).slice(0, 7) === mes && String(v.data) <= hoje && _viagemDoCliente(v, c);
+      }).length;
+      for (var i = feitas; i < f; i++) lista.push({ clienteId: c.id, nome: c.nome, km: Number(c.km) || 0, fat: Number(c.fatEsperado) || 0 });
+    });
+    return lista;
+  }
+
   /* Exposição pública (sem efeito colateral, sem chamadas automáticas). */
   global.DecisionEngine = {
-    _version: '0.9.0',
+    _version: '0.10.0',
     DEFAULTS: DEFAULTS,
+    carteiraFixa: carteiraFixa,
+    pendentesFixosMes: pendentesFixosMes,
     mediasMensaisFurgao: mediasMensaisFurgao,
     custoOperacionalReal: custoOperacionalReal,
     custoDiretoViagem: custoDiretoViagem,

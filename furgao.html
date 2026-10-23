@@ -370,6 +370,11 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
         <div class="field"><label class="flabel">KM típico</label><input class="inp inp-mono" id="c-km" type="number" placeholder="0" inputmode="decimal"></div>
       </div>
       <div class="field"><label class="flabel">Faturamento médio esperado (R$)</label><input class="inp inp-mono" id="c-fat-esperado" type="number" placeholder="0" inputmode="decimal"></div>
+      <div style="background:var(--accent-dim);border-radius:10px;padding:10px 12px;margin-bottom:10px">
+        <label style="display:flex;gap:8px;align-items:center;font-size:13px;font-weight:700;color:var(--text);cursor:pointer"><input type="checkbox" id="c-fixo" style="width:18px;height:18px"> 📌 Cliente fixo — considerar sempre nas contas</label>
+        <div style="font-size:11px;color:var(--text3);margin:4px 0 8px;line-height:1.4">Entra no custo/km (dilui o fixo) e no caixa do mês mesmo antes da coleta acontecer. Usa o KM típico (ida+volta) e o faturamento esperado por coleta.</div>
+        <div class="field" style="margin:0"><label class="flabel">Coletas por mês</label><input class="inp inp-mono" id="c-freq" type="number" min="1" step="1" placeholder="1" inputmode="numeric"></div>
+      </div>
       <div style="height:8px"></div>
       <button class="btn btn-primary" onclick="salvarCliente()">✓ Salvar</button>
       <div style="height:8px"></div>
@@ -594,16 +599,21 @@ function calcCustoTotal(){
   var serie = DecisionEngine.mediasMensaisFurgao({viagens:viagens, janelaMeses:0});
   if(!(base.km>0) && serie.km>0) base = serie; // janela sem viagens → usa o histórico real, não a estimativa
   var meses  = base.meses;
-  var fatMedio = base.fatMedio;
-  var kmMedio  = base.kmMedio;
+  // Carteira fixa (TASK-040): o que os clientes fixos esperam por mês e ainda não está na média entra junto
+  // (contrato novo dilui o fixo na hora; cliente que já roda não conta duas vezes).
+  var cart = DecisionEngine.carteiraFixa({clientes:clientes, viagens:viagens, de:base.de, ate:base.ate, meses:base.meses});
+  var fatMedio = base.fatMedio + cart.fatFalta;
+  var kmMedio  = base.kmMedio + cart.kmFalta;
   var mesLbl=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
   var _ym=function(ym){return ym?mesLbl[+ym.slice(5,7)-1]+'/'+ym.slice(2,4):'';};
 
   var fixoKm, metodo, pctFixo;
-  if(base.fat>0 && base.km>0){
+  if(fatMedio>0 && kmMedio>0){
     pctFixo = fixoMensal/fatMedio;
     fixoKm  = fixoMensal/kmMedio;
-    metodo  = (base.janela?'últimos '+meses+' meses fechados':'série inteira, '+meses+' meses')+' ('+_ym(base.de)+'–'+_ym(base.ate)+') · '+fmt(Math.round(kmMedio))+' km/mês · '+brl(fatMedio)+'/mês';
+    metodo  = (base.km>0?(base.janela?'últimos '+meses+' meses fechados':'série inteira, '+meses+' meses')+' ('+_ym(base.de)+'–'+_ym(base.ate)+')':'só carteira fixa')+
+              (cart.kmFalta>0?' + '+fmt(Math.round(cart.kmFalta))+' km/mês de clientes fixos ainda não rodados':'')+
+              ' · '+fmt(Math.round(kmMedio))+' km/mês · '+brl(fatMedio)+'/mês';
   } else {
     var kmFb = (cfg.kmMes&&cfg.kmMes>0)?cfg.kmMes:(DEF_CFG.kmMes||2018);
     pctFixo  = _sdiv(fixoMensal,(kmFb*5),0);
@@ -627,6 +637,7 @@ function calcCustoTotal(){
     kmMedio:  kmMedio,
     metodo:   metodo,
     mesesSerie: serie.meses, // margem geral: fixo × meses da série inteira (independe da janela)
+    carteira: cart,
     itensVar: [
       {label:'Combustível (R$/km)', val: cfg.diesel/cfg.consumo},
       {label:'Óleo', val: cfg.oleoCusto/cfg.oleoKm},
@@ -662,14 +673,20 @@ function custoViagem(v,tot,op){
 // Realizado = viagens com data até hoje (o que está agendado não entra).
 function _mesAtual(){ return new Date().toISOString().slice(0,7); }
 function avulsosDoMes(m){ return gastos.filter(function(x){return String(x.data||'').slice(0,7)===m;}).reduce(function(s,x){return s+(+x.valor||0);},0); }
-function caixaDoMes(m,tot,op){
+function caixaDoMes(m,tot,op,comFixos){
   var hoje=new Date().toISOString().slice(0,10);
   var vs=viagens.filter(function(v){return v.data&&String(v.data).slice(0,7)===m&&v.data<=hoje;})
     .map(function(v){return {fat:v.fat||0, custoDireto:custoViagem(v,tot,op).variavel};});
-  return DecisionEngine.caixaMes({viagens:vs,fixoMes:tot.fixoMensal,avulsos:avulsosDoMes(m),imposto:cfg.imposto});
+  var pend=[];
+  if(comFixos){ // clientes fixos que ainda não rodaram no mês entram como previstos (TASK-040)
+    pend=DecisionEngine.pendentesFixosMes({clientes:clientes,viagens:viagens,mes:m,hoje:hoje});
+    pend.forEach(function(p){ vs.push({fat:p.fat, custoDireto:custoViagem({km:p.km,custo:null},tot,op).variavel}); });
+  }
+  var cx=DecisionEngine.caixaMes({viagens:vs,fixoMes:tot.fixoMensal,avulsos:avulsosDoMes(m),imposto:cfg.imposto});
+  cx.pendentes=pend; return cx;
 }
 function renderMes(tot,op){
-  var m=_mesAtual(), cx=caixaDoMes(m,tot,op);
+  var m=_mesAtual(), cx=caixaDoMes(m,tot,op,false), cxP=caixaDoMes(m,tot,op,true);
   var mesLbl=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
   g('mes-titulo').textContent='Caixa de '+mesLbl[+m.slice(5,7)-1]+'/'+m.slice(0,4);
   var alvo=cfg.margem/100, cob=cx.coberturaFixo||0, w=Math.min(100,Math.max(0,cob*100)).toFixed(0);
@@ -690,6 +707,13 @@ function renderMes(tot,op){
     '<div style="font-size:12px;color:'+(cob>=1?'var(--success)':'var(--text2)')+';margin-bottom:8px">'+(cob>=1?'✅ Fixo do mês pago — o que entrar agora (acima do custo direto e do imposto) é lucro.':'Fixo '+w+'% pago · faltam '+brl(cx.faltaFixo))+'</div>'+
     '<div class="ctrow"><span class="ct-label" style="font-weight:700;color:var(--text)">Lucro do mês</span><span class="ct-val big" style="color:'+(cx.lucro>=0?'var(--success)':'var(--danger)')+'">'+brl(cx.lucro)+'</span></div>'+
     '<div class="ctrow"><span class="ct-label" style="font-weight:700">Margem do mês <span style="font-size:10px;color:var(--text4)">(meta '+cfg.margem+'%)</span></span><span class="ct-val big kpi-value '+mc+'" style="font-size:16px">'+(cx.margem===null?'—':pct(cx.margem))+'</span></div>'+
+    (cxP.pendentes.length?'<div style="background:var(--accent-dim);border-radius:10px;padding:10px 12px;margin-top:8px">'+
+      '<div style="font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:4px">📌 Com clientes fixos ainda não rodados ('+cxP.pendentes.length+')</div>'+
+      '<div style="font-size:11px;color:var(--text3);margin-bottom:6px">'+cxP.pendentes.map(function(p){return p.nome;}).join(', ')+'</div>'+
+      row('Faturado previsto',brl(cxP.faturamento))+
+      row('Fixo do mês pago (previsto)',Math.round((cxP.coberturaFixo||0)*100)+'%')+
+      '<div class="ctrow"><span class="ct-label" style="font-weight:700">Lucro / margem previstos</span><span class="ct-val" style="font-weight:700;color:'+(cxP.lucro>=0?'var(--success)':'var(--danger)')+'">'+brl(cxP.lucro)+' · '+(cxP.margem===null?'—':pct(cxP.margem))+'</span></div>'+
+    '</div>':'')+
     '<div style="font-size:11px;color:var(--text3);margin-top:6px;line-height:1.45">Referência de encaixe (custo direto R$ '+dirKm.toFixed(2).replace('.',',')+'/km): empate <b>R$ '+(dirKm/(1-cfg.imposto/100)).toFixed(2).replace('.',',')+'/km</b> · '+cfg.margem+'% na viagem <b>R$ '+(den>0?(dirKm/den).toFixed(2).replace('.',','):'—')+'/km</b>. O orçamento do CerradoPRO calcula o preço mínimo para o mês fechar em '+cfg.margem+'%.</div>'+
     (gLista?'<div class="card-lbl" style="margin:12px 0 6px">Gastos avulsos do mês</div>'+gLista:'');
 }
@@ -1015,10 +1039,12 @@ function renderClientes(){
     var mc=margem===null?'':margem>=cfg.margem/100?'ok':margem>=(cfg.margem/100)*0.7?'warn':'bad';
     var bw=margem!==null?Math.min(100,Math.max(0,margem*100)).toFixed(1):0;
     var bcolor=margem>=cfg.margem/100?'var(--success)':margem>=(cfg.margem/100)*0.7?'var(--warning)':'var(--danger)';
-    return '<div class="ccard" onclick="editarCliente('+c.id+')">'+
+    var fx=!!c.fixo;
+    return '<div class="ccard" onclick="editarCliente('+c.id+')"'+(fx?' style="border-color:var(--accent)"':'')+'>'+
       '<div class="ccard-head">'+
-        '<div><div class="ccard-nome">'+c.nome+'</div><div class="ccard-local">'+c.local+' · '+c.uf+'</div></div>'+
-        '<span class="badge b-blue">'+stats.n+'× viagens</span>'+
+        '<div><div class="ccard-nome">'+c.nome+'</div><div class="ccard-local">'+c.local+' · '+c.uf+(fx?' · <b style="color:var(--accent)">fixo '+(c.freqMes||1)+'×/mês</b>':'')+'</div></div>'+
+        '<span style="display:flex;gap:6px;align-items:center"><span class="badge b-blue">'+stats.n+'× viagens</span>'+
+          '<button onclick="event.stopPropagation();toggleFixo('+c.id+')" title="'+(fx?'Desmarcar cliente fixo':'Marcar como cliente fixo (considerar sempre nas contas)')+'" style="border:1px solid '+(fx?'var(--accent)':'var(--border)')+';background:'+(fx?'var(--accent)':'transparent')+';border-radius:8px;padding:3px 7px;cursor:pointer;font-size:13px;filter:'+(fx?'none':'grayscale(1)')+'">📌</button></span>'+
       '</div>'+
       '<div class="ccard-nums">'+
         '<div class="cnum"><div class="cnum-lbl">Fat. total</div><div class="cnum-val">'+(stats.fat?brl(stats.fat):'—')+'</div></div>'+
@@ -1028,7 +1054,20 @@ function renderClientes(){
       (margem!==null?'<div class="mbar"><div class="mfill" style="width:'+bw+'%;background:'+bcolor+'"></div></div>':'')+
     '</div>';
   }).join('');
-  g('clientes-list').innerHTML=html;
+  // Resumo da carteira fixa (TASK-040)
+  var fixos=clientes.filter(function(c){return c.fixo;});
+  var resumo=fixos.length?'<div style="background:var(--accent-dim);border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:12px;color:var(--text2)">📌 <b>Carteira fixa:</b> '+fixos.length+' cliente(s) · '+
+    fmt(fixos.reduce(function(s,c){return s+(+c.km||0)*(+c.freqMes||1);},0))+' km/mês · '+
+    brl(fixos.reduce(function(s,c){return s+(+c.fatEsperado||0)*(+c.freqMes||1);},0))+'/mês — entram sempre no custo/km e no caixa do mês.</div>':
+    '<div style="font-size:11px;color:var(--text4);margin-bottom:10px">Toque em 📌 para marcar um cliente fixo (coleta mensal): ele passa a contar sempre nas contas do furgão.</div>';
+  g('clientes-list').innerHTML=resumo+html;
+}
+function toggleFixo(id){
+  var c=clientes.find(function(x){return x.id==id;}); if(!c) return;
+  if(!c.fixo && !(+c.km>0)){ toast('⚠️ Informe o KM típico do cliente antes'); editarCliente(c.id); return; }
+  c.fixo=!c.fixo; if(c.fixo&&!(+c.freqMes>0)) c.freqMes=1;
+  sClientes(); renderClientes(); renderDash(); try{pushFurgaoMetrics();}catch(e){}
+  toast(c.fixo?'📌 '+c.nome+' marcado como fixo':'Cliente '+c.nome+' desmarcado');
 }
 
 // ── MODAL VIAGEM ─────────────────────────────────────────
@@ -1209,6 +1248,7 @@ function openNovoCliente(){
   g('c-id').value='';
   g('c-nome').value='';g('c-local').value='';g('c-uf').value='GO';
   g('c-km').value='';g('c-fat-esperado').value='';
+  g('c-fixo').checked=false;g('c-freq').value='';
   g('c-excluir-btn').style.display='none';
   openModal('cliente-modal');
 }
@@ -1221,6 +1261,7 @@ function editarCliente(id){
   g('c-nome').value=c.nome||'';g('c-local').value=c.local||'';
   g('c-uf').value=c.uf||'GO';g('c-km').value=c.km||'';
   g('c-fat-esperado').value=c.fatEsperado||'';
+  g('c-fixo').checked=!!c.fixo;g('c-freq').value=c.freqMes||'';
   g('c-excluir-btn').style.display='block';
   openModal('cliente-modal');
 }
@@ -1229,7 +1270,9 @@ function salvarCliente(){
   var editId=g('c-id').value;
   var nome=g('c-nome').value.trim();
   if(!nome){toast('⚠️ Informe o nome');return;}
-  var c={nome:nome,local:g('c-local').value.trim(),uf:g('c-uf').value,km:+g('c-km').value||0,fatEsperado:g('c-fat-esperado').value?+g('c-fat-esperado').value:null};
+  var c={nome:nome,local:g('c-local').value.trim(),uf:g('c-uf').value,km:+g('c-km').value||0,fatEsperado:g('c-fat-esperado').value?+g('c-fat-esperado').value:null,
+    fixo:g('c-fixo').checked,freqMes:Math.max(1,parseInt(g('c-freq').value,10)||1)}; // cliente fixo (TASK-040)
+  if(c.fixo&&!(c.km>0)){toast('⚠️ Cliente fixo precisa do KM típico');return;}
   if(editId){
     var idx=clientes.findIndex(function(x){return x.id==editId;});
     if(idx>=0) clientes[idx]=Object.assign({id:+editId},c);
@@ -1241,6 +1284,7 @@ function salvarCliente(){
   closeModal('cliente-modal');
   renderClientes();
   renderDash();
+  try{pushFurgaoMetrics();}catch(e){} // carteira fixa muda o custo/km publicado
   toast('✅ Cliente salvo!');
 }
 
