@@ -686,16 +686,18 @@
   }
 
   /* custoDesembolsadoViagem({km, consumoKmL, dieselL, cfg}) — custo direto de uma viagem do
-   * furgão (TASK-041): diesel (km ÷ km/L × R$/L) + desembolso do motorista (alimentação +
-   * hospedagem, sem a ajuda paga em folha). O IMPOSTO NÃO ENTRA: ele incide sobre o
-   * faturamento e o app já o desconta à parte (entrar aqui contaria duas vezes). */
+   * furgão (TASK-041): diesel (km ÷ km/L × R$/L) + motorista (alimentação + hospedagem +
+   * direito/ajuda de R$100 acima de 100 km, conforme cfg.motorista). O IMPOSTO NÃO ENTRA: ele
+   * incide sobre o faturamento e o app já o desconta à parte (entrar aqui contaria duas vezes). */
   function custoDesembolsadoViagem(p) {
     p = p || {};
     var km = Number(p.km) || 0, consumo = Number(p.consumoKmL) || 0, dieselL = Number(p.dieselL) || 0;
     var litros = consumo > 0 ? km / consumo : 0;
     var diesel = litros * dieselL;
-    var motorista = calcularCustoMotoristaViagem(km, p.cfg || {}).desembolso;
-    return { km: km, litros: litros, diesel: diesel, motorista: motorista, total: diesel + motorista };
+    var mot = calcularCustoMotoristaViagem(km, p.cfg || {});
+    var motorista = mot.desembolso + mot.ajuda;
+    return { km: km, litros: litros, diesel: diesel, diarias: mot.desembolso, ajuda: mot.ajuda,
+             motorista: motorista, total: diesel + motorista };
   }
 
   /* ==========================================================================

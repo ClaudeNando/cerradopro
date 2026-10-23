@@ -3455,7 +3455,7 @@ function abrirFViagem(coletaId){
   g('fviagem-modal').classList.add('open');
 }
 function fecharFViagem(){ g('fviagem-modal').classList.remove('open'); }
-// Custo desembolsado calculado (TASK-041): km ÷ km/L × diesel (config do FurgãoPRO) + desembolso do motorista.
+// Custo desembolsado calculado (TASK-041): km ÷ km/L × diesel (config do FurgãoPRO) + motorista (diárias + direito >100 km).
 // O imposto é mostrado, mas NÃO entra no custo: o app já o desconta do faturamento (senão contaria duas vezes).
 var _fvCustoManual=false;
 function fvCalc(){
@@ -3467,7 +3467,7 @@ function fvCalc(){
   if(!_fvCustoManual) g('fv-custo').value=c.total.toFixed(2);
   var custo=+g('fv-custo').value||0, imp=fat*((cfg.imposto!=null?cfg.imposto:15.45)/100);
   el.innerHTML='⛽ Diesel: '+fmt(Math.round(c.litros))+' L × '+brl(+fc.diesel)+' = <b>'+brl(c.diesel)+'</b> ('+String(fc.consumo).replace('.',',')+' km/L)'+
-    '<br>👤 Desembolso motorista (alimentação + hospedagem): <b>'+brl(c.motorista)+'</b>'+
+    '<br>👤 Motorista: alimentação + hospedagem '+brl(c.diarias)+(c.ajuda>0?' + direito '+brl(c.ajuda)+' (acima de 100 km)':'')+' = <b>'+brl(c.motorista)+'</b>'+
     (_fvCustoManual?'<br>✏️ Custo editado à mão (calculado: '+brl(c.total)+')':'')+
     (fat>0?'<br>🧾 Imposto ('+String(cfg.imposto!=null?cfg.imposto:15.45).replace('.',',')+'%): '+brl(imp)+' — descontado à parte, não entra no custo'+
       '<br>= Sobra da viagem: <b>'+brl(fat-imp-custo)+'</b> ('+(fat>0?((fat-imp-custo)/fat*100).toFixed(1).replace('.',','):'—')+'%) · sem pedágio — se houver, some no custo':'');
