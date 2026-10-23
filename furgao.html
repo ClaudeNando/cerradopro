@@ -615,7 +615,7 @@ function calcCustoOperacional(){
 
 // Custo TOTAL por km (operacional + rateio dos fixos sobre o faturamento)
 function calcCustoTotal(){
-  var varKm = _sdiv(cfg.diesel,cfg.consumo,0) +
+  var varKmBase = _sdiv(cfg.diesel,cfg.consumo,0) +
               _sdiv(cfg.oleoCusto,cfg.oleoKm,0) +
               _sdiv(cfg.pneuCusto,cfg.pneuKm,0) +
               _sdiv(cfg.manutCusto,cfg.manutKm,0);
@@ -635,6 +635,13 @@ function calcCustoTotal(){
   var kmMedio  = base.kmMedio + cart.kmFalta;
   var mesLbl=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
   var _ym=function(ym){return ym?mesLbl[+ym.slice(5,7)-1]+'/'+ym.slice(2,4):'';};
+  // Motorista (diárias + direito) por km (TASK-047): média das viagens da mesma janela; sem viagens, pela carteira fixa.
+  var _cm=_cfgMotoristaRpro();
+  var mot = DecisionEngine.motoristaPorKm({viagens:viagens, de:base.de, ate:base.ate, cfg:_cm});
+  if(!(mot.km>0) && cart.n>0) mot = DecisionEngine.motoristaPorKm({cfg:_cm, viagens:cart.clientes.map(function(c){
+    var cl=clientes.find(function(x){return String(x.id)===String(c.id);})||{}; return {data:'2000-01', km:+cl.km||0};})});
+  var motoristaKm = mot.porKm;
+  var varKm = varKmBase + motoristaKm;
 
   var fixoKm, metodo, pctFixo;
   if(fatMedio>0 && kmMedio>0){
@@ -653,10 +660,14 @@ function calcCustoTotal(){
   var total = fixoKm + varKm;
   var _den = 1 - (cfg.margem/100) - (cfg.imposto/100);
   var preco = _den>0 ? total/_den : total;
+  var totalBase = fixoKm + varKmBase, precoBase = _den>0 ? totalBase/_den : totalBase; // sem motorista (p/ o orçamento, que soma o motorista da viagem)
 
 
   return {
-    varKm:    varKm,
+    varKm:    varKm,          // variável/km COM motorista (diárias + direito) — o que o painel mostra (TASK-047)
+    varKmBase: varKmBase,     // diesel + óleo + pneu + manutenção
+    motoristaKm: motoristaKm,
+    totalBase: totalBase, precoBase: precoBase,
     fixoKm:   fixoKm,
     fixoMensal: fixoMensal,
     pctFixo:  pctFixo,
@@ -672,6 +683,7 @@ function calcCustoTotal(){
       {label:'Óleo', val: cfg.oleoCusto/cfg.oleoKm},
       {label:'Pneus', val: cfg.pneuCusto/cfg.pneuKm},
       {label:'Manutenção', val: cfg.manutCusto/cfg.manutKm},
+      {label:'Motorista (diárias + direito, média)', val: motoristaKm},
     ],
     itensFix: [
       {label:'Parcela', val: cfg.parcela},
@@ -771,10 +783,11 @@ function excluirGasto(id){
 function _furgaoMetrics(){
   var t=calcCustoTotal();
   return {
-    totalCostKm:      +(t.total||0),      // custo cheio/km (fixo rateado + variável)
-    variableCostKm:   +(t.varKm||0),      // só o que varia com o km
+    totalCostKm:      +(t.totalBase||0),  // custo cheio/km SEM motorista (o orçamento soma o motorista da viagem — TASK-047)
+    variableCostKm:   +(t.varKmBase||0),  // só o que varia com o km, sem motorista
+    motoristaKm:      +(t.motoristaKm||0),// média de diárias + direito por km (informativo)
     fixedMonthlyCost: +(t.fixoMensal||0), // custo fixo mensal do veículo
-    suggestedPriceKm: +(t.preco||0),      // preço sugerido/km (margem+imposto)
+    suggestedPriceKm: +(t.precoBase||0),  // preço sugerido/km sem motorista (margem+imposto)
     updatedAt: Date.now()
   };
 }
@@ -782,7 +795,7 @@ function _furgaoMetrics(){
 function pushFurgaoMetrics(){
   var m; try{ m=_furgaoMetrics(); }catch(e){ return; }
   var prev=null; try{ prev=JSON.parse(localStorage.getItem('fp2_metrics')||'null'); }catch(e){}
-  var mudou = !prev || ['totalCostKm','variableCostKm','fixedMonthlyCost','suggestedPriceKm'].some(function(k){
+  var mudou = !prev || ['totalCostKm','variableCostKm','fixedMonthlyCost','suggestedPriceKm','motoristaKm'].some(function(k){
     return Math.abs((+prev[k]||0)-(+m[k]||0)) > 0.0001;
   });
   try{ localStorage.setItem('fp2_metrics', JSON.stringify(m)); }catch(e){}
@@ -877,7 +890,7 @@ function renderDash(){
     fixLinhas +
     rateioBox +
     '<div style="height:1px;background:var(--border2);margin:6px 0"></div>'+
-    '<div class="ctrow"><span class="ct-label" style="font-weight:700">Custo variável/km</span>'+
+    '<div class="ctrow"><span class="ct-label" style="font-weight:700">Custo variável/km <span style="font-size:10px;color:var(--text4)">(com motorista)</span></span>'+
       '<span class="ct-val big">R$ '+tot.varKm.toFixed(2).replace('.',',')+'</span></div>'+
     '<div class="ctrow"><span class="ct-label" style="font-weight:700">Fixo diluído/km</span>'+
       '<span class="ct-val big">R$ '+tot.fixoKm.toFixed(2).replace('.',',')+'</span></div>'+
@@ -1279,11 +1292,11 @@ function renderSim(){
   var el=g('sim-res'); if(!el) return;
   var tot=calcCustoTotal(), op=calcCustoOperacional(), v=_simVals();
   var r2=function(n){return n==null?'—':'R$ '+n.toFixed(2).replace('.',',');};
-  var base='<div style="font-size:11px;color:var(--text4);margin:-4px 0 10px">Base atual: '+fmt(Math.round(tot.kmMedio))+' km/mês · '+brl(tot.fatMedio)+'/mês · fixo '+brl(tot.fixoMensal)+'/mês · variável '+r2(tot.varKm)+'/km'+(tot.carteira&&tot.carteira.kmFalta>0?' · inclui clientes fixos ainda não rodados':'')+'</div>';
+  var base='<div style="font-size:11px;color:var(--text4);margin:-4px 0 10px">Base = <b>mês médio</b> da operação atual (últimos '+(cfg.janelaMeses||'todos os')+' meses fechados + clientes fixos), não um mês do calendário: '+fmt(Math.round(tot.kmMedio))+' km/mês · '+brl(tot.fatMedio)+'/mês · fixo '+brl(tot.fixoMensal)+'/mês · variável '+r2(tot.varKm)+'/km (com motorista '+r2(tot.motoristaKm)+')'+(tot.carteira&&tot.carteira.kmFalta>0?' · inclui clientes fixos ainda não rodados':'')+'</div>';
   if(!(v.km>0)){ el.innerHTML=base+'<div class="info-box">Informe o km por mês do contrato (e o valor mensal, se já tiver) para ver o impacto.</div>'; return; }
   var mot=DecisionEngine.calcularCustoMotoristaViagem(v.km/v.coletas,_cfgMotoristaRpro()).custoTotal*v.coletas;
   var r=DecisionEngine.simularContratoFurgao({base:{kmMes:tot.kmMedio,fatMes:tot.fatMedio,fixoMes:tot.fixoMensal,varKm:tot.varKm},
-    contrato:{valorMes:v.valor,kmMes:v.km,motoristaMes:mot,pedagioMes:v.ped},imposto:cfg.imposto,margemAlvo:cfg.margem});
+    contrato:{valorMes:v.valor,kmMes:v.km,motoristaMes:mot,pedagioMes:v.ped,varKm:tot.varKmBase},imposto:cfg.imposto,margemAlvo:cfg.margem});
   var A=r.antes, D=r.depois, C=r.contrato, pc=function(x){return x==null?'—':pct(x);};
   var linha=function(l,a,d,dest){return '<div class="ctrow"'+(dest?' style="font-weight:700"':'')+'><span class="ct-label" style="flex:1">'+l+'</span><span class="ct-val" style="width:96px;text-align:right">'+a+'</span><span class="ct-val" style="width:96px;text-align:right;color:var(--accent)">'+d+'</span></div>';};
   var cal=DecisionEngine.avaliarCalibracaoVariavel({varKmCfg:tot.varKm,op:op});
@@ -1301,11 +1314,11 @@ function renderSim(){
       linha('Fixo por km',r2(A.fixoKm),r2(D.fixoKm),true)+
       linha('Custo total/km',r2(A.custoTotalKm),r2(D.custoTotalKm))+
       linha('Preço sugerido/km ('+cfg.margem+'%)',r2(A.precoSugeridoKm),r2(D.precoSugeridoKm))+
-      (v.valor>0?linha('Lucro do mês',brl(A.lucroMes),brl(D.lucroMes),true)+linha('Margem do mês',pc(A.margemMes),pc(D.margemMes)):'')+
-      '<div style="background:var(--accent-dim);border-radius:10px;padding:10px 12px;margin-top:8px;font-size:13px">📉 O fixo por km cai <b>'+r2(r.reducaoFixoKm)+'</b> ('+pc(r.reducaoFixoKmPct)+')'+(v.valor>0?' · lucro do mês <b>'+(r.ganhoLucroMes>=0?'+':'')+brl(r.ganhoLucroMes)+'</b>':'')+'</div>'+
+      (v.valor>0?linha('Lucro por mês <span style="font-size:10px;color:var(--text4)">(mês médio)</span>',brl(A.lucroMes),brl(D.lucroMes),true)+linha('Margem por mês <span style="font-size:10px;color:var(--text4)">(mês médio)</span>',pc(A.margemMes),pc(D.margemMes)):'')+
+      '<div style="background:var(--accent-dim);border-radius:10px;padding:10px 12px;margin-top:8px;font-size:13px">📉 O fixo por km cai <b>'+r2(r.reducaoFixoKm)+'</b> ('+pc(r.reducaoFixoKmPct)+')'+(v.valor>0?' · lucro por mês <b>'+(r.ganhoLucroMes>=0?'+':'')+brl(r.ganhoLucroMes)+'</b>':'')+'</div>'+
     '</div>'+
     '<div class="card"><div class="card-head"><div class="card-icon"><i data-lucide="badge-dollar-sign"></i></div><div class="card-lbl">Quanto cobrar neste contrato (por mês)</div></div>'+
-      '<div class="ctrow"><span class="ct-label">Custo direto/mês <span style="font-size:11px;color:var(--text4)">(km × '+r2(tot.varKm)+' + motorista '+brl(mot)+(v.ped?' + pedágio '+brl(v.ped):'')+')</span></span><span class="ct-val">'+brl(C.custoDireto)+'</span></div>'+
+      '<div class="ctrow"><span class="ct-label">Custo direto/mês <span style="font-size:11px;color:var(--text4)">(km × '+r2(tot.varKmBase)+' + motorista do contrato '+brl(mot)+(v.ped?' + pedágio '+brl(v.ped):'')+')</span></span><span class="ct-val">'+brl(C.custoDireto)+'</span></div>'+
       '<div class="ctrow"><span class="ct-label">Empate <span style="font-size:11px;color:var(--text4)">(mínimo, sem prejuízo)</span></span><span class="ct-val" style="color:var(--danger);font-weight:700">'+brl(C.precoEmpate)+prk(C.porKm&&C.porKm.empate)+'</span></div>'+
       '<div class="ctrow"><span class="ct-label">'+cfg.margem+'% com o fixo já pago <span style="font-size:11px;color:var(--text4)">(contratos atuais cobrem)</span></span><span class="ct-val" style="color:var(--accent);font-weight:700">'+brl(C.precoMarginal)+prk(C.porKm&&C.porKm.marginal)+'</span></div>'+
       '<div class="ctrow"><span class="ct-label">'+cfg.margem+'% pagando a parte dele no fixo <span style="font-size:11px;color:var(--text4)">('+brl(C.fixoRateado)+'/mês, pelo km)</span></span><span class="ct-val" style="color:var(--success);font-weight:700">'+brl(C.precoCheio)+prk(C.porKm&&C.porKm.cheio)+'</span></div>'+

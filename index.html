@@ -1678,7 +1678,7 @@ function pisoMarginalHTML(r){
 function lucroFurgaoMes(mes,hoje){
   if(!window.DecisionEngine||!DecisionEngine.caixaMes) return null;
   var fm=getFurgaoMetrics(); if(!fm||!(+fm.fixedMonthlyCost)) return null;
-  var vs=_furgLista('viagens'), op=DecisionEngine.custoOperacionalReal(vs), vk=+fm.variableCostKm||0;
+  var vs=_furgLista('viagens'), op=DecisionEngine.custoOperacionalReal(vs), vk=(+fm.variableCostKm||0)+(+fm.motoristaKm||0); // estimativa com motorista (TASK-047)
   var lst=vs.filter(function(v){return v&&String(v.data||'').slice(0,7)===mes&&String(v.data)<=hoje;})
     .map(function(v){return {fat:+v.fat||0,custoDireto:DecisionEngine.custoDiretoViagem({km:v.km,custo:v.custo,varKmCfg:vk,op:op})};});
   DecisionEngine.pendentesFixosMes({clientes:_furgLista('clientes'),viagens:vs,mes:mes,hoje:hoje}).forEach(function(x){

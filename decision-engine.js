@@ -667,6 +667,20 @@
     return r;
   }
 
+  /* motoristaPorKm({viagens, de, ate, cfg}) — TASK-047. Média de diárias + direito do motorista
+   * por km rodado nas viagens da janela [de, ate] (YYYY-MM): Σ calcularCustoMotoristaViagem(km da viagem)
+   * ÷ Σ km. As diárias dependem da distância de cada viagem, por isso a média vem do histórico real. */
+  function motoristaPorKm(p) {
+    p = p || {};
+    var km = 0, custo = 0;
+    (p.viagens || []).forEach(function (v) {
+      var ym = String(v && v.data || '').slice(0, 7), k = Number(v && v.km) || 0;
+      if (!ym || !(k > 0) || (p.de && ym < p.de) || (p.ate && ym > p.ate)) return;
+      km += k; custo += calcularCustoMotoristaViagem(k, p.cfg || {}).custoTotal;
+    });
+    return { km: km, custo: custo, porKm: km > 0 ? custo / km : 0 };
+  }
+
   /* simularContratoFurgao({base, contrato, imposto, margemAlvo}) — TASK-046.
    * Viabilidade de um contrato NOVO que soma km ao mês do furgão.
    *   base     = {kmMes, fatMes, fixoMes, varKm}   (operação atual: km/fat médios, fixo, custo variável/km)
@@ -680,10 +694,13 @@
     var b = p.base || {}, c = p.contrato || {};
     var kmA = Number(b.kmMes) || 0, fatA = Number(b.fatMes) || 0, fixo = Number(b.fixoMes) || 0, vk = Number(b.varKm) || 0;
     var kmC = Number(c.kmMes) || 0, valor = Number(c.valorMes) || 0;
-    var direto = kmC * vk + (Number(c.motoristaMes) || 0) + (Number(c.pedagioMes) || 0);
+    // Contrato: variável/km SEM motorista (contrato.varKm) + motorista calculado das coletas dele — sem contar duas vezes
+    // quando base.varKm já traz a média de motorista da operação atual (TASK-047).
+    var vkC = c.varKm != null ? Number(c.varKm) || 0 : vk;
+    var direto = kmC * vkC + (Number(c.motoristaMes) || 0) + (Number(c.pedagioMes) || 0);
     var kmD = kmA + kmC;
     function lado(km, fat, dir) {
-      var fixoKm = km > 0 ? fixo / km : null, total = fixoKm != null ? fixoKm + vk : null;
+      var fixoKm = km > 0 ? fixo / km : null, total = km > 0 ? (fixo + dir) / km : null; // custo total ÷ km
       return { kmMes: km, fatMes: fat, fixoKm: fixoKm, custoTotalKm: total,
                precoSugeridoKm: (total != null && (1 - t - a) > 0) ? total / (1 - t - a) : null,
                lucroMes: fat * (1 - t) - dir - fixo };
@@ -834,8 +851,9 @@
 
   /* Exposição pública (sem efeito colateral, sem chamadas automáticas). */
   global.DecisionEngine = {
-    _version: '0.14.0',
+    _version: '0.15.0',
     DEFAULTS: DEFAULTS,
+    motoristaPorKm: motoristaPorKm,
     simularContratoFurgao: simularContratoFurgao,
     pisoFurgaoMes: pisoFurgaoMes,
     clienteConfereNome: clienteConfereNome,
