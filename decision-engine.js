@@ -816,6 +816,25 @@
     return lista.filter(function (e) { return e && chaves.indexOf(_chaveEmpresa(e.nome)) >= 0; })[0] || null;
   }
 
+  /* Nomes sincronizados ficha ↔ locais do furgão (TASK-052).
+   * Ficha com 1 local → nomes iguais. Ficha com vários locais → local = "Nome da ficha (sem município) - Município/UF"
+   * e a ficha fica só com o nome da empresa. */
+  function _municipioDoLocal(l) {
+    if (!l) return '';
+    if (l.local) return String(l.local).trim() + (l.uf ? '/' + String(l.uf).toUpperCase() : '');
+    return String(l.nome || '').split(' - ').slice(1).join(' - ').trim();
+  }
+  function nomeLocalPelaFicha(fichaNome, local, nLocais) {
+    var f = String(fichaNome || '').trim(); if (!f) return local && local.nome;
+    if ((Number(nLocais) || 1) <= 1) return f;
+    var base = f.split(' - ')[0].trim(), m = _municipioDoLocal(local);
+    return m ? base + ' - ' + m : base;
+  }
+  function nomeFichaPeloLocal(localNome, nLocais) {
+    var n = String(localNome || '').trim();
+    return (Number(nLocais) || 1) <= 1 ? n : n.split(' - ')[0].trim();
+  }
+
   /* Chave de empresa: nome normalizado sem pontuação e sem sufixos/ligações societárias (TASK-049). */
   var _STOP = ['ltda', 'sa', 's', 'a', 'me', 'epp', 'eireli', 'mei', 'cia', 'de', 'da', 'do', 'das', 'dos', 'e'];
   function _tokensEmpresa(n) {
@@ -894,8 +913,10 @@
 
   /* Exposição pública (sem efeito colateral, sem chamadas automáticas). */
   global.DecisionEngine = {
-    _version: '0.17.0',
+    _version: '0.18.0',
     DEFAULTS: DEFAULTS,
+    nomeLocalPelaFicha: nomeLocalPelaFicha,
+    nomeFichaPeloLocal: nomeFichaPeloLocal,
     fichasParecidas: fichasParecidas,
     empresaDoLocal: empresaDoLocal,
     motoristaPorKm: motoristaPorKm,

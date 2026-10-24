@@ -1488,7 +1488,7 @@ function ouvirCadastro(){
   if(_cadUnsub||typeof firebase==='undefined'||!firebase.firestore) return;
   _cadUnsub=firebase.firestore().collection('residuospro').doc('rpro_clientes').onSnapshot(function(doc){
     var v=(doc.exists?(doc.data()||{}):{}).value;
-    if(typeof v==='string'){ try{localStorage.setItem('fp2_cache_cadastro',v);}catch(e){} try{renderClientes();}catch(e){} }
+    if(typeof v==='string'){ try{localStorage.setItem('fp2_cache_cadastro',v);}catch(e){} try{sincronizarNomesComFichas();}catch(e){} try{renderClientes();}catch(e){} }
   },function(){});
 }
 function _empresa(c){ return DecisionEngine.empresaDoLocal?DecisionEngine.empresaDoLocal(c,lCadastro()):null; }
@@ -1517,6 +1517,44 @@ function cadVerificar(){
     '⚠️ Sem ficha no CerradoPRO — escolha uma empresa da lista ou ligue depois em Clientes › 🔗 Conciliar.';
 }
 
+// ── NOMES IGUAIS AOS DA FICHA DO CERRADOPRO (TASK-052) ──
+// Cliente do furgão ligado a uma ficha usa o nome dela (1 local = igual; vários locais = "Empresa - Município/UF").
+// Nome antigo vira apelido; viagens recebem o nome novo. Só clientes com ficha correspondente.
+var _cliSyncOk=false; // só roda sozinho depois de receber os clientes da nuvem (aparelho desatualizado não sobrescreve)
+function _planoNomes(){
+  var cad=lCadastro(), grupos={}, plano=[];
+  if(!cad.length) return plano;
+  clientes.forEach(function(c){ var e=_empresa(c); if(e)(grupos[e.id]=grupos[e.id]||{e:e,ls:[]}).ls.push(c); });
+  Object.keys(grupos).forEach(function(id){ var gr=grupos[id];
+    gr.ls.forEach(function(c){ var alvo=DecisionEngine.nomeLocalPelaFicha(gr.e.nome,c,gr.ls.length);
+      plano.push({c:c,e:gr.e,alvo:alvo,muda:!!alvo&&alvo!==c.nome,fixa:!c.cadastroId}); });
+  });
+  return plano;
+}
+function _aplicarNomes(plano){
+  var mud=0, fix=0;
+  plano.forEach(function(p){
+    if(p.fixa){ p.c.cadastroId=p.e.id; fix++; } // fixa o vínculo antes de renomear (não depende mais do nome)
+    if(p.muda){ var c=p.c; c.aliases=c.aliases||[]; if(c.aliases.every(function(a){return _norm(a)!==_norm(c.nome);})) c.aliases.push(c.nome); c.nome=p.alvo; mud++; }
+  });
+  var vm=0;
+  viagens.forEach(function(v){ if(v.clienteId==null||v.clienteId==='') return; var c=clientes.find(function(x){return String(x.id)===String(v.clienteId);}); if(c&&v.nome!==c.nome){ v.nome=c.nome; vm++; } });
+  if(mud||fix) sClientes(); if(vm) sViagens();
+  if(mud||vm){ try{renderClientes();renderRegistros();renderDash();}catch(e){} }
+  return mud;
+}
+function sincronizarNomesComFichas(){ if(!_cliSyncOk) return 0; return _aplicarNomes(_planoNomes()); }
+function igualarNomesAgora(){ _cliSyncOk=true; var n=_aplicarNomes(_planoNomes()); closeModal('conc-modal'); toast('✅ '+n+' nome(s) igualado(s) ao CerradoPRO'); }
+function abrirIgualarNomes(){
+  var plano=_planoNomes(), mud=plano.filter(function(p){return p.muda;});
+  var esc=function(t){return String(t||'').replace(/&/g,'&amp;').replace(/</g,'&lt;');};
+  g('conc-body').innerHTML='<div style="font-size:12px;color:var(--text3);line-height:1.45;margin-bottom:10px">Clientes do furgão <b>ligados a uma ficha</b> passam a ter o mesmo nome do CerradoPRO. Ficha com vários locais: "Empresa - Município/UF". O nome antigo vira apelido.</div>'+
+    (mud.length?mud.map(function(p){return '<div style="border:1px solid var(--border2);border-radius:10px;padding:8px 10px;margin-bottom:6px;font-size:12px"><span style="color:var(--text3)">'+esc(p.c.nome)+'</span> → <b>'+esc(p.alvo)+'</b></div>';}).join('')+
+      '<button class="btn btn-primary" onclick="igualarNomesAgora()">✓ Igualar '+mud.length+' nome(s)</button>':
+      '<div style="font-size:12px;color:var(--text4)">'+(lCadastro().length?'Todos os clientes ligados já estão com o nome da ficha ✅':'Cadastro do CerradoPRO indisponível — faça login.')+'</div>')+
+    '<button class="btn btn-outline btn-sm" onclick="renderConciliar()" style="width:auto;margin-top:8px">← Voltar</button>';
+}
+
 // ── CONCILIAR LOCAIS ↔ FICHAS DO CERRADOPRO (TASK-049) ──
 // Cada cliente do furgão (local) escolhe a ficha comercial da empresa; grava cadastroId (dado do próprio FurgãoPRO).
 function openConciliar(){ renderConciliar(); openModal('conc-modal'); }
@@ -1540,7 +1578,8 @@ function renderConciliar(){
   g('conc-body').innerHTML='<div style="font-size:12px;color:var(--text3);line-height:1.45;margin-bottom:10px">Ligue cada cliente do furgão à <b>ficha da empresa</b> no CerradoPRO. Vários municípios podem apontar para a mesma ficha. Só grava aqui no FurgãoPRO — nada é criado no CerradoPRO.</div>'+
     '<div class="card-lbl" style="margin:4px 0 8px">Sem ficha ('+sem.length+')</div>'+(sem.length?sem.map(linha).join(''):'<div style="font-size:12px;color:var(--text4);margin-bottom:8px">Todos ligados ✅</div>')+
     (com.length?'<details style="margin:10px 0"><summary style="cursor:pointer;font-size:12px;font-weight:700;color:var(--text2)">Já ligados ('+com.length+') — toque para revisar</summary><div style="margin-top:8px">'+com.map(linha).join('')+'</div></details>':'')+
-    '<button class="btn btn-primary" onclick="salvarConciliacao()" style="margin-top:6px">✓ Salvar vínculos</button>';
+    '<button class="btn btn-primary" onclick="salvarConciliacao()" style="margin-top:6px">✓ Salvar vínculos</button>'+
+    '<button class="btn btn-outline" onclick="abrirIgualarNomes()" style="margin-top:8px">🔄 Igualar nomes ao CerradoPRO</button>';
 }
 function salvarConciliacao(){
   var n=0;
@@ -1551,7 +1590,7 @@ function salvarConciliacao(){
     c.cadastroId=v; n++;
   });
   if(!n){ toast('Nenhuma alteração'); return; }
-  sClientes(); closeModal('conc-modal'); renderClientes();
+  sClientes(); closeModal('conc-modal'); _cliSyncOk=true; try{sincronizarNomesComFichas();}catch(e){} renderClientes();
   toast('✅ '+n+' vínculo(s) salvo(s)');
 }
 
@@ -1687,7 +1726,7 @@ function navTo(id,el){
   document.querySelectorAll('.nav-item').forEach(function(n){n.classList.remove('active');});
   g('screen-'+id).classList.add('active');el.classList.add('active');
   if(id==='registros') renderRegistros();
-  if(id==='clientes') renderClientes();
+  if(id==='clientes'){ _cliSyncOk=true; try{sincronizarNomesComFichas();}catch(e){} renderClientes(); }
   if(id==='sim') renderSim();
 }
 function openModal(id){if(id==='cfg-modal')openCfg();g(id).classList.add('open');}
@@ -1853,6 +1892,7 @@ if(window.CloudSync){
       nextCId=Math.max(0,...clientes.map(function(c){return c.id||0;}))+1;
       renderDash(); renderRegistros(); renderClientes();
       try{pushFurgaoMetrics();}catch(e){} // custos podem ter mudado no sync → republica p/ CerradoPRO
+      if(k==='fp2_clientes'){ _cliSyncOk=true; try{sincronizarNomesComFichas();}catch(e){} } // TASK-052
     },
     onLogout:function(){ try{closeModal('cfg-modal');}catch(e){} }
   });
