@@ -3489,9 +3489,21 @@ function fvCalc(){
 // Cliente do FurgãoPRO para a viagem (TASK-043): mesmo cliente em vários municípios (ex.: Biotrop)
 // → o operador escolhe o local; a viagem já entra no cadastro certo (clienteId) e puxa km/faturamento típicos.
 var _fvCli=null;
+// Locais do furgão para um gerador (TASK-050): pelo nome/apelido/nome-base E pelo vínculo com a ficha
+// comercial (ex.: ficha "Agencia Nacional de Petroleo - BRASILIA/DF" ↔ local "ANP" ligado no 🔗 Conciliar).
+function _locaisDoGerador(gerador){
+  var locs=_furgLista('clientes'), cad=lClientes(), out=[], vistos={};
+  var nG=_normNome(gerador), fichas=cad.filter(function(e){return e&&e.nome&&_normNome(e.nome)===nG;});
+  locs.forEach(function(x){
+    var ok=DecisionEngine.clienteConfereNome&&DecisionEngine.clienteConfereNome(x,gerador);
+    if(!ok&&fichas.length&&DecisionEngine.empresaDoLocal){ var e=DecisionEngine.empresaDoLocal(x,cad); ok=!!(e&&fichas.some(function(fi){return fi.id===e.id;})); }
+    if(ok&&!vistos[x.id]){ vistos[x.id]=1; out.push(x); }
+  });
+  return out;
+}
 function fvMontaClientes(gerador){
   var wrap=g('fv-fcli-wrap'), sel=g('fv-fcli'); _fvCli=null; if(!wrap||!sel) return;
-  var cs=_furgLista('clientes').filter(function(x){return DecisionEngine.clienteConfereNome&&DecisionEngine.clienteConfereNome(x,gerador);});
+  var cs=_locaisDoGerador(gerador);
   if(!cs.length){ wrap.style.display='none'; return; }
   wrap.style.display='block';
   if(cs.length===1){

@@ -1389,7 +1389,12 @@ function _acharCliente(nome){ // nome completo/apelido primeiro; depois nome-bas
   var n=_norm(nome); if(!n) return null;
   var c=clientes.find(function(x){return _norm(x.nome)===n||(x.aliases||[]).some(function(a){return _norm(a)===n;});});
   if(c) return c;
-  return clientes.find(function(x){return _norm(_baseNome(x.nome))===n;})||null;
+  var porBase=clientes.find(function(x){return _norm(_baseNome(x.nome))===n;});
+  if(porBase) return porBase;
+  // Pelo vínculo com a ficha comercial (TASK-050): viagem com o nome da ficha do CerradoPRO cai no local ligado a ela.
+  var ficha=lCadastro().find(function(e){return e&&_norm(e.nome)===n;});
+  if(ficha) return clientes.find(function(x){var e=_empresa(x);return e&&String(e.id)===String(ficha.id);})||null;
+  return null;
 }
 function openOrganizar(){ renderOrganizar(); openModal('org-modal'); }
 function renderOrganizar(){
