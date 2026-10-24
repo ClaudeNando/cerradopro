@@ -396,9 +396,10 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
     <div class="modal-body">
       <input type="hidden" id="c-id">
       <div class="g2">
-        <div class="field"><label class="flabel">Empresa</label><input class="inp" id="c-nome" type="text" placeholder="Nome" autocomplete="off" list="c-cad-lista" oninput="cadVerificar()"><datalist id="c-cad-lista"></datalist><div id="c-cad-info" style="font-size:11px;color:var(--text3);margin-top:4px"></div></div>
+        <div class="field"><label class="flabel">Empresa</label><input class="inp" id="c-nome" type="text" placeholder="Nome" autocomplete="off" list="c-cad-lista" oninput="cadPreencherFicha(g('c-ficha').value);cadVerificar()"><datalist id="c-cad-lista"></datalist><div id="c-cad-info" style="font-size:11px;color:var(--text3);margin-top:4px"></div></div>
         <div class="field"><label class="flabel">Local</label><input class="inp" id="c-local" type="text" placeholder="Cidade" autocomplete="off"></div>
       </div>
+      <div class="field"><label class="flabel">Ficha no CerradoPRO</label><select class="inp sel" id="c-ficha" onchange="cadVerificar()"></select></div>
       <div class="g2">
         <div class="field"><label class="flabel">UF</label>
           <select class="inp sel" id="c-uf">
@@ -1495,11 +1496,23 @@ function cadPreencherLista(){
   var dl=g('c-cad-lista'); if(!dl) return;
   dl.innerHTML=lCadastro().map(function(e){return '<option value="'+String(e.nome||'').replace(/"/g,'&quot;')+'"></option>';}).join('');
 }
+// Lista de fichas na janela do cliente (TASK-051): escolher a ficha independe do nome digitado (ex.: "ANP").
+function cadPreencherFicha(selId){
+  var sel=g('c-ficha'); if(!sel) return;
+  var cad=lCadastro().slice().sort(function(a,b){return _norm(a.nome).localeCompare(_norm(b.nome));});
+  if(!cad.length){ sel.innerHTML='<option value="">— cadastro do CerradoPRO indisponível (faça login) —</option>'; return; }
+  var esc=function(t){return String(t||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');};
+  var par=DecisionEngine.fichasParecidas(g('c-nome').value,cad), ids={}; par.forEach(function(p){ids[p.ficha.id]=1;});
+  var op=function(e){return '<option value="'+esc(e.id)+'"'+(String(e.id)===String(selId||'')?' selected':'')+'>'+esc(e.nome)+(e.cnpj?' · '+esc(e.cnpj):'')+'</option>';};
+  sel.innerHTML='<option value="">— automático pelo nome (ou sem ficha) —</option>'+
+    (par.length?'<optgroup label="Parecidas">'+par.map(function(p){return op(p.ficha);}).join('')+'</optgroup>':'')+
+    '<optgroup label="Todas as fichas">'+cad.filter(function(e){return !ids[e.id];}).map(op).join('')+'</optgroup>';
+}
 function cadVerificar(){
   var info=g('c-cad-info'); if(!info) return;
   var cad=lCadastro(); if(!cad.length){ info.innerHTML='Cadastro do CerradoPRO indisponível neste aparelho (sincroniza ao logar).'; return; }
-  var _id=g('c-id').value, _o=_id?clientes.find(function(x){return x.id==_id;}):null;
-  var e=_empresa({nome:g('c-nome').value,cadastroId:_o&&_o.cadastroId});
+  var fs_=g('c-ficha')?g('c-ficha').value:'';
+  var e=fs_?cad.find(function(x){return String(x.id)===String(fs_);}):_empresa({nome:g('c-nome').value});
   info.innerHTML=e?'🏢 Ligado à ficha <b>'+e.nome+'</b>'+(e.cnpj?' · '+e.cnpj:''):
     '⚠️ Sem ficha no CerradoPRO — escolha uma empresa da lista ou ligue depois em Clientes › 🔗 Conciliar.';
 }
@@ -1549,7 +1562,7 @@ function openNovoCliente(){
   g('c-nome').value='';g('c-local').value='';g('c-uf').value='GO';
   g('c-km').value='';g('c-fat-esperado').value='';
   g('c-fixo').checked=false;g('c-freq').value='';
-  cadPreencherLista(); cadVerificar();
+  cadPreencherLista(); cadPreencherFicha(''); cadVerificar();
   g('c-excluir-btn').style.display='none';
   openModal('cliente-modal');
 }
@@ -1563,7 +1576,7 @@ function editarCliente(id){
   g('c-uf').value=c.uf||'GO';g('c-km').value=c.km||'';
   g('c-fat-esperado').value=c.fatEsperado||'';
   g('c-fixo').checked=!!c.fixo;g('c-freq').value=c.freqMes||'';
-  cadPreencherLista(); cadVerificar();
+  cadPreencherLista(); cadPreencherFicha(c.cadastroId||''); cadVerificar();
   g('c-excluir-btn').style.display='block';
   openModal('cliente-modal');
 }
@@ -1574,8 +1587,8 @@ function salvarCliente(){
   if(!nome){toast('⚠️ Informe o nome');return;}
   var c={nome:nome,local:g('c-local').value.trim(),uf:g('c-uf').value,km:+g('c-km').value||0,fatEsperado:g('c-fat-esperado').value?+g('c-fat-esperado').value:null,
     fixo:g('c-fixo').checked,freqMes:Math.max(1,parseInt(g('c-freq').value,10)||1)}; // cliente fixo (TASK-040)
-  var _old=editId?clientes.find(function(x){return x.id==editId;}):null;
-  var _emp=_empresa({nome:nome,cadastroId:_old&&_old.cadastroId}); c.cadastroId=_emp?_emp.id:null; // empresa no cadastro do CerradoPRO (TASK-048; preserva vínculo da conciliação)
+  var _fsel=g('c-ficha')?g('c-ficha').value:''; // ficha escolhida na lista (TASK-051) vence; senão, pelo nome
+  var _emp=_fsel?{id:_fsel}:_empresa({nome:nome}); c.cadastroId=_emp?_emp.id:null; // empresa no cadastro do CerradoPRO (TASK-048; preserva vínculo da conciliação)
   if(c.fixo&&!(c.km>0)){toast('⚠️ Cliente fixo precisa do KM típico');return;}
   if(editId){
     var idx=clientes.findIndex(function(x){return x.id==editId;});
