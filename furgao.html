@@ -261,6 +261,7 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
         <option value="za">Nome Z–A</option>
         <option value="margem">Margem ↓</option>
         <option value="fat">Faturamento ↓</option>
+        <option value="fixos">📌 Só fixos</option>
       </select>
     </div>
     <div id="clientes-list"></div>
@@ -1074,6 +1075,7 @@ function renderClientes(){
   var sortMode=(g('cln-sort')?g('cln-sort').value:'az');
   var lista=clientes.slice();
   if(q) lista=lista.filter(function(c){return _norm((c.nome||'')+' '+(c.local||'')+' '+(c.uf||'')).indexOf(q)>=0;});
+  if(sortMode==='fixos') lista=lista.filter(function(c){return c.fixo;}); // TASK-053: só clientes fixos (📌), em ordem A–Z
   lista.sort(function(a,b){
     if(sortMode==='za') return _norm(b.nome||'').localeCompare(_norm(a.nome||''));
     if(sortMode==='fat') return ((porCliente[b.id]||{}).fat||0)-((porCliente[a.id]||{}).fat||0);
@@ -1081,7 +1083,7 @@ function renderClientes(){
     return _norm(a.nome||'').localeCompare(_norm(b.nome||''));
   });
   if(!lista.length){
-    g('clientes-list').innerHTML='<div class="empty"><span class="empty-ico">🔎</span><div class="empty-t">Nenhum cliente encontrado</div><div class="empty-s">Ajuste a busca</div></div>';
+    g('clientes-list').innerHTML='<div class="empty"><span class="empty-ico">🔎</span><div class="empty-t">'+(sortMode==='fixos'?'Nenhum cliente fixo':'Nenhum cliente encontrado')+'</div><div class="empty-s">'+(sortMode==='fixos'?'Toque em 📌 num cliente para marcá-lo como fixo':'Ajuste a busca')+'</div></div>';
     return;
   }
   var html=lista.map(function(c){
