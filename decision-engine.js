@@ -809,7 +809,37 @@
       if (porId) return porId;
     }
     var nomes = [String(local.nome || '').split(' - ')[0], local.nome].concat(local.aliases || []).map(_normNome).filter(Boolean);
-    return lista.filter(function (e) { return e && nomes.indexOf(_normNome(e.nome)) >= 0; })[0] || null;
+    var e1 = lista.filter(function (e) { return e && nomes.indexOf(_normNome(e.nome)) >= 0; })[0];
+    if (e1) return e1;
+    // Mesmo nome ignorando sufixos societários (Ltda, S.A., ME…) — TASK-049
+    var chaves = nomes.map(_chaveEmpresa).filter(Boolean);
+    return lista.filter(function (e) { return e && chaves.indexOf(_chaveEmpresa(e.nome)) >= 0; })[0] || null;
+  }
+
+  /* Chave de empresa: nome normalizado sem pontuação e sem sufixos/ligações societárias (TASK-049). */
+  var _STOP = ['ltda', 'sa', 's', 'a', 'me', 'epp', 'eireli', 'mei', 'cia', 'de', 'da', 'do', 'das', 'dos', 'e'];
+  function _tokensEmpresa(n) {
+    return _normNome(String(n || '').split(' - ')[0]).replace(/[^a-z0-9 ]/g, ' ').split(/\s+/)
+      .filter(function (t) { return t && _STOP.indexOf(t) < 0; });
+  }
+  function _chaveEmpresa(n) { return _tokensEmpresa(n).join(' '); }
+
+  /* fichasParecidas(nome, cadastro) — fichas do cadastro comercial parecidas com o nome de um
+   * local do furgão, da mais para a menos parecida (TASK-049). score: mesma chave = 10;
+   * mesma 1ª palavra = 3; + proporção de palavras em comum. Só score > 0. */
+  function fichasParecidas(nome, cadastro) {
+    var a = _tokensEmpresa(nome); if (!a.length) return [];
+    var out = [];
+    (cadastro || []).forEach(function (e) {
+      var b = _tokensEmpresa(e && e.nome); if (!b.length) return;
+      var sc = 0;
+      if (a.join(' ') === b.join(' ')) sc += 10;
+      if (a[0] === b[0]) sc += 3;
+      var comum = a.filter(function (t) { return b.indexOf(t) >= 0; }).length;
+      sc += comum / Math.max(a.length, b.length);
+      if (sc >= 1 || a[0] === b[0]) out.push({ ficha: e, score: sc });
+    });
+    return out.sort(function (x, y) { return y.score - x.score; });
   }
   function _viagemDoCliente(v, c) {
     if (!v || !c) return false;
@@ -864,8 +894,9 @@
 
   /* Exposição pública (sem efeito colateral, sem chamadas automáticas). */
   global.DecisionEngine = {
-    _version: '0.16.0',
+    _version: '0.17.0',
     DEFAULTS: DEFAULTS,
+    fichasParecidas: fichasParecidas,
     empresaDoLocal: empresaDoLocal,
     motoristaPorKm: motoristaPorKm,
     simularContratoFurgao: simularContratoFurgao,

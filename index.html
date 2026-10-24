@@ -1909,16 +1909,19 @@ function abrirTrazerFurgao(){
     (grupos[k]=grupos[k]||{nome:_baseNomeLocal(l.nome),locais:[]}).locais.push(l);
   });
   var ks=Object.keys(grupos).sort();
-  var h='<div style="font-size:12px;color:var(--text3);line-height:1.5;margin-bottom:10px">Clientes que existem no FurgãoPRO e ainda não têm ficha no cadastro comercial. Cada empresa vira <b>uma</b> ficha (vários municípios do furgão ficam ligados a ela). Depois complete CNPJ e contato na ficha.</div>';
+  var h='<div style="font-size:12px;color:var(--text3);line-height:1.5;margin-bottom:10px">Clientes que existem no FurgãoPRO e ainda não têm ficha no cadastro comercial. Cada empresa vira <b>uma</b> ficha (vários municípios do furgão ficam ligados a ela). <b>Se a empresa já tem ficha com outro nome, não crie: ligue no FurgãoPRO › Clientes › 🔗 Conciliar.</b> Os parecidos vêm desmarcados.</div>';
   if(!locs.length) h+='<div class="empty" style="padding:12px 0"><div class="empty-t">Sem dados do FurgãoPRO</div><div class="empty-s">Abra o FurgãoPRO logado uma vez para sincronizar.</div></div>';
   else if(!ks.length) h+='<div class="empty" style="padding:12px 0"><div class="empty-t">Tudo unificado ✅</div><div class="empty-s">Todos os clientes do furgão já têm ficha comercial.</div></div>';
   else h+=ks.map(function(k,i){ var gr=grupos[k], l0=gr.locais[0];
       var loc=gr.locais.length>1?'':(l0.local?(l0.local+(l0.uf?'/'+l0.uf:'')):((l0.nome.split(' - ')[1])||'')); // vários municípios: local da ficha em branco
+      var par=DecisionEngine.fichasParecidas?DecisionEngine.fichasParecidas(gr.nome,cad):[]; // TASK-049: evita duplicar ficha existente
       return '<div style="border:1px solid var(--border);border-radius:10px;padding:10px;margin-bottom:8px;display:grid;grid-template-columns:22px 1fr;gap:8px;align-items:start">'+
-        '<input type="checkbox" class="fi-chk" data-i="'+i+'" checked style="margin-top:10px">'+
+        '<input type="checkbox" class="fi-chk" data-i="'+i+'"'+(par.length?'':' checked')+' style="margin-top:10px">'+
         '<div><input class="inp fi-nome" data-i="'+i+'" value="'+esca(gr.nome)+'" style="font-size:13px;padding:8px 10px;margin-bottom:4px">'+
         '<input type="hidden" class="fi-local" data-i="'+i+'" value="'+esca(loc)+'">'+
-        '<div style="font-size:11px;color:var(--text3)">🚐 '+gr.locais.map(function(l){return esca(l.nome)+(l.fixo?' 📌':'');}).join(' · ')+'</div></div></div>';
+        '<div style="font-size:11px;color:var(--text3)">🚐 '+gr.locais.map(function(l){return esca(l.nome)+(l.fixo?' 📌':'');}).join(' · ')+'</div>'+
+        (par.length?'<div style="font-size:11px;color:#b07010;margin-top:4px">⚠️ Parecida com ficha existente: <b>'+par.slice(0,3).map(function(p){return esca(p.ficha.nome);}).join('</b>, <b>')+'</b> — em vez de criar, ligue no FurgãoPRO › Clientes › 🔗 Conciliar.</div>':'')+
+        '</div></div>';
     }).join('')+'<button class="btn btn-primary" onclick="importarDoFurgao()" style="width:auto">⬇️ Criar fichas selecionadas</button>';
   g('furgimp-body').innerHTML=h; g('furgimp-modal').classList.add('open');
 }

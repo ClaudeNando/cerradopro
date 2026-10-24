@@ -251,7 +251,7 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
   <div id="screen-clientes" class="screen">
     <div class="shdr">
       <div class="shdr-title">Clientes</div>
-      <span style="display:flex;gap:6px"><button class="btn btn-outline btn-sm" onclick="openOrganizar()">🧹 Organizar</button>
+      <span style="display:flex;gap:6px"><button class="btn btn-outline btn-sm" onclick="openConciliar()">🔗 Conciliar</button><button class="btn btn-outline btn-sm" onclick="openOrganizar()">🧹 Organizar</button>
       <button class="btn btn-ghost btn-sm" onclick="openNovoCliente()">+ Novo</button></span>
     </div>
     <div class="fbar">
@@ -327,6 +327,15 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
       <div style="height:8px"></div>
       <button class="btn btn-danger" id="v-excluir-btn" onclick="excluirViagem()" style="display:none">🗑 Excluir</button>
     </div>
+  </div>
+</div>
+
+<!-- MODAL: CONCILIAR COM O CERRADOPRO (TASK-049) -->
+<div class="overlay" id="conc-modal" onclick="if(event.target===this)closeModal('conc-modal')">
+  <div class="modal">
+    <div class="modal-handle-wrap"><div class="modal-handle"></div></div>
+    <div class="modal-head"><div class="modal-title">🔗 Conciliar com o CerradoPRO</div><button class="modal-close" onclick="closeModal('conc-modal')">×</button></div>
+    <div class="modal-body"><div id="conc-body"></div></div>
   </div>
 </div>
 
@@ -1484,9 +1493,48 @@ function cadPreencherLista(){
 function cadVerificar(){
   var info=g('c-cad-info'); if(!info) return;
   var cad=lCadastro(); if(!cad.length){ info.innerHTML='Cadastro do CerradoPRO indisponível neste aparelho (sincroniza ao logar).'; return; }
-  var e=_empresa({nome:g('c-nome').value});
-  info.innerHTML=e?'🏢 Ligado à ficha <b>'+e.nome+'</b>'+(e.cnpj?' · '+e.cnpj:'')+' — use "'+e.nome+' - Município/UF" para o local':
-    '⚠️ Sem ficha no CerradoPRO — escolha uma empresa da lista ou crie a ficha lá (Clientes › 🚐 Trazer do FurgãoPRO).';
+  var _id=g('c-id').value, _o=_id?clientes.find(function(x){return x.id==_id;}):null;
+  var e=_empresa({nome:g('c-nome').value,cadastroId:_o&&_o.cadastroId});
+  info.innerHTML=e?'🏢 Ligado à ficha <b>'+e.nome+'</b>'+(e.cnpj?' · '+e.cnpj:''):
+    '⚠️ Sem ficha no CerradoPRO — escolha uma empresa da lista ou ligue depois em Clientes › 🔗 Conciliar.';
+}
+
+// ── CONCILIAR LOCAIS ↔ FICHAS DO CERRADOPRO (TASK-049) ──
+// Cada cliente do furgão (local) escolhe a ficha comercial da empresa; grava cadastroId (dado do próprio FurgãoPRO).
+function openConciliar(){ renderConciliar(); openModal('conc-modal'); }
+function renderConciliar(){
+  var cad=lCadastro().slice().sort(function(a,b){return _norm(a.nome).localeCompare(_norm(b.nome));});
+  if(!cad.length){ g('conc-body').innerHTML='<div class="info-box">Cadastro do CerradoPRO indisponível neste aparelho. Faça login no FurgãoPRO (ele lê as fichas ao logar) e tente de novo.</div>'; return; }
+  var lst=clientes.map(function(c){return {c:c,e:_empresa(c)};});
+  var sem=lst.filter(function(x){return !x.e;}), com=lst.filter(function(x){return x.e;});
+  var esc=function(t){return String(t||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');};
+  function linha(x){
+    var par=DecisionEngine.fichasParecidas(x.c.nome,cad), sel=x.e?String(x.e.id):(par.length&&par[0].score>=3?String(par[0].ficha.id):'');
+    var ids={}; par.forEach(function(p){ids[p.ficha.id]=1;});
+    var opts='<option value="">— sem ficha (criar no CerradoPRO) —</option>'+
+      (par.length?'<optgroup label="Parecidas">'+par.map(function(p){return '<option value="'+esc(p.ficha.id)+'"'+(String(p.ficha.id)===sel?' selected':'')+'>'+esc(p.ficha.nome)+(p.ficha.cnpj?' · '+esc(p.ficha.cnpj):'')+'</option>';}).join('')+'</optgroup>':'')+
+      '<optgroup label="Todas as fichas">'+cad.filter(function(e){return !ids[e.id];}).map(function(e){return '<option value="'+esc(e.id)+'"'+(String(e.id)===sel?' selected':'')+'>'+esc(e.nome)+(e.cnpj?' · '+esc(e.cnpj):'')+'</option>';}).join('')+'</optgroup>';
+    return '<div style="border:1px solid '+(x.e?'var(--border2)':'var(--accent)')+';border-radius:10px;padding:8px 10px;margin-bottom:6px">'+
+      '<div style="font-size:13px;font-weight:700">'+esc(x.c.nome)+(x.c.fixo?' 📌':'')+'</div>'+
+      '<div style="font-size:11px;color:var(--text3);margin-bottom:4px">'+esc((x.c.local||'')+(x.c.uf?'/'+x.c.uf:''))+' · '+_nViagens(x.c.id)+' viagem(ns)'+(!x.e&&sel?' · <b style="color:var(--accent)">sugestão pré-selecionada — confira</b>':'')+'</div>'+
+      '<select class="inp sel conc-sel" data-id="'+x.c.id+'" data-ori="'+(x.e?esc(x.e.id):'')+'" style="font-size:12px;padding:8px 10px">'+opts+'</select></div>';
+  }
+  g('conc-body').innerHTML='<div style="font-size:12px;color:var(--text3);line-height:1.45;margin-bottom:10px">Ligue cada cliente do furgão à <b>ficha da empresa</b> no CerradoPRO. Vários municípios podem apontar para a mesma ficha. Só grava aqui no FurgãoPRO — nada é criado no CerradoPRO.</div>'+
+    '<div class="card-lbl" style="margin:4px 0 8px">Sem ficha ('+sem.length+')</div>'+(sem.length?sem.map(linha).join(''):'<div style="font-size:12px;color:var(--text4);margin-bottom:8px">Todos ligados ✅</div>')+
+    (com.length?'<details style="margin:10px 0"><summary style="cursor:pointer;font-size:12px;font-weight:700;color:var(--text2)">Já ligados ('+com.length+') — toque para revisar</summary><div style="margin-top:8px">'+com.map(linha).join('')+'</div></details>':'')+
+    '<button class="btn btn-primary" onclick="salvarConciliacao()" style="margin-top:6px">✓ Salvar vínculos</button>';
+}
+function salvarConciliacao(){
+  var n=0;
+  Array.prototype.forEach.call(document.querySelectorAll('.conc-sel'),function(sel){
+    var c=clientes.find(function(x){return String(x.id)===sel.getAttribute('data-id');}); if(!c) return;
+    var v=sel.value||null;
+    if(v===(sel.getAttribute('data-ori')||null)) return;          // nada mudou
+    c.cadastroId=v; n++;
+  });
+  if(!n){ toast('Nenhuma alteração'); return; }
+  sClientes(); closeModal('conc-modal'); renderClientes();
+  toast('✅ '+n+' vínculo(s) salvo(s)');
 }
 
 // ── MODAL CLIENTE ─────────────────────────────────────────
@@ -1521,7 +1569,8 @@ function salvarCliente(){
   if(!nome){toast('⚠️ Informe o nome');return;}
   var c={nome:nome,local:g('c-local').value.trim(),uf:g('c-uf').value,km:+g('c-km').value||0,fatEsperado:g('c-fat-esperado').value?+g('c-fat-esperado').value:null,
     fixo:g('c-fixo').checked,freqMes:Math.max(1,parseInt(g('c-freq').value,10)||1)}; // cliente fixo (TASK-040)
-  var _emp=_empresa({nome:nome}); c.cadastroId=_emp?_emp.id:null; // empresa no cadastro do CerradoPRO (TASK-048)
+  var _old=editId?clientes.find(function(x){return x.id==editId;}):null;
+  var _emp=_empresa({nome:nome,cadastroId:_old&&_old.cadastroId}); c.cadastroId=_emp?_emp.id:null; // empresa no cadastro do CerradoPRO (TASK-048; preserva vínculo da conciliação)
   if(c.fixo&&!(c.km>0)){toast('⚠️ Cliente fixo precisa do KM típico');return;}
   if(editId){
     var idx=clientes.findIndex(function(x){return x.id==editId;});
