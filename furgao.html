@@ -1544,6 +1544,18 @@ function _aplicarNomes(plano){
   return mud;
 }
 function sincronizarNomesComFichas(){ if(!_cliSyncOk) return 0; return _aplicarNomes(_planoNomes()); }
+// Atualiza o nome da ficha no CerradoPRO (residuospro/rpro_clientes) por transação: lê, altera só a ficha, grava.
+function renomearFicha(id,novo){
+  try{ var cad=lCadastro(), i=cad.findIndex(function(e){return String(e.id)===String(id);}); if(i>=0){ cad[i].nome=novo; localStorage.setItem('fp2_cache_cadastro',JSON.stringify(cad)); } }catch(e){} // otimista
+  var u=firebase.auth().currentUser, db=firebase.firestore(), ref=db.collection('residuospro').doc('rpro_clientes');
+  db.runTransaction(function(tx){ return tx.get(ref).then(function(doc){
+    var lista=[]; try{ lista=doc.exists?JSON.parse((doc.data()||{}).value||'[]'):[]; }catch(e){ lista=[]; }
+    if(!Array.isArray(lista)) return;
+    var j=lista.findIndex(function(x){return x&&String(x.id)===String(id);}); if(j<0||lista[j].nome===novo) return;
+    lista[j]=Object.assign({},lista[j],{nome:novo,atualizadoEm:Date.now()});
+    tx.set(ref,{value:JSON.stringify(lista),ts:Date.now(),by:(u.email||'')});
+  }); }).catch(function(){ toast('⚠️ Não foi possível renomear a ficha no CerradoPRO agora — tente salvar de novo'); });
+}
 function igualarNomesAgora(){ _cliSyncOk=true; var n=_aplicarNomes(_planoNomes()); closeModal('conc-modal'); toast('✅ '+n+' nome(s) igualado(s) ao CerradoPRO'); }
 function abrirIgualarNomes(){
   var plano=_planoNomes(), mud=plano.filter(function(p){return p.muda;});
@@ -1628,7 +1640,23 @@ function salvarCliente(){
     fixo:g('c-fixo').checked,freqMes:Math.max(1,parseInt(g('c-freq').value,10)||1)}; // cliente fixo (TASK-040)
   var _fsel=g('c-ficha')?g('c-ficha').value:''; // ficha escolhida na lista (TASK-051) vence; senão, pelo nome
   var _emp=_fsel?{id:_fsel}:_empresa({nome:nome}); c.cadastroId=_emp?_emp.id:null; // empresa no cadastro do CerradoPRO (TASK-048; preserva vínculo da conciliação)
+  if(!c.cadastroId&&editId){ var _a0=clientes.find(function(x){return x.id==editId;}), _e0=_a0&&_empresa(_a0); if(_e0) c.cadastroId=_e0.id; } // renomeou: mantém o vínculo anterior (TASK-052)
   if(c.fixo&&!(c.km>0)){toast('⚠️ Cliente fixo precisa do KM típico');return;}
+  // Renomear cliente ligado → atualiza a ficha no CerradoPRO (TASK-052). Exige estar online (senão a ficha
+  // antiga voltaria o nome na próxima sincronização).
+  var _ant=editId?clientes.find(function(x){return x.id==editId;}):null, _fichaUpd=null;
+  if(_ant&&c.cadastroId&&_ant.nome!==nome){
+    var _ficha=lCadastro().find(function(e){return String(e.id)===String(c.cadastroId);});
+    if(_ficha){
+      var _n=clientes.filter(function(x){return String(x.id)===String(_ant.id)||String((_empresa(x)||{}).id)===String(_ficha.id);}).length;
+      var _novaFicha=DecisionEngine.nomeFichaPeloLocal(nome,_n);
+      if(_novaFicha&&_novaFicha!==_ficha.nome){
+        if(!(typeof firebase!=='undefined'&&firebase.auth&&firebase.auth().currentUser)){ toast('⚠️ Para renomear um cliente ligado ao CerradoPRO é preciso estar online'); return; }
+        _fichaUpd={id:_ficha.id,nome:_novaFicha};
+      }
+    }
+  }
+  if(_ant&&_ant.nome!==nome){ c.aliases=(_ant.aliases||[]).slice(); if(c.aliases.every(function(a){return _norm(a)!==_norm(_ant.nome);})) c.aliases.push(_ant.nome); }
   if(editId){
     var idx=clientes.findIndex(function(x){return x.id==editId;});
     if(idx>=0) clientes[idx]=Object.assign({},clientes[idx],{id:+editId},c); // preserva campos extras (ex.: aliases)
@@ -1637,11 +1665,13 @@ function salvarCliente(){
     clientes.push(c);
   }
   sClientes();
+  if(_fichaUpd){ renomearFicha(_fichaUpd.id,_fichaUpd.nome); }
+  _cliSyncOk=true; try{sincronizarNomesComFichas();}catch(e){} // irmãos (vários locais) e viagens acompanham
   closeModal('cliente-modal');
   renderClientes();
   renderDash();
   try{pushFurgaoMetrics();}catch(e){} // carteira fixa muda o custo/km publicado
-  toast('✅ Cliente salvo!');
+  toast(_fichaUpd?'✅ Cliente salvo · ficha no CerradoPRO renomeada':'✅ Cliente salvo!');
 }
 
 function excluirCliente(){

@@ -1950,13 +1950,36 @@ function salvarClienteModal(){
   var id=g('cl-id').value;
   if(id){  // edição por id (permite alterar o CNPJ sem duplicar)
     var arr=lClientes(), i=arr.findIndex(function(x){return String(x.id)===String(id);});
+    var _antF=i>=0?Object.assign({},arr[i]):null; // TASK-052: ficha antes da edição (p/ achar os locais ligados pelo nome antigo)
     if(i>=0){arr[i]=Object.assign({},arr[i],{nome:nome,cnpj:cnpj,contato:g('cl-contato').value.trim(),telefone:g('cl-telefone').value.trim(),local:g('cl-local').value.trim(),semCnpj:!_cnpjDigits(cnpj),atualizadoEm:Date.now()});sClientes(arr);}
   }else{
     upsertCliente({nome:nome,cnpj:cnpj,contato:g('cl-contato').value.trim(),telefone:g('cl-telefone').value.trim(),local:g('cl-local').value.trim()});
   }
+  if(id&&typeof _antF!=='undefined'&&_antF&&_antF.nome!==nome){ try{renomearLocaisFurgao(_antF,nome);}catch(e){} }
   var _cb=window._clienteAfterSave;
   fecharCliente();renderClientes();try{renderClienteSugestoes();}catch(e){}toast('✅ Cliente salvo');
   if(_cb){ try{_cb(nome);}catch(e){} } // voltou de outro fluxo (contrato/coleta/recorrência) → já seleciona o novo cliente
+}
+// Renomear a ficha → os locais ligados no FurgãoPRO ganham o nome dela (TASK-052): transação em furgaopro/fp2_clientes.
+// 1 local = nome igual; vários = "Empresa - Município/UF". Nome antigo vira apelido; o vínculo fica fixo em cadastroId.
+function renomearLocaisFurgao(fichaAnt,novo){
+  if(!window.DecisionEngine||!DecisionEngine.empresaDoLocal) return;
+  var ligados=_furgLista('clientes').filter(function(l){return DecisionEngine.empresaDoLocal(l,[fichaAnt]);});
+  if(!ligados.length) return;
+  var fb=_fb(),u=_fbUser(); if(!fb||!fb.firestore||!u){ toast('⚠️ Sem conexão — os nomes no FurgãoPRO serão igualados quando ele abrir sincronizado'); return; }
+  var ids={}; ligados.forEach(function(l){ids[String(l.id)]=1;});
+  var ref=fb.firestore().collection('furgaopro').doc('fp2_clientes');
+  fb.firestore().runTransaction(function(tx){ return tx.get(ref).then(function(doc){
+    var lista=[]; try{ lista=doc.exists?JSON.parse((doc.data()||{}).value||'[]'):[]; }catch(e){ lista=[]; }
+    if(!Array.isArray(lista)) return;
+    var n=lista.filter(function(l){return l&&ids[String(l.id)];}).length, mud=0;
+    lista.forEach(function(l,k){ if(!l||!ids[String(l.id)]) return;
+      var alvo=DecisionEngine.nomeLocalPelaFicha(novo,l,n); var al=(l.aliases||[]).slice();
+      if(l.nome&&al.every(function(a){return _normNome(a)!==_normNome(l.nome);})) al.push(l.nome);
+      if(alvo!==l.nome||String(l.cadastroId||'')!==String(fichaAnt.id)){ lista[k]=Object.assign({},l,{nome:alvo,aliases:al,cadastroId:fichaAnt.id}); mud++; }
+    });
+    if(mud) tx.set(ref,{value:JSON.stringify(lista),ts:Date.now(),by:(u.email||'')});
+  }); }).then(function(){ toast('🚐 Nome atualizado também no FurgãoPRO'); }).catch(function(){ toast('⚠️ Não foi possível atualizar o FurgãoPRO agora — será igualado quando ele abrir'); });
 }
 function excluirCliente(){
   var id=g('cl-id').value; if(!id)return;
